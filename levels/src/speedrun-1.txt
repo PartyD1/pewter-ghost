@@ -1,0 +1,53 @@
+; Pewter Ghost level source. Build: npx tsx levels/build.ts (format: levels/README.md)
+; . empty  # grass  d dirt  B block  = half block  ? question block
+; c coin  f fruit  s slime  U ultraslime  F flag  i sign  P start
+@name speedrun-1
+@kind reference
+@type speedrun
+@title Metronome
+@note Five-wide platforms at an even jump rhythm: hold right and tap jump on the beat.
+
+== run-up
+..............
+..P...........
+##############
+dddddddddddddd
+dddddddddddddd
+dddddddddddddd
+dddddddddddddd
+
+== beats 1-5
+........................................................
+........................................................
+......#####......#####......#####......#####.......#####
+......ddddd......ddddd......ddddd......ddddd.......ddddd
+......ddddd......ddddd......ddddd......ddddd.......ddddd
+......ddddd......ddddd......ddddd......ddddd.......ddddd
+......ddddd......ddddd......ddddd......ddddd.......ddddd
+
+== beats 6-10
+........................................................
+........................................................
+......#####......#####......#####......#####.......#####
+......ddddd......ddddd......ddddd......ddddd.......ddddd
+......ddddd......ddddd......ddddd......ddddd.......ddddd
+......ddddd......ddddd......ddddd......ddddd.......ddddd
+......ddddd......ddddd......ddddd......ddddd.......ddddd
+
+== beats 11-15
+..................................................
+..................................................
+......#####......#####......#####......#####......
+......ddddd......ddddd......ddddd......ddddd......
+......ddddd......ddddd......ddddd......ddddd......
+......ddddd......ddddd......ddddd......ddddd......
+......ddddd......ddddd......ddddd......ddddd......
+
+== goal
+........................
+....................F...
+########################
+dddddddddddddddddddddddd
+dddddddddddddddddddddddd
+dddddddddddddddddddddddd
+dddddddddddddddddddddddd

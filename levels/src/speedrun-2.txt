@@ -1,0 +1,94 @@
+; Pewter Ghost level source. Build: npx tsx levels/build.ts (format: levels/README.md)
+; . empty  # grass  d dirt  B block  = half block  ? question block
+; c coin  f fruit  s slime  U ultraslime  F flag  i sign  P start
+@name speedrun-2
+@kind reference
+@type speedrun
+@title Downhill
+@note A long descent: each platform one row lower, the same distance apart, so speed never drops.
+
+== summit
+..............
+..P...........
+##############
+dddddddddddddd
+dddddddddddddd
+dddddddddddddd
+dddddddddddddd
+dddddddddddddd
+dddddddddddddd
+dddddddddddddd
+dddddddddddddd
+dddddddddddddd
+dddddddddddddd
+dddddddddddddd
+dddddddddddddd
+
+== slope 1
+..............................
+......####....................
+......dddd......####..........
+......dddd......dddd......####
+......dddd......dddd......dddd
+......dddd......dddd......dddd
+......dddd......dddd......dddd
+......dddd......dddd......dddd
+......dddd......dddd......dddd
+......dddd......dddd......dddd
+......dddd......dddd......dddd
+......dddd......dddd......dddd
+......dddd......dddd......dddd
+
+== slope 2
+..............................
+......................ccc.....
+..............................
+.....................c...c....
+..............................
+..............................
+....................c.........
+......####....................
+......dddd......####..........
+......dddd......dddd......####
+......dddd......dddd......dddd
+......dddd......dddd......dddd
+......dddd......dddd......dddd
+......dddd......dddd......dddd
+......dddd......dddd......dddd
+......dddd......dddd......dddd
+
+== slope 3
+..............................
+......####....................
+......dddd......####..........
+......dddd......dddd......####
+......dddd......dddd......dddd
+......dddd......dddd......dddd
+......dddd......dddd......dddd
+
+== valley run
+............................................................
+............................................................
+......####......####......####......####......####......####
+......dddd......dddd......dddd......dddd......dddd......dddd
+......dddd......dddd......dddd......dddd......dddd......dddd
+......dddd......dddd......dddd......dddd......dddd......dddd
+......dddd......dddd......dddd......dddd......dddd......dddd
+
+== last beats
+..........................
+..........................
+......####......####......
+......dddd......dddd......
+......dddd......dddd......
+......dddd......dddd......
+......dddd......dddd......
+
+== goal
+..........
+......F...
+##########
+dddddddddd
+dddddddddd
+dddddddddd
+dddddddddd

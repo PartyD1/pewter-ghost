@@ -203,7 +203,7 @@ function cellRepeat(v: View, seq: Cell[], o: DetectOptions, fresh: boolean): Fin
     const top = adds[adds.length - 1];
     if (v.free(top.x, top.y - 1)) entities.push({ kind: "coin", x: top.x, y: top.y - 1 });
   }
-  const what = { staircase: "staircase", row: "row", column: "column", spaced: "stepping stones" }[pattern as "row"];
+  const what = pattern === "spaced" ? "stepping stones" : pattern;
   const unit = pattern === "staircase" ? "step" : pattern === "spaced" ? "stone" : "tile";
   return {
     pattern,

@@ -11,6 +11,7 @@ import {
   finishConfidence,
   parseWindowGrid,
   similarityToHistory,
+  windowSnapshot,
 } from "./AlgoFiller";
 import { measureRequestWindow } from "./brief";
 import { PlacementStream } from "./stream";
@@ -154,6 +155,19 @@ describe("AlgoFiller Extend", () => {
     expect(filler.lastProposal!.ms).toBeLessThan(200);
     const v = await verifyOnce(scene.model, s, { agent });
     expect(v.ok, v.reason).toBe(true);
+  });
+
+  it("pre-validates on the window and prefers answers the validator accepts", () => {
+    const req = request(floorScene());
+    const on = new AlgoFiller({ config: EXTEND_ONLY }).propose(req);
+    expect(on.prevalidated).toBe(true);
+    const off = new AlgoFiller({ config: EXTEND_ONLY, prevalidate: false }).propose(req);
+    expect(off.prevalidated).toBeUndefined();
+    const g = parseWindowGrid(req)!;
+    const snap = windowSnapshot(g, req);
+    expect(snap.w).toBe(req.size.w);
+    expect(snap.cells.filter(Boolean).length).toBe(g.solid.reduce((a, b) => a + b, 0));
+    expect(snap.start).toEqual({ x: req.frontier.x, y: req.frontier.y - 1 });
   });
 
   it("while still drawing the confidence is lower", async () => {

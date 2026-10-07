@@ -1,0 +1,11 @@
+import { readFileSync } from "node:fs";
+import { parseLevelSource, sourceToSnapshot, snapshotRows } from "./lib/source";
+import { verifyBeatable } from "./lib/verify";
+const name = process.argv[2];
+const s = sourceToSnapshot(parseLevelSource(readFileSync(`levels/src/${name}.txt`, "utf8"), `${name}.txt`));
+const r = verifyBeatable(s);
+const rows = snapshotRows(s).map((r) => r.split(""));
+for (const p of r.path) if (p.y >= 0 && p.y < s.h && p.x >= 0 && p.x < s.w && rows[p.y][p.x] === ".") rows[p.y][p.x] = "*";
+const from = Number(process.argv[3] ?? 0), to = Number(process.argv[4] ?? 200);
+console.log(r.beatable, r.seconds, "minY", Math.min(...r.path.map(p=>p.y)));
+for (const row of rows) console.log(row.slice(from, to).join(""));
