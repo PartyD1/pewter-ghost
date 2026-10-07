@@ -1,7 +1,7 @@
 # Baseline: seed set, default config
 
 - Prompt `fill.v1-f9d1aef8`; model `gemini-3.7-flash`, window as recorded, summary as recorded, examples off, brief on, confidence stated, samples 1, temperature 0.2, thinking 0, send-back always, agent cap 300 ms, call budget 900 ms.
-- 52 cases (52 scored, 0 skipped, 0 call errors, 3 from cache). Run 2026-10-07T23:11:07.673Z to 2026-10-07T23:11:55.772Z.
+- 52 cases (52 scored, 0 skipped, 0 call errors, 52 from cache). Run 2026-10-07T23:17:22.262Z to 2026-10-07T23:17:22.796Z.
 
 ## Summary
 
@@ -11,7 +11,7 @@
 | Playable after one send-back | 91.8% |
 | Send-back pass rate | 33.3% (6 sent back) |
 | Schema ok | 100.0% |
-| Coordinate accuracy (all checks) | 98.0% |
+| Coordinate accuracy (all checks) | 100.0% |
 | Coordinate item share | 100.0% |
 | Validator pass | 91.8% |
 | Expectation met (seed labels) | 100.0% of 30 |
@@ -88,7 +88,7 @@ Agent over its cap on 0 answer(s) (counted as fails, as in the app).
 | alternating-platforms | auto | true | finish | alternating platforms, next step down | ok | ok | ok |  | pit | 0.85 | 1490 |
 | question-blocks | auto | true | finish | matching coins above question blocks | ok | ok | measure: 3 coins at x=20..25 lie flat on the floor (row 10); in a coin level put coins on the arc o | fail | coin-row-on-floor | 0.78 | 1862 |
 | platform-under-ceiling | auto | true | fix | gap 15 wide · knight clears 11 | ok | ok | ok |  | pit | 0.75 | 1908 |
-| coin-arcs-next-pit | auto | true | finish | coin arc over the pit | ok | nearest item is 9 tiles from the action (> 8) | ok |  | coin-arc, risky-coin | 0.85 | 2004 |
+| coin-arcs-next-pit | auto | true | finish | coin arc over the pit | ok | ok | ok |  | coin-arc, risky-coin | 0.85 | 2004 |
 | coin-arc-partial | auto | true | finish | coin arc over pit | ok | ok | ok |  | coin-arc, risky-coin | 0.85 | 1756 |
 | coin-ladder-by-wall | auto | true | finish | coin ladder beside wall | ok | ok | ok |  | wall | 0.85 | 2712 |
 | coins-flat-on-floor | auto | true | fix | lift floor coins onto arc | ok | ok | ok |  | coin-arc, rest | 0.75 | 1957 |

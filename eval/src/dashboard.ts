@@ -21,6 +21,14 @@ interface Bar {
   empty?: boolean;
 }
 
+/** A round axis maximum (1, 2 or 5 x 10^k, divisible into 4 ticks). */
+export function niceMax(v: number): number {
+  if (!(v > 0)) return 4;
+  const p = 10 ** Math.floor(Math.log10(v));
+  for (const m of [1, 2, 4, 5, 8, 10]) if (m * p >= v) return m * p;
+  return 10 * p;
+}
+
 const W = 520;
 const H = 200;
 const PAD = { l: 40, r: 12, t: 12, b: 34 };
@@ -128,7 +136,7 @@ figure{margin:0;background:var(--panel);border:1px solid var(--border);border-ra
 svg{width:100%;height:auto;display:block}.grid{stroke:var(--border);stroke-width:1}.axis{stroke:var(--muted);stroke-width:1}
 .tick{fill:var(--text2);font-size:11px}.muted{fill:var(--muted)}.bar.s1{fill:var(--s1)}.bar.s2{fill:var(--s2)}
 .line{fill:none;stroke:var(--s1);stroke-width:2}.dot{fill:var(--s1);stroke:var(--panel);stroke-width:2}.hit{fill:transparent}.hit:hover{fill:var(--text);fill-opacity:.06}
-details{margin-top:6px}summary{cursor:pointer;color:var(--text2);font-size:12px}table{border-collapse:collapse;width:100%;font-size:12px;margin-top:6px}
+details{margin-top:6px;max-width:100%;overflow-x:auto}.heat svg{max-width:300px;margin:0 auto}summary{cursor:pointer;color:var(--text2);font-size:12px}table{border-collapse:collapse;width:100%;font-size:12px;margin-top:6px}
 th,td{text-align:left;padding:3px 6px;border-bottom:1px solid var(--border)}th{color:var(--text2);font-weight:600}
 .wrap{overflow-x:auto}.note{color:var(--muted);font-size:12px}`;
 
@@ -214,18 +222,18 @@ export function renderDashboard(m: DashboardMetrics, o: DashboardOptions = {}): 
         { label: "p99", value: lat.p99, tip: `p99 ${Math.round(lat.p99)} ms` },
         { label: "budget", value: lat.budgetMs, tip: `call budget ${lat.budgetMs} ms` },
       ],
-      { max: Math.max(lat.budgetMs, lat.p99, 1) * 1.1, fmt: (v) => `${Math.round(v)}` },
+      { max: niceMax(Math.max(lat.budgetMs, lat.p99, 1)), fmt: (v) => `${Math.round(v)}` },
     )}<p class="note">${lat.n} answered call(s); ${pct(lat.withinBudget)} within the ${lat.budgetMs} ms budget.</p></div></div>`,
   );
 
   // Sessions and patterns.
   parts.push(`<h2>Sessions</h2>`);
   parts.push(
-    barChart(
+    `<div class="grid2"><div>${barChart(
       "Distinct patterns in accepted ghosts per session",
       m.sessions.map((s) => ({ label: s.sessionId.slice(0, 10), value: s.patterns.length, tip: `${s.sessionId}: ${s.patterns.join(", ") || "none"}` })),
-      { max: Math.max(5, ...m.sessions.map((s) => s.patterns.length)), fmt: (v) => v.toFixed(0) },
-    ),
+      { max: niceMax(Math.max(4, ...m.sessions.map((s) => s.patterns.length))), fmt: (v) => v.toFixed(0) },
+    )}</div><div></div></div>`,
   );
   parts.push(
     `<div class="wrap">${table(
