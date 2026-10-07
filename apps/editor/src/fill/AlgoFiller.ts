@@ -36,6 +36,7 @@ import {
   type GeneratedChunk,
 } from "@chunks";
 import {
+  AUTHOR,
   NAME_BY_TILE,
   TILE_BY_NAME,
   type EntityKind,
@@ -43,11 +44,13 @@ import {
   type FillerName,
   type FillRequest,
   type GhostHistoryItem,
+  type LevelSnapshot,
   type ModelAnswer,
   type Suggestion,
   type TileName,
 } from "../contracts";
 import { config as liveConfig, type GhostConfig } from "../suggest/config";
+import { validateSuggestion } from "../verify/validate";
 import { modelAnswerToSuggestion } from "./answer";
 import { throwIfAborted } from "./Filler";
 import { requestHash, requestHashSync } from "./hash";
@@ -166,6 +169,26 @@ export function parseWindowGrid(req: Pick<FillRequest, "grid" | "size">): Window
   return { w, h, tiles, blocked, solid, entities };
 }
 
+/** The window as a stand-alone level snapshot (for the validator), start at the frontier. */
+export function windowSnapshot(g: WindowGrid, req: Pick<FillRequest, "frontier">): LevelSnapshot {
+  const n = g.w * g.h;
+  const authors = new Array<number>(n);
+  for (let i = 0; i < n; i++) authors[i] = g.tiles[i] ? AUTHOR.PERSON : AUTHOR.NONE;
+  const entities = g.entities.map((e, i) => ({ id: `w${i}`, kind: e.kind, x: e.x, y: e.y }));
+  const fx = Math.max(0, Math.min(g.w - 1, req.frontier.x));
+  const fy = Math.max(0, Math.min(g.h - 1, req.frontier.y - 1));
+  return {
+    w: g.w,
+    h: g.h,
+    cells: Array.from(g.tiles),
+    authors,
+    provenance: {},
+    entities,
+    entityAuthors: Object.fromEntries(entities.map((e) => [e.id, AUTHOR.PERSON])),
+    start: { x: fx, y: fy },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // The filler
 // ---------------------------------------------------------------------------
@@ -191,6 +214,12 @@ export interface AlgoFillerOptions {
   /** Kinds enabled and the pause length (default the live config). */
   config?: Pick<GhostConfig, "kinds" | "pauseMs">;
   detect?: DetectOptions;
+  /**
+   * Run the validator (verify/validate.ts) on the window before answering
+   * and prefer proposals that pass it (default true). The verifier still
+   * judges the answer on the whole level; this only saves send-backs.
+   */
+  prevalidate?: boolean;
   clock?: () => number;
 }
 
@@ -202,6 +231,8 @@ export interface AlgoProposal {
   /** Extend: candidates generated and how many passed the rule check. */
   candidates?: number;
   valid?: number;
+  /** Whether the answer passed the window pre-validation (absent when it did not run). */
+  prevalidated?: boolean;
   /** Times this same request (ignoring previousFailure) has been answered, 0 = first. */
   attempt: number;
   ms: number;
@@ -273,15 +304,46 @@ export class AlgoFiller implements Filler {
         req.recent.map((r) => ({ x: r.x, y: r.y, tile: r.tile, tool: r.tool })),
         this.opts.detect,
       );
-      // A send-back (or the same request again) moves on to the next proposal.
-      const f = proposals[attempt];
-      if (f) return done({ answer: this.finishAnswer(f), source: "finish", finish: f });
+      // A send-back (or the same request again) moves on to the next proposal;
+      // among the rest, the first that passes the window validator.
+      const rest = proposals.slice(attempt);
+      if (rest.length) {
+        const answers = rest.map((f) => ({ f, answer: this.finishAnswer(f) }));
+        const ok = this.prevalidateOn ? answers.findIndex((a) => this.windowValid(req, grid, a.answer)) : -1;
+        const pick = answers[Math.max(0, ok)];
+        return done({
+          answer: pick.answer,
+          source: "finish",
+          finish: pick.f,
+          ...(this.prevalidateOn ? { prevalidated: ok >= 0 } : {}),
+        });
+      }
     }
     if (kinds.extend) {
       const e = this.extend(req, grid, attempt);
       if (e) return done(e);
     }
     return done({ answer: decline("nothing to finish and no room to extend"), source: "none" });
+  }
+
+  private get prevalidateOn(): boolean {
+    return this.opts.prevalidate !== false;
+  }
+
+  /** Validator verdict for a window-relative answer, judged on the window alone. */
+  private windowValid(req: FillRequest, g: WindowGrid, a: ModelAnswer): boolean {
+    const snap = windowSnapshot(g, req);
+    const edits = {
+      kind: a.kind,
+      adds: a.adds.map((p) => ({ x: p.x, y: p.y, tile: TILE_BY_NAME[p.tile] })),
+      removes: a.removes.map((p) => ({ x: p.x, y: p.y })),
+      entities: a.entities.map((e) => ({ kind: e.kind, x: e.x, y: e.y })),
+    };
+    try {
+      return validateSuggestion(snap, edits, { lastGhosts: req.lastGhosts, frontierX: req.frontier.x, act: a.act }).ok;
+    } catch {
+      return false;
+    }
   }
 
   private finishAnswer(f: FinishProposal): ModelAnswer {
@@ -329,7 +391,7 @@ export class AlgoFiller implements Filler {
     const free = (x: number, y: number) =>
       x >= 0 && y >= 0 && x < w && y < h && !g.solid[y * w + x] && !g.blocked[y * w + x] && !entityAt.has(`${x},${y}`);
 
-    type Cand = { chunk: GeneratedChunk; answer: ModelAnswer; score: number };
+    type Cand = { chunk: GeneratedChunk; answer: ModelAnswer; score: number; passes: boolean };
     let best: Cand | null = null;
     let valid = 0;
     for (let k = 0; k < n; k++) {
@@ -388,10 +450,19 @@ export class AlgoFiller implements Filler {
         levelGuess: "algo",
       };
       const score = similarityToHistory(tags, answer.label, req.lastGhosts);
-      if (!best || score < best.score) best = { chunk, answer, score };
+      const passes = !this.prevalidateOn || this.windowValid(req, g, answer);
+      // Validator-passing candidates first, then the least like recent ghosts.
+      if (!best || (passes && !best.passes) || (passes === best.passes && score < best.score)) best = { chunk, answer, score, passes };
     }
     if (!best) return null;
-    return { answer: best.answer, source: "extend", chunk: best.chunk, candidates: n, valid };
+    return {
+      answer: best.answer,
+      source: "extend",
+      chunk: best.chunk,
+      candidates: n,
+      valid,
+      ...(this.prevalidateOn ? { prevalidated: best.passes } : {}),
+    };
   }
 }
 

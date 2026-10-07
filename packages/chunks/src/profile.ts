@@ -25,6 +25,12 @@ export function typicalGap(gapHist: readonly number[], maxGapRun: number): numbe
   return Math.max(1, Math.round((f / total) * maxGapRun));
 }
 
+/** Lower edge of the highest non-empty gap-histogram bin (0 when there are no gaps). */
+export function widestGapRatio(gapHist: readonly number[]): number {
+  for (let i = gapHist.length - 1; i >= 0; i--) if ((gapHist[i] ?? 0) > 0) return i * 0.2;
+  return 0;
+}
+
 /** A profile that continues the measured style. Neutral (chunkgen difficulty 2, "mixed") when nothing is measured. */
 export function profileFromMeasured(m: MeasuredNumbers, knight: KnightLimits, opts: ProfileOptions = {}): StyleProfile {
   const fillDepth = opts.fillDepth ?? 2;
@@ -32,8 +38,15 @@ export function profileFromMeasured(m: MeasuredNumbers, knight: KnightLimits, op
   const hard = (m.difficulty ?? 0) > 0.6;
   // Pits stay within a standing jump unless the drawing already asks for more.
   const gapCap = Math.max(2, hard ? knight.maxGapRun - 1 : knight.maxGapStand);
+  // The validator's style band: gaps up to max(60%, widest drawn + 40%) of a
+  // full-run jump. The widest drawn gap is read (conservatively) as the lower
+  // edge of the highest non-empty histogram bin.
+  const bandCap = Math.max(2, Math.floor(Math.max(0.6, widestGapRatio(m.gapHist ?? []) + 0.4) * knight.maxGapRun + 1e-9));
+  const cap = Math.min(gapCap, bandCap);
   const gap: [number, number] =
-    g === null ? [2, 4] : [clamp(g - 1, 2, gapCap), clamp(g + 1 + (hard ? 1 : 0), 2, gapCap)];
+    g === null ? [2, Math.min(4, cap)] : [clamp(g - 1, 2, cap), clamp(g + 1 + (hard ? 1 : 0), 2, cap)];
+  // A platform over a pit reads as one wide gap to the measures: keep the pit inside the band too.
+  const platformWidth: [number, number] = [5, clamp(bandCap, 5, 9)];
 
   const vert = clamp(m.verticality ?? 0, 0, 1);
   const riseCap = Math.max(1, knight.maxRise - 1);
@@ -57,5 +70,6 @@ export function profileFromMeasured(m: MeasuredNumbers, knight: KnightLimits, op
     coinP: rewards ? 0.7 : 0.25,
     coinEvery: (m.rewardSpacing ?? 0) >= 4 ? 2 : 1,
     fillDepth,
+    platformWidth,
   };
 }

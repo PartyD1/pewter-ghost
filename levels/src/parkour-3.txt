@@ -52,13 +52,13 @@ dddddddddddd
 ........................................
 
 == span 2
-............
-......s.....
-############
-dddddddddddd
-dddddddddddd
-dddddddddddd
-dddddddddddd
+...............
+...............
+###############
+ddddddddddddddd
+ddddddddddddddd
+ddddddddddddddd
+ddddddddddddddd
 
 == pillars
 ........................................
@@ -92,10 +92,10 @@ dddddddddddd
 ..................
 
 == goal
-..............
-..........F...
-##############
-dddddddddddddd
-dddddddddddddd
-dddddddddddddd
-dddddddddddddd
+...........
+.......F...
+###########
+ddddddddddd
+ddddddddddd
+ddddddddddd
+ddddddddddd

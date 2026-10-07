@@ -52,13 +52,13 @@ dddddddddd
 ......................................
 
 == rest
-.............
-........s....
-#############
-ddddddddddddd
-ddddddddddddd
-ddddddddddddd
-ddddddddddddd
+...............
+...............
+###############
+ddddddddddddddd
+ddddddddddddddd
+ddddddddddddddd
+ddddddddddddddd
 
 == second spire
 .......................................
@@ -93,10 +93,10 @@ ddddddddd
 ..........
 
 == goal
-..........................
-......................F...
-##########################
-dddddddddddddddddddddddddd
-dddddddddddddddddddddddddd
-dddddddddddddddddddddddddd
-dddddddddddddddddddddddddd
+........................
+....................F...
+########################
+dddddddddddddddddddddddd
+dddddddddddddddddddddddd
+dddddddddddddddddddddddd
+dddddddddddddddddddddddd

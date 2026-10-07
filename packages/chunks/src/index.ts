@@ -40,7 +40,7 @@ export {
   type ValidChunk,
   type ValidChunkOptions,
 } from "./validate";
-export { profileFromMeasured, typicalGap, type ProfileOptions } from "./profile";
+export { profileFromMeasured, typicalGap, widestGapRatio, type ProfileOptions } from "./profile";
 export {
   DEFAULT_TERRAIN,
   detectFinish,

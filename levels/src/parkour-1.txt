@@ -49,13 +49,13 @@ dddddddddddd
 .........BBB.........BB........
 
 == rest 2
-..............
-.........s....
-##############
-dddddddddddddd
-dddddddddddddd
-dddddddddddddd
-dddddddddddddd
+................
+................
+################
+dddddddddddddddd
+dddddddddddddddd
+dddddddddddddddd
+dddddddddddddddd
 
 == burst 3: long flat leap, then up
 .......................................
@@ -93,10 +93,10 @@ dddddddddddddd
 ........BB.........BBB........
 
 == goal
-.....................
-.................F...
-#####################
-ddddddddddddddddddddd
-ddddddddddddddddddddd
-ddddddddddddddddddddd
-ddddddddddddddddddddd
+...................
+...............F...
+###################
+ddddddddddddddddddd
+ddddddddddddddddddd
+ddddddddddddddddddd
+ddddddddddddddddddd
