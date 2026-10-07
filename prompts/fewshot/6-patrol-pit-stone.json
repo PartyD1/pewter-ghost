@@ -1,0 +1,111 @@
+{
+  "id": "patrol-pit-stone",
+  "title": "Patrol: the knight is stuck before a 13-wide pit",
+  "why": "Two grass tiles in the middle split the pit into gaps of 6 and 5, both clearable from standing. That is the fewest-tile repair, and the person's pit stays a pit.",
+  "request": {
+    "grid": "Window 24x12 = level x 168..191, y 8..19. All coordinates are window-relative: x 0..23 right, y 0..11 down.\n   000000000011111111112222\n   012345678901234567890123\n 0 ........................\n 1 ........................\n 2 ........................\n 3 ........................\n 4 ........................\n 5 ........................\n 6 ........................\n 7 GGGGGGGGGG.............G\n 8 DDDDDDDDDD.............D\n 9 ........................\n10 ........................\n11 ........................",
+    "origin": {
+      "x": 168,
+      "y": 8
+    },
+    "size": {
+      "w": 24,
+      "h": 12
+    },
+    "recent": [
+      {
+        "dt": 0,
+        "x": 25,
+        "y": 8,
+        "tile": "dirt",
+        "tool": "paint"
+      },
+      {
+        "dt": 0,
+        "x": 26,
+        "y": 8,
+        "tile": "dirt",
+        "tool": "paint"
+      },
+      {
+        "dt": 0,
+        "x": 27,
+        "y": 8,
+        "tile": "dirt",
+        "tool": "paint"
+      },
+      {
+        "dt": 0,
+        "x": 28,
+        "y": 8,
+        "tile": "dirt",
+        "tool": "paint"
+      },
+      {
+        "dt": 0,
+        "x": 29,
+        "y": 8,
+        "tile": "dirt",
+        "tool": "paint"
+      },
+      {
+        "dt": 0,
+        "x": 30,
+        "y": 8,
+        "tile": "dirt",
+        "tool": "paint"
+      },
+      {
+        "dt": 0,
+        "x": 31,
+        "y": 8,
+        "tile": "dirt",
+        "tool": "paint"
+      },
+      {
+        "dt": 0,
+        "x": 29,
+        "y": 6,
+        "tile": "flag",
+        "tool": "paint"
+      }
+    ],
+    "frontier": {
+      "x": 31,
+      "y": 7,
+      "idleMs": 6000
+    },
+    "mode": "patrol",
+    "lastGhosts": [],
+    "knight": {
+      "maxGapStand": 8,
+      "maxGapRun": 11,
+      "maxRise": 6
+    },
+    "blockedAt": {
+      "x": 9,
+      "y": 6
+    }
+  },
+  "answer": {
+    "act": true,
+    "kind": "fix",
+    "adds": [
+      {
+        "x": 16,
+        "y": 7,
+        "tile": "grass"
+      },
+      {
+        "x": 17,
+        "y": 7,
+        "tile": "grass"
+      }
+    ],
+    "removes": [],
+    "entities": [],
+    "confidence": 0.8,
+    "label": "pit 13 wide · knight clears 11",
+    "levelGuess": "parkour"
+  }
+}

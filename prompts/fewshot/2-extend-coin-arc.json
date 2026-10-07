@@ -1,0 +1,187 @@
+{
+  "id": "extend-coin-arc",
+  "title": "Paused after a floor; earlier coins sit on a jump arc",
+  "why": "The person arcs their coins, so the next stretch repeats that idea with a new gap width (5, inside every limit). It lands on a 5-wide platform whose slime starts 3 tiles from the landing and has 5 tiles to patrol. The last accepted idea was a floor, so a pit is new.",
+  "request": {
+    "grid": "Window 24x12 = level x 49..72, y 8..19. All coordinates are window-relative: x 0..23 right, y 0..11 down.\n   000000000011111111112222\n   012345678901234567890123\n 0 ........................\n 1 ...oo...................\n 2 ..o.....................\n 3 ........................\n 4 ........................\n 5 ........................\n 6 .o......................\n 7 ........................\n 8 G....GGGGGGGGG..........\n 9 D....DDDDDDDDD..........\n10 ........................\n11 ........................",
+    "origin": {
+      "x": 49,
+      "y": 8
+    },
+    "size": {
+      "w": 24,
+      "h": 12
+    },
+    "recent": [
+      {
+        "dt": 110,
+        "x": 11,
+        "y": 8,
+        "tile": "grass",
+        "tool": "paint"
+      },
+      {
+        "dt": 110,
+        "x": 12,
+        "y": 8,
+        "tile": "grass",
+        "tool": "paint"
+      },
+      {
+        "dt": 110,
+        "x": 13,
+        "y": 8,
+        "tile": "grass",
+        "tool": "paint"
+      },
+      {
+        "dt": 90,
+        "x": 9,
+        "y": 9,
+        "tile": "dirt",
+        "tool": "paint"
+      },
+      {
+        "dt": 90,
+        "x": 10,
+        "y": 9,
+        "tile": "dirt",
+        "tool": "paint"
+      },
+      {
+        "dt": 90,
+        "x": 11,
+        "y": 9,
+        "tile": "dirt",
+        "tool": "paint"
+      },
+      {
+        "dt": 90,
+        "x": 12,
+        "y": 9,
+        "tile": "dirt",
+        "tool": "paint"
+      },
+      {
+        "dt": 90,
+        "x": 13,
+        "y": 9,
+        "tile": "dirt",
+        "tool": "paint"
+      }
+    ],
+    "frontier": {
+      "x": 13,
+      "y": 8,
+      "idleMs": 1400
+    },
+    "mode": "auto",
+    "lastGhosts": [
+      {
+        "kind": "finish",
+        "label": "floor to the edge",
+        "outcome": "accepted",
+        "patterns": [
+          "rest"
+        ]
+      }
+    ],
+    "knight": {
+      "maxGapStand": 8,
+      "maxGapRun": 11,
+      "maxRise": 6
+    }
+  },
+  "answer": {
+    "act": true,
+    "kind": "extend",
+    "adds": [
+      {
+        "x": 19,
+        "y": 8,
+        "tile": "grass"
+      },
+      {
+        "x": 20,
+        "y": 8,
+        "tile": "grass"
+      },
+      {
+        "x": 21,
+        "y": 8,
+        "tile": "grass"
+      },
+      {
+        "x": 22,
+        "y": 8,
+        "tile": "grass"
+      },
+      {
+        "x": 23,
+        "y": 8,
+        "tile": "grass"
+      },
+      {
+        "x": 19,
+        "y": 9,
+        "tile": "dirt"
+      },
+      {
+        "x": 20,
+        "y": 9,
+        "tile": "dirt"
+      },
+      {
+        "x": 21,
+        "y": 9,
+        "tile": "dirt"
+      },
+      {
+        "x": 22,
+        "y": 9,
+        "tile": "dirt"
+      },
+      {
+        "x": 23,
+        "y": 9,
+        "tile": "dirt"
+      }
+    ],
+    "removes": [],
+    "entities": [
+      {
+        "kind": "coin",
+        "x": 14,
+        "y": 6
+      },
+      {
+        "kind": "coin",
+        "x": 15,
+        "y": 3
+      },
+      {
+        "kind": "coin",
+        "x": 16,
+        "y": 1
+      },
+      {
+        "kind": "coin",
+        "x": 17,
+        "y": 1
+      },
+      {
+        "kind": "coin",
+        "x": 18,
+        "y": 2
+      },
+      {
+        "kind": "slime",
+        "x": 22,
+        "y": 7
+      }
+    ],
+    "confidence": 0.5,
+    "label": "pit with a coin arc",
+    "levelGuess": "collect-a-thon"
+  }
+}

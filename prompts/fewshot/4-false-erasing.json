@@ -1,0 +1,103 @@
+{
+  "id": "false-erasing",
+  "title": "Erasing the end of a platform",
+  "why": "The person is taking tiles away. A suggestion now would fight them, so wait until they draw again.",
+  "request": {
+    "grid": "Window 24x12 = level x 120..143, y 7..18. All coordinates are window-relative: x 0..23 right, y 0..11 down.\n   000000000011111111112222\n   012345678901234567890123\n 0 ........................\n 1 ........................\n 2 ........................\n 3 ........................\n 4 ....BBB.................\n 5 ........................\n 6 ........................\n 7 ~~~~~~~~~~~~S~~~~.......\n 8 GGGGGGGGGGGGGGGGG.......\n 9 DDDDDDDDDDDDDDDDD.......\n10 ........................\n11 ........................\nEnemies: slime (12,7) patrols x -2..16.",
+    "origin": {
+      "x": 120,
+      "y": 7
+    },
+    "size": {
+      "w": 24,
+      "h": 12
+    },
+    "recent": [
+      {
+        "dt": 0,
+        "x": 6,
+        "y": 4,
+        "tile": "block",
+        "tool": "paint"
+      },
+      {
+        "dt": 0,
+        "x": 7,
+        "y": 4,
+        "tile": "block",
+        "tool": "paint"
+      },
+      {
+        "dt": 0,
+        "x": 8,
+        "y": 4,
+        "tile": "block",
+        "tool": "paint"
+      },
+      {
+        "dt": 0,
+        "x": 9,
+        "y": 4,
+        "tile": "block",
+        "tool": "paint"
+      },
+      {
+        "dt": 0,
+        "x": 12,
+        "y": 7,
+        "tile": "slime",
+        "tool": "paint"
+      },
+      {
+        "dt": 5140,
+        "x": 9,
+        "y": 4,
+        "tile": "erase",
+        "tool": "erase"
+      },
+      {
+        "dt": 140,
+        "x": 8,
+        "y": 4,
+        "tile": "erase",
+        "tool": "erase"
+      },
+      {
+        "dt": 140,
+        "x": 7,
+        "y": 4,
+        "tile": "erase",
+        "tool": "erase"
+      }
+    ],
+    "frontier": {
+      "x": 16,
+      "y": 8,
+      "idleMs": 200
+    },
+    "mode": "auto",
+    "lastGhosts": [
+      {
+        "kind": "extend",
+        "label": "floating block platform",
+        "outcome": "accepted",
+        "patterns": []
+      }
+    ],
+    "knight": {
+      "maxGapStand": 8,
+      "maxGapRun": 11,
+      "maxRise": 6
+    }
+  },
+  "answer": {
+    "act": false,
+    "kind": "extend",
+    "adds": [],
+    "removes": [],
+    "entities": [],
+    "confidence": 0,
+    "label": "person is erasing",
+    "levelGuess": "mixed"
+  }
+}

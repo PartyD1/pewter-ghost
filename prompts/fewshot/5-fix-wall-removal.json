@@ -1,0 +1,111 @@
+{
+  "id": "fix-wall-removal",
+  "title": "A 7-tall wall drawn 20 s ago across the only route",
+  "why": "From the floor the knight rises 6 at most, and there is no way around the 7-tall wall. Removing its top 2 tiles leaves a 5-tall wall the knight can climb, with slack. The tiles are old, and the label gives the measurement.",
+  "request": {
+    "grid": "Window 24x12 = level x 141..164, y 8..19. All coordinates are window-relative: x 0..23 right, y 0..11 down.\n   000000000011111111112222\n   012345678901234567890123\n 0 ........................\n 1 ...B....................\n 2 ...B....................\n 3 ...B....................\n 4 ...B....................\n 5 ...B....................\n 6 ...B....................\n 7 ...B....................\n 8 GGGGGGGGGGGGG...........\n 9 DDDDDDDDD...............\n10 ........................\n11 ........................",
+    "origin": {
+      "x": 141,
+      "y": 8
+    },
+    "size": {
+      "w": 24,
+      "h": 12
+    },
+    "recent": [
+      {
+        "dt": 100,
+        "x": 3,
+        "y": 4,
+        "tile": "block",
+        "tool": "paint"
+      },
+      {
+        "dt": 100,
+        "x": 3,
+        "y": 3,
+        "tile": "block",
+        "tool": "paint"
+      },
+      {
+        "dt": 100,
+        "x": 3,
+        "y": 2,
+        "tile": "block",
+        "tool": "paint"
+      },
+      {
+        "dt": 100,
+        "x": 3,
+        "y": 1,
+        "tile": "block",
+        "tool": "paint"
+      },
+      {
+        "dt": 20120,
+        "x": 9,
+        "y": 8,
+        "tile": "grass",
+        "tool": "paint"
+      },
+      {
+        "dt": 120,
+        "x": 10,
+        "y": 8,
+        "tile": "grass",
+        "tool": "paint"
+      },
+      {
+        "dt": 120,
+        "x": 11,
+        "y": 8,
+        "tile": "grass",
+        "tool": "paint"
+      },
+      {
+        "dt": 120,
+        "x": 12,
+        "y": 8,
+        "tile": "grass",
+        "tool": "paint"
+      }
+    ],
+    "frontier": {
+      "x": 12,
+      "y": 8,
+      "idleMs": 1200
+    },
+    "mode": "auto",
+    "lastGhosts": [
+      {
+        "kind": "finish",
+        "label": "floor, four more tiles",
+        "outcome": "accepted"
+      }
+    ],
+    "knight": {
+      "maxGapStand": 8,
+      "maxGapRun": 11,
+      "maxRise": 6
+    }
+  },
+  "answer": {
+    "act": true,
+    "kind": "fix",
+    "adds": [],
+    "removes": [
+      {
+        "x": 3,
+        "y": 1
+      },
+      {
+        "x": 3,
+        "y": 2
+      }
+    ],
+    "entities": [],
+    "confidence": 0.75,
+    "label": "wall 7 high · knight rises 6",
+    "levelGuess": "mixed"
+  }
+}
