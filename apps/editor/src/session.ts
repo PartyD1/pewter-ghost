@@ -274,6 +274,7 @@ export class FillLoop {
   private lastGuess: string | undefined;
   private patrolOn = false;
   private paused = false;
+  private suspended = false;
   private disposed = false;
   private readonly cleanups: (() => void)[] = [];
   /** Counters for dev tools and tests. */
@@ -320,7 +321,7 @@ export class FillLoop {
       frontier: () => this.patrolFrontier(),
       log: (e) => this.o.log(e),
       onBlocked: (b) => {
-        if (!this.paused && this.enabled) void this.run("patrol", b);
+        if (!this.halted && this.enabled) void this.run("patrol", b);
       },
       clock: this.clock,
       timers: this.timers,
@@ -371,6 +372,21 @@ export class FillLoop {
     this.paused = on;
     if (on) this.cancel();
     this.syncPatrol();
+  }
+
+  /**
+   * Dev / e2e: keep the ghost UI but make no calls and run no patrol (the
+   * ghost e2e check drives the layer with hand-made suggestions). Independent
+   * of Play, which pauses and resumes on its own.
+   */
+  setSuspended(on: boolean): void {
+    this.suspended = on;
+    if (on) this.cancel();
+    this.syncPatrol();
+  }
+
+  private get halted(): boolean {
+    return this.paused || this.suspended;
   }
 
   /** Ctrl+Space with nothing held: ask now. */
@@ -455,7 +471,7 @@ export class FillLoop {
 
   private onPlacement(e: PlacementEvent): void {
     this.o.log({ ...e, type: e.tool === "erase" ? "erase" : "place" });
-    if (!this.enabled || this.paused) return;
+    if (!this.enabled || this.halted) return;
     // Speculative: every placement asks again (newest wins); a drag is coalesced.
     this.clearDebounce();
     const ms = Math.max(0, this.cfg().fillDebounceMs);
@@ -472,7 +488,7 @@ export class FillLoop {
 
   private syncPatrol(): void {
     const want =
-      !this.disposed && !this.paused && this.o.patrol !== false && this.enabled && this.cfg().kinds.fix;
+      !this.disposed && !this.halted && this.o.patrol !== false && this.enabled && this.cfg().kinds.fix;
     if (want && !this.patrolOn) this.patrol.start();
     else if (!want && this.patrolOn) this.patrol.stop();
     this.patrolOn = want;
@@ -510,7 +526,7 @@ export class FillLoop {
   /** One trip: request → filler → verifier → manager. Never rejects. */
   private async run(mode: FillMode, blocked?: PatrolBlocked): Promise<FillOutcome | null> {
     const filler = this.o.registry.active;
-    if (!filler || this.disposed || this.paused) return null;
+    if (!filler || this.disposed || this.halted) return null;
     // Newest wins: a newer trip aborts this one's verification too.
     this.ctrl?.abort();
     for (const [f, s] of this.schedulers) if (f !== filler) s.cancel();

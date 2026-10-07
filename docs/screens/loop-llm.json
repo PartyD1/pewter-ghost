@@ -1,0 +1,54 @@
+[
+  {
+    "label": "staircase",
+    "ghostShown": true,
+    "ghost": {
+      "label": "staircase, three more steps",
+      "kind": "finish",
+      "confidence": 0.85,
+      "cells": 3,
+      "because": "now",
+      "attempts": 1
+    },
+    "waitedMs": 1952,
+    "calls": [
+      {
+        "mode": "auto",
+        "superseded": false,
+        "latencyMs": 1983,
+        "act": true,
+        "kind": "finish",
+        "confidence": 0.85,
+        "verdict": "ok",
+        "sendBack": false
+      }
+    ],
+    "patrol": []
+  },
+  {
+    "label": "platform after a gap",
+    "ghostShown": true,
+    "ghost": {
+      "label": "continue flat grass platform",
+      "kind": "finish",
+      "confidence": 0.78,
+      "cells": 4,
+      "because": "now",
+      "attempts": 1
+    },
+    "waitedMs": 2339,
+    "calls": [
+      {
+        "mode": "auto",
+        "superseded": false,
+        "latencyMs": 2260,
+        "act": true,
+        "kind": "finish",
+        "confidence": 0.78,
+        "verdict": "ok",
+        "sendBack": false
+      }
+    ],
+    "patrol": []
+  }
+]

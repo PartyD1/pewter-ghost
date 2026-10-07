@@ -1,7 +1,10 @@
+import { AgentClient } from "@physsim";
 import { buildSeedCases } from "./fixtures/seed";
-const t0 = Date.now();
-const cases = await buildSeedCases();
-console.log(cases.length, Date.now()-t0, "ms");
-for (const c of cases) console.log(c.id, c.request.mode, c.request.origin, c.blocked?.blockedAt ?? "", JSON.stringify(c).length);
-console.log(cases[0].request.grid);
-console.log(cases.find(c=>c.id==="patrol-wide-pit")!.request.grid);
+import { geminiCaller, CachedCaller, CallCache } from "./live";
+import { runSuite, DEFAULT_RUN_CONFIG } from "./run";
+const cases = (await buildSeedCases()).filter(c => ["stairs-up-2wide","patrol-wide-pit","erasing"].includes(c.id));
+const agent = new AgentClient({ worker: null });
+const caller = new CachedCaller(geminiCaller({ model: "gemini-3.7-flash", thinkingBudget: 0 }), new CallCache("eval/.cache/calls"));
+const r = await runSuite(cases, DEFAULT_RUN_CONFIG, { caller, agent, log: console.log });
+for (const c of r.cases) console.log(JSON.stringify({ ...c, history: undefined }));
+agent.dispose();

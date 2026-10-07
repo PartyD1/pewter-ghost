@@ -1,0 +1,1 @@
+{"texts":["{\"act\":true,\"kind\":\"fix\",\"label\":\"pit 13 wide · knight clears 11\",\"levelGuess\":\"parkour\",\"adds\":[{\"x\":16,\"y\":7,\"tile\":\"grass\"},{\"x\":17,\"y\":7,\"tile\":\"grass\"}],\"removes\":[],\"entities\":[],\"confidence\":0.85}"],"latencyMs":2096,"model":"gemini-3.7-flash","promptVersion":"fill.v1-f9d1aef8","usage":{"promptTokens":8880,"outputTokens":72}}

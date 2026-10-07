@@ -1,0 +1,1 @@
+{"texts":["{\"act\":false,\"kind\":\"finish\",\"label\":\"person is erasing\",\"levelGuess\":\"story\",\"adds\":[],\"removes\":[],\"entities\":[],\"confidence\":0}"],"latencyMs":2396,"model":"gemini-3.7-flash","promptVersion":"fill.v1-f9d1aef8","usage":{"promptTokens":8734,"outputTokens":34}}

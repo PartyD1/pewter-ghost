@@ -184,8 +184,10 @@ export interface CaseResult {
   tags?: string[];
   confidence?: { stated?: number; logprob?: number; twoSample?: number; used?: number };
   expectMet?: boolean;
-  /** The verified answer (for export). */
+  /** The first answer (for export and the dashboard). */
   answer?: ModelAnswer | null;
+  /** lastGhosts of the request (for the variety history check). */
+  history?: import("../../apps/editor/src/contracts").GhostHistoryItem[];
 }
 
 export interface RunResult {

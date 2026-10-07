@@ -135,8 +135,16 @@ function sugg(id, over) {
     });
     page.on("pageerror", (e) => errors.push(String(e)));
 
-    await page.goto(URL0 + "?fresh=1&dev=1", { waitUntil: "load" });
+    // filler=stub turns the ghost UI on; the fill loop is then suspended so only
+    // this script's hand-made suggestions reach the manager (see session.ts).
+    await page.goto(URL0 + "?fresh=1&dev=1&filler=stub", { waitUntil: "load" });
     await page.waitForFunction(() => !!(window.__pewter && window.__pewter.api), null, { timeout: 30000 });
+    await page.evaluate(async () => {
+      const app = window.__pewter.app;
+      if (!app) return;
+      await app.ready;
+      app.loop.setSuspended(true);
+    });
     const started = await page.evaluate(() => !!window.__pewter.ghost);
     if (!started) await page.addScriptTag({ type: "module", content: 'import "/src/ghost/boot.ts";' });
     await page.waitForFunction(() => !!(window.__pewter && window.__pewter.ghost), null, { timeout: 15000 });
