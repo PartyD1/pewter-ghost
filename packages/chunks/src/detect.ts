@@ -129,7 +129,7 @@ function liveSequence(placements: readonly DetectPlacement[], want: (tile: strin
   return out;
 }
 
-/** Run every detector; proposals come best first (fresh, then most repeats, then repeats over open structures). */
+/** Run every detector; proposals come best first (fresh, then open structures, then strong repeats, then most repeats). */
 export function detectFinish(grid: DetectGrid, recent: readonly DetectPlacement[], opts: DetectOptions = {}): FinishProposal[] {
   const v = new View(grid);
   const k = Math.max(2, opts.k ?? 16);
@@ -149,14 +149,17 @@ export function detectFinish(grid: DetectGrid, recent: readonly DetectPlacement[
   push(cellRepeat(v, terrain, opts, isLast(terrain[terrain.length - 1]) && !lastIsCoin));
   push(unitRepeat(v, terrain, opts, isLast(terrain[terrain.length - 1]) && !lastIsCoin));
   push(coinArc(v, coins, opts, isLast(coins[coins.length - 1]) && lastIsCoin));
-  push(endCap(v, terrain, opts, !lastIsCoin));
-  push(pitFloor(v, terrain, opts, !lastIsCoin));
+  const freshTerrain = isLast(terrain[terrain.length - 1]) && !lastIsCoin;
+  push(endCap(v, terrain, opts, freshTerrain));
+  push(pitFloor(v, terrain, opts, freshTerrain));
 
+  // Fresh first; an open structure the last placement belongs to is more
+  // specific than a repeat through the same cell (a pit wall is also a column).
   out.sort(
     (a, b) =>
       Number(b.touchesLast) - Number(a.touchesLast) ||
+      Number(b.open) - Number(a.open) ||
       Number(b.repeats >= 3) - Number(a.repeats >= 3) ||
-      Number(a.open) - Number(b.open) ||
       b.repeats - a.repeats,
   );
   return out;
@@ -505,7 +508,7 @@ function endCap(v: View, seq: Cell[], o: DetectOptions, fresh: boolean): FinishP
     entities: [],
     repeats: siblings.length,
     open: true,
-    touchesLast: fresh && seq.length > 0,
+    touchesLast: fresh,
     label: `finish the platform: ${adds.length} more tile${adds.length === 1 ? "" : "s"} to match the others`,
   };
 }

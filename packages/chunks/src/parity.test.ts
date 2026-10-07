@@ -4,7 +4,6 @@
  * by generateChunk with the same seed and the audit's caps.
  */
 import { describe, expect, it } from "vitest";
-import { checkRules } from "@physsim";
 import { AUDIT_CAPS, capsFor } from "./caps";
 import { chunkMetrics, chunkRows, generateChunk, profileFor, type Difficulty, type Theme } from "./generator";
 import { checkChunk } from "./validate";
@@ -77,6 +76,5 @@ describe("generateChunk parity with chunkgen.py", () => {
       }
     });
     expect(m.pits).toEqual(pits);
-    void checkRules;
   });
 });
