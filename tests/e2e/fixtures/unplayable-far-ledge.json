@@ -1,0 +1,33 @@
+{
+  "note": "Same staircase; the model offers a ledge 10 tiles past the top step at the same height. From a 1-tile step the knight has no run-up and clears 8, so it cannot be reached. Window origin (2,6).",
+  "recordedOrigin": {
+    "x": 2,
+    "y": 6
+  },
+  "response": {
+    "answer": {
+      "act": true,
+      "kind": "finish",
+      "adds": [
+        {
+          "x": 23,
+          "y": 6,
+          "tile": "grass"
+        },
+        {
+          "x": 23,
+          "y": 6,
+          "tile": "grass"
+        }
+      ],
+      "removes": [],
+      "entities": [],
+      "confidence": 0.85,
+      "label": "ledge across the gap"
+    },
+    "latencyMs": 480,
+    "model": "gemini-3.7-flash",
+    "promptVersion": "fill.v1-f9d1aef8",
+    "requestHash": "recorded"
+  }
+}

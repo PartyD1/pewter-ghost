@@ -1,0 +1,59 @@
+{
+  "note": "Three grass steps up from the start platform (level (12,14) (13,13) (14,12)); the model finishes the climb with three more steps and a ledge. Window origin (2,6).",
+  "recordedOrigin": {
+    "x": 2,
+    "y": 6
+  },
+  "response": {
+    "answer": {
+      "act": true,
+      "kind": "finish",
+      "adds": [
+        {
+          "x": 13,
+          "y": 5,
+          "tile": "grass"
+        },
+        {
+          "x": 14,
+          "y": 4,
+          "tile": "grass"
+        },
+        {
+          "x": 15,
+          "y": 3,
+          "tile": "grass"
+        },
+        {
+          "x": 16,
+          "y": 3,
+          "tile": "grass"
+        },
+        {
+          "x": 17,
+          "y": 3,
+          "tile": "grass"
+        },
+        {
+          "x": 18,
+          "y": 3,
+          "tile": "grass"
+        },
+        {
+          "x": 19,
+          "y": 3,
+          "tile": "grass"
+        }
+      ],
+      "removes": [],
+      "entities": [],
+      "confidence": 0.9,
+      "label": "staircase up to a ledge",
+      "levelGuess": "climbing"
+    },
+    "latencyMs": 480,
+    "model": "gemini-3.7-flash",
+    "promptVersion": "fill.v1-f9d1aef8",
+    "requestHash": "recorded"
+  }
+}
