@@ -68,7 +68,9 @@ test.describe("painting", () => {
     // Clicks on DOM chrome (palette, toolbar) never reach the canvas.
     await page.click('[data-item="dirt"]');
     await page.click('[data-item="block"]');
-    await page.click(".pg-brand");
+    await page.click('[data-cmd="help"]');
+    await expect(page.locator("#pg-help")).toBeVisible();
+    await page.keyboard.press("Escape");
     await page.click('[data-mode="paint"]');
     expect(await ed.snapshotJson()).toBe(before);
     expect(await ed.undoDepth()).toBe(0);

@@ -62,7 +62,7 @@ test.describe("save and load", () => {
 
     // Change the level, then load the file back.
     await ed.pick("dirt");
-    await ed.drag([30, 31, 32].map((x) => [x, 8]));
+    await ed.drag([24, 25, 26].map((x) => [x, 8]));
     await page.keyboard.press("3");
     await ed.clickTile(14, 12);
     expect(await ed.tileAt(14, 12)).toBe(T.EMPTY);
@@ -119,7 +119,7 @@ test.describe("save and load", () => {
 
     // Change the level, then open the code.
     await ed.pick("dirt");
-    await ed.drag([40, 41, 42].map((x) => [x, 6]));
+    await ed.drag([24, 25, 26].map((x) => [x, 6]));
     expect((await levelView(ed)).cells).not.toEqual(original.cells);
 
     await page.click('[data-cmd="share"]');
