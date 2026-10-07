@@ -13,8 +13,9 @@
  *              or sits within the knight's reach of a standable surface
  *              (not floating in the sky or junk on the bottom row).
  *  - grounded  enemies stand on solid ground (in the merged level).
- *  - local     the answer is near the action: within `radius` tiles of the
- *              frontier, a recent placement or (patrol) the blocking point.
+ *  - local     the answer is near the action: within `radius` tiles (one
+ *              running jump) of the frontier, a recent placement or (patrol)
+ *              the blocking point.
  *
  * `accurate` = every check passed. `share` = passed item checks / item checks.
  */
@@ -48,7 +49,7 @@ export interface CoordScore {
 }
 
 export interface CoordOptions {
-  /** Max distance (tiles) from the action for `local`. Default 8. */
+  /** Max distance (tiles) from the action for `local`. Default knight.maxGapRun + 1 (one jump past the last placement). */
   radius?: number;
 }
 
@@ -97,9 +98,9 @@ export function scoreCoords(
   level: LevelSnapshot,
   o: CoordOptions = {},
 ): CoordScore {
-  const radius = o.radius ?? 8;
   const { origin, size } = req;
   const knight: KnightLimits = req.knight;
+  const radius = o.radius ?? knight.maxGapRun + 1;
   const issues: string[] = [];
   const W = level.w;
   const solidAt = (x: number, y: number) => x >= 0 && y >= 0 && x < level.w && y < level.h && level.cells[y * W + x] !== 0;
