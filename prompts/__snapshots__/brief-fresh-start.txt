@@ -1,0 +1,9 @@
+Drawing so far (last screens, level x 0..23):
+- density 0.05, verticality 0.75, linearity 0.75, difficulty 0.09 (0 easy, 1 hard), leniency 1.00
+- no gap jumps yet
+- no coins or fruit yet
+- no enemies yet
+- patterns here: rest
+Keep these numbers unless the drawing is clearly changing them.
+Your last guess at the level type: parkour. Keep it or revise it in levelGuess.
+No earlier ghosts in this session.

@@ -1,0 +1,29 @@
+mode: patrol (the physics agent playing from the start is stuck at blockedAt; answer with a fix there)
+Window 24x12 = level x 176..199, y 8..19. All coordinates are window-relative: x 0..23 right, y 0..11 down.
+Legend: . empty | G grass D dirt B block H half-block Q ?-block (person's) | g d b h q same tiles accepted from Ghost | o coin * fruit S slime U ultraslime ~ enemy patrol F flag ! sign @ knight start
+   000000000011111111112222
+   012345678901234567890123
+ 0 ........................
+ 1 ........................
+ 2 ........................
+ 3 ........................
+ 4 ..............Q.........
+ 5 ........................
+ 6 ........................
+ 7 ~~!~~U~~~~............F.
+ 8 GGGGGGGGGG..........GGGG
+ 9 DDDDDDDDDD..........DDDD
+10 ........................
+11 ........................
+Enemies: ultraslime (5,7) patrols x 0..9.
+recent (oldest first; tile (x,y) +ms since the previous placement): dirt (6,9) +0 · dirt (7,9) +0 · dirt (8,9) +0 · dirt (9,9) +0 · dirt (20,9) +0 · dirt (21,9) +0 · dirt (22,9) +0 · dirt (23,9) +0 · question (14,4) +0 · flag (22,7) +0 · sign (2,7) +0 · ultraslime (5,7) +0
+frontier: (14,4), idle 4000 ms
+knight: clears gaps of 8 standing, 11 with a run-up; rises 6 at most
+blockedAt: (9,7), the agent could not get past this cell
+previous failure (stage agent; LEVEL coordinates, subtract the window origin (176,8)): gap at x=186 is 10 wide; knight clears 8 standing
+measured (this window): density 0.00; verticality 0.00; gap widths as share of run limit: none; reward spacing no rewards; enemy pressure 0.00
+rest of the level: Level 200x20, drawn up to x 23 (window-relative); left of window: empty; right: empty; start 174 cols left of window; flag in window.
+last ghosts (oldest first): fix "bridge the pit" dismissed (drawn over)
+
+Design notes for this request:
+Continue what the person is drawing: finish an obvious pattern (a staircase, a run of gaps, a coin arc) or extend the section rightward in the same style. Keep every jump inside the knight's limits, leave rests between hard stretches, put coins on the arc the knight would take, give enemies at least 4 tiles of floor and never place them on a landing. Do not repeat a recently dismissed idea.

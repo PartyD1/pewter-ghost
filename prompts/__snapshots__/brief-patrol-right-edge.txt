@@ -1,0 +1,11 @@
+Drawing so far (last screens, level x 144..191):
+- density 0.02, verticality 0.44, linearity 0.80, difficulty 0.49 (0 easy, 1 hard), leniency 0.00
+- 1 gap jump; widths as a share of the run limit 11: 20-40% 100%; landings 1.0 wide on average
+- no coins or fruit yet
+- 1 enemy, pressure 0.00 (share of landings with an enemy within 3 tiles)
+- patterns here: pit
+Keep these numbers unless the drawing is clearly changing them.
+Your last guess at the level type: parkour. Keep it or revise it in levelGuess.
+Recent ghosts (oldest first):
+1. fix "bridge the pit": dismissed (drawn over)
+Variety: nothing accepted yet, so any pattern that fits is fine. Do not offer again: "bridge the pit" (dismissed).
