@@ -24,6 +24,7 @@ const CSS = `
   opacity: 0; transition: opacity 120ms linear;
 }
 .pg-ghost-arrow.pg-in { opacity: 0.9; }
+.pg-ghost-arrow[hidden], .pg-ghost-caption[hidden], .pg-ghost-dev[hidden] { display: none; }
 .pg-ghost-arrow:hover, .pg-ghost-arrow:focus-visible { opacity: 1; outline: 2px solid #3b6ef5; outline-offset: 1px; }
 .pg-ghost-arrow span { display: block; }
 .pg-ghost-arrow small { position: absolute; top: 100%; margin-top: 2px; font: 600 10px/1 system-ui, sans-serif; color: #fff; text-shadow: 0 0 3px #000; white-space: nowrap; }

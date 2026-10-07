@@ -71,6 +71,7 @@ The ledge tops are in row 8 (knight in row 7) and the target tops are in row 4 (
 - `adds` go only on empty cells (`.` or `~`). Never put one over an existing tile or entity. A fix removes the cell first.
 - Tile names are `grass` (walkable tops), `dirt` (under a top, fill), `block`, `grass_half` and `question`. Match the person's palette. If their platforms are B, continue in `block`, and put dirt under grass where they do.
 - `entities` go on empty cells. Enemies and the flag must stand on a floor, meaning a solid tile directly below. Kinds are `coin`, `fruit`, `slime`, `ultraslime`, `flag` and `sign`.
+- Coins go on a jump arc (use the arc table), in a ladder, or over a pit. Never put coins in a row resting on a floor or on top of a platform. Add coins or fruit only when the person already uses them or the stretch earns a reward, and a finish adds them only when the person was placing them.
 - `removes` (fix only) are cells that hold a tile or entity now.
 - Stay inside the window: x from 0 to width-1, y from 0 to height-1. Keep a suggestion under about 40 cells.
 - Before answering, check every jump your tiles create against the reach table, and check that the knight can get onto your first tile from the frontier.

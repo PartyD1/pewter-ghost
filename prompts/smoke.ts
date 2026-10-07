@@ -103,6 +103,7 @@ async function main(): Promise<void> {
       const ms = Math.round(performance.now() - t0);
       console.log(
         `latency ${ms} ms; usage ${JSON.stringify(res.usage ?? {})}; logprob ${res.logprob ?? "n/a"}` +
+          ` (logprobs ${upstream.logprobsEnabled ? "requested" : "off: rejected by the API"}; thinking ${upstream.thinkingBudget ?? "default"})` +
           (res.sampleErrors ? `; sample errors ${JSON.stringify(res.sampleErrors)}` : ""),
       );
       res.texts.forEach((text, i) => {
