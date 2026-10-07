@@ -7,6 +7,7 @@
  *   A* search for inputs from a standing cell to a goal (cell, rect, predicate).
  * - rules.ts: jump-table reachability over standing cells (fast pre-filter).
  * - protocol.ts / worker.ts / client.ts: the Web Worker and its promise client.
+ * - fixtures.ts: the audit's validation levels, for other modules' tests.
  */
 export * from "./grid";
 export {
@@ -70,3 +71,13 @@ export {
   type AgentQuery,
   type WorkerLike,
 } from "./client";
+export {
+  FIXTURES,
+  flatLevel,
+  gapLevel,
+  staircaseLevel,
+  tunnelLevel,
+  wallLevel,
+  type Fixture,
+} from "./fixtures";
+export { attachAgentWorker, type WorkerScopeLike } from "./worker";
