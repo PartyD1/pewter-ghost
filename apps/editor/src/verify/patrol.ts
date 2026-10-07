@@ -43,6 +43,7 @@ import {
   type Point,
   type Suggestion,
   type TileId,
+  type Verdict,
 } from "../contracts";
 import { config as liveConfig, type GhostConfig } from "../suggest/config";
 import { nowMs, snapshotOf, solidGridOf, spanText, type LevelSource } from "./merge";
@@ -105,7 +106,7 @@ export interface PatrolOptions {
   frontier?: () => number | undefined;
   onReport?: (r: PatrolReport) => void;
   onBlocked?: (b: PatrolBlocked, r: PatrolReport) => void;
-  /** Receives the `patrol` log event of every completed run. */
+  /** Receives the `patrol` log event of every conclusive run (beatable true or false). */
   log?: (e: Extract<LogEvent, { type: "patrol" }>) => void;
   clock?: () => number;
   timers?: TimerApi;
@@ -226,7 +227,11 @@ export class Patrol {
     const finish = (r: PatrolReport): PatrolReport => {
       if (this.inflight === ac) this.inflight = null;
       this.last = { revision, goalX, report: r };
-      this.o.log?.({ type: "patrol", t: this.clock(), beatable: r.beatable === true, blockedAt: r.blocked?.blockedAt, ms: r.ms });
+      // Inconclusive runs (over the cap with the rules agreeing, or nothing to
+      // check) are not logged: the event's boolean would count them as "not
+      // beatable" and skew the beatable-at-save metric.
+      if (r.beatable !== null)
+        this.o.log?.({ type: "patrol", t: this.clock(), beatable: r.beatable, blockedAt: r.blocked?.blockedAt, ms: r.ms });
       this.o.onReport?.(r);
       if (r.blocked && r.beatable === false) this.o.onBlocked?.(r.blocked, r);
       return r;
@@ -515,8 +520,59 @@ export async function proposeRepair(
 }
 
 /**
+ * The check a patrol fix must pass on top of the usual section check: with
+ * the fix merged in, the agent must get from where the patrol started
+ * (`blocked.from`) past the blocking point to the surface that was out of
+ * reach (repairTarget), or to the patrol's goal column when no such surface is
+ * near. A fix drawn away from the block fails here, so the send-back and the
+ * fallback repair still run.
+ */
+export function patrolFixCheck(
+  original: LevelSource,
+  blocked: PatrolBlocked,
+  agent: AgentLike,
+  opts: { capMs?: number; lookAhead?: number } = {},
+): (merged: LevelSnapshot, s: Suggestion, signal?: AbortSignal) => Promise<Verdict | null> {
+  const snap0 = snapshotOf(original);
+  const grid0 = solidGridOf(snap0);
+  const start0 = settleStart(grid0, snap0.start) ?? snap0.start;
+  const sec = repairTarget(grid0, start0, blocked.blockedAt, opts.lookAhead ?? knightLimits(DESIGN_TIER).maxGapRun + 4);
+  const goalX = Math.min(grid0.w - 1, Math.max(0, sec ? sec.target.x : blocked.goalX));
+  const bx = blocked.blockedAt.x;
+  const by = blocked.blockedAt.y;
+  const capMs = opts.capMs ?? liveConfig.patrolCapMs;
+  return async (merged, _s, signal) => {
+    const grid = solidGridOf(merged);
+    const from = isStandable(grid, blocked.from.x, blocked.from.y) ? blocked.from : settleStart(grid, blocked.from);
+    if (!from)
+      return { ok: false, stage: "agent", reason: `the fix leaves no ground at (${blocked.from.x},${blocked.from.y}) where the knight starts this section`, ms: 0 };
+    if (goalX <= from.x) return null;
+    const r = await agent.verify(
+      { grid, from, to: { x0: goalX }, xRange: [0, Math.min(grid.w - 1, goalX + 2)], capMs },
+      { signal },
+    );
+    if (r.found) return { ok: true, stage: "agent", path: r.path, ms: r.ms };
+    const why = r.timedOut ? "the agent ran out of time" : r.reason ?? `it is stuck at (${(r.blockedAt ?? from).x},${(r.blockedAt ?? from).y})`;
+    return {
+      ok: false,
+      stage: "agent",
+      reason: `the fix does not get the knight past (${bx},${by}): it still cannot reach column ${goalX} (${why}); put the fix at the blocking point`,
+      ms: r.ms,
+    };
+  };
+}
+
+/**
  * Verify a patrol answer (send-back as usual), falling back to the local
  * repair when the model's fix fails or the model declined.
+ *
+ * Every candidate (model answers and the fallback) must also pass
+ * patrolFixCheck: the merged level must be beatable from `blocked.from` past
+ * the blocking point (cap config.patrolCapMs when given, else the live one).
+ *
+ * The fallback runs after the last ALLOWED model attempt: after two failures
+ * when the send-back ran, after one when the first answer was too slow for a
+ * send-back (>= sendBackIfUnderMs), and at once when the model declined.
  */
 export function verifyPatrolFix(
   level: LevelSource,
@@ -527,8 +583,19 @@ export function verifyPatrolFix(
   deps: VerifyDeps & { repair?: Omit<RepairOptions, "agent" | "signal"> },
 ): Promise<VerifyOutcome> {
   const snap = snapshotOf(level);
+  const cfg = (deps.config ?? liveConfig) as Partial<GhostConfig>;
+  const fixCheck = patrolFixCheck(snap, blocked, deps.agent, {
+    capMs: cfg.patrolCapMs ?? liveConfig.patrolCapMs,
+    lookAhead: deps.repair?.lookAhead,
+  });
+  const extra = deps.extraCheck;
   return verifyWithSendBack(snap, request, answer, filler, {
     ...deps,
+    extraCheck: async (merged, s, signal) => {
+      const v = extra ? await extra(merged, s, signal) : null;
+      if (v && !v.ok) return v;
+      return fixCheck(merged, s, signal);
+    },
     fallback:
       deps.fallback ??
       (() =>

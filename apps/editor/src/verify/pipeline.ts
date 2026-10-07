@@ -9,15 +9,19 @@
  *               { reason, stage } and verify the new answer;
  *             else drop.
  *     still failing and a `fallback` is given (patrol fixes, G-23): verify
- *     the fallback's proposal the same way.
+ *     the fallback's proposal the same way. The fallback runs after the LAST
+ *     ALLOWED model attempt: after two failures when the send-back ran, and
+ *     after one when the first answer was too slow for a send-back (asking the
+ *     model again would only delay the Fix further). G-23's "fails twice"
+ *     assumes the usual fast answer.
  *
  * Abort: when `deps.signal` aborts, the promise rejects with the AbortError
  * (from the agent or the filler); nothing is returned half-verified.
  */
-import type { FillRequest, Filler, Suggestion, Verdict, VerifiedSuggestion } from "../contracts";
+import type { FillRequest, Filler, LevelSnapshot, Suggestion, Verdict, VerifiedSuggestion } from "../contracts";
 import { config as liveConfig, type GhostConfig } from "../suggest/config";
 import { asVerified } from "../suggest/verified";
-import { snapshotOf, suggestionCells, type LevelSource } from "./merge";
+import { mergeSuggestion, snapshotOf, suggestionCells, type LevelSource } from "./merge";
 import { verifyPlayability, type AgentLike, type PlayabilityOptions } from "./playability";
 import { validateSuggestion, type ValidateContext } from "./validate";
 
@@ -35,6 +39,13 @@ export interface VerifyDeps {
   fallback?: () => Suggestion | null | Promise<Suggestion | null>;
   /** Called after each verdict (for the logger / dashboard). */
   onVerdict?: (v: AttemptVerdict) => void;
+  /**
+   * Extra check run by verifyOnce after validate and playability pass, on the
+   * level with the suggestion merged in. Return a failing Verdict (its reason
+   * is sent back to the model) or null / an ok Verdict to accept. Patrol fixes
+   * use it to require that the fix actually removes the block (G-23).
+   */
+  extraCheck?: (merged: LevelSnapshot, s: Suggestion, signal?: AbortSignal) => Verdict | null | Promise<Verdict | null>;
 }
 
 export interface AttemptVerdict extends Verdict {
@@ -77,7 +88,11 @@ export async function verifyOnce(
   if (!v.ok) return v;
   if (suggestionCells(s).length === 0) return { ok: false, stage: "shape", reason: "the answer changes nothing", ms: v.ms };
   const p = await verifyPlayability(level, s, deps.agent, cfg, { ...deps.playability, signal: deps.signal });
-  return { ...p, ms: v.ms + p.ms };
+  if (!p.ok || !deps.extraCheck) return { ...p, ms: v.ms + p.ms };
+  throwIfAborted(deps.signal);
+  const x = await deps.extraCheck(mergeSuggestion(snapshotOf(level), s), s, deps.signal);
+  if (x && !x.ok) return { ...x, ms: v.ms + p.ms + x.ms };
+  return { ...p, ms: v.ms + p.ms + (x?.ms ?? 0) };
 }
 
 /**
