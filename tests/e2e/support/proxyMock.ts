@@ -77,6 +77,17 @@ export function replayResponse(f: FillFixture, req: Pick<FillRequest, "origin">)
   return out;
 }
 
+/** Level cells the request's recent placements name (they are window-relative in the request). */
+export function recentCells(req: Pick<FillRequest, "origin" | "recent">): Point[] {
+  return req.recent.filter((r) => r.tool === "paint").map((r) => ({ x: r.x + req.origin.x, y: r.y + req.origin.y }));
+}
+
+/** Did the person place all of these level cells by the time the request was built? */
+export function requestHasPlaced(req: Pick<FillRequest, "origin" | "recent">, cells: readonly (readonly [number, number])[]): boolean {
+  const got = new Set(recentCells(req).map((p) => `${p.x},${p.y}`));
+  return cells.every(([x, y]) => got.has(`${x},${y}`));
+}
+
 /** What a /fill call gets: a fixture (or a raw response) after a delay, or an HTTP error. */
 export type FillReply =
   | { fixture: string | FillFixture; delayMs?: number }

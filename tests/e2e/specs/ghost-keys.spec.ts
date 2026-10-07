@@ -9,7 +9,7 @@
 import { expect, test } from "@playwright/test";
 import type { ProxyFillBody } from "../../../apps/editor/src/contracts";
 import { A, Editor, T, type GhostCurrentLite } from "../support/editor";
-import type { FillReply } from "../support/proxyMock";
+import { requestHasPlaced, type FillReply } from "../support/proxyMock";
 
 const STEPS: [number, number][] = [
   [12, 14],
@@ -27,10 +27,13 @@ const FINISH = [
   [21, 9],
 ];
 
-/** Which modes get the finish answer; everything else is declined. */
+/**
+ * Which modes get the finish answer once all three steps are drawn (as the
+ * recording was made); everything else is declined.
+ */
 let answerModes: Set<string>;
 const reply = (b: ProxyFillBody): FillReply | null =>
-  answerModes.has(b.request.mode) ? { fixture: "finish-staircase" } : { fixture: "decline" };
+  answerModes.has(b.request.mode) && requestHasPlaced(b.request, STEPS) ? { fixture: "finish-staircase" } : { fixture: "decline" };
 
 async function paintSteps(ed: Editor): Promise<void> {
   await ed.pick("grass");
