@@ -2,13 +2,13 @@
  * Pewter Ghost editor boot (G-01): DOM chrome, the level model, and the
  * Phaser game (Loading -> Editor + UI scenes).
  *
- * Seam for the ghost session (integration builder):
- *   import { registerGhostStarter } from "@app/editor/api";
- *   registerGhostStarter((api) => startGhost(api));
- * or `await whenEditorReady()`. Both are re-exported here.
+ * The fill loop (session.ts, PewterApp) is created with the model: it owns the
+ * research log, the session token / condition, the fillers, the agent and the
+ * patrol, and starts the ghost session (ghost/session.ts) once the editor is ready.
  *
- * e2e tests read window.__pewter = { model, scene, game, config, api, modes, settings }.
- * URL flags: ?fresh=1 ignores the autosave (new starter level); ?renderer=canvas forces Canvas.
+ * e2e tests read window.__pewter = { model, scene, game, config, api, modes, settings, app, ghost }.
+ * URL flags: ?fresh=1 ignores the autosave (new starter level); ?renderer=canvas forces Canvas;
+ * ?filler=llm|stub|none, ?token=, ?proxy=, ?callTimeoutMs= (session.ts); ?dev=1 dev overlay.
  */
 import "./style.css";
 import Phaser from "phaser";
@@ -16,9 +16,8 @@ import type { LogEvent } from "./contracts";
 import { LevelModel } from "./level/LevelModel";
 import { loadSaveInto, type LoadResult } from "./level/save";
 import { decodeShareCode } from "./level/share";
-import { logEvent } from "./research/log";
 import { config } from "./suggest/config";
-import { whenEditorReady, type EditorApi, type EditorLogger } from "./editor/api";
+import { registerGhostStarter, whenEditorReady, type EditorApi, type EditorLogger } from "./editor/api";
 import { ASSET } from "./editor/constants";
 import { EditorScene } from "./editor/EditorScene";
 import type { EditorAction } from "./editor/keys";
@@ -28,6 +27,8 @@ import { starterSnapshot } from "./editor/newLevel";
 import { PlaySettingsStore } from "./editor/playSettings";
 import { bindShortcuts } from "./editor/shortcuts";
 import { UIScene } from "./editor/UIScene";
+import { startGhost } from "./ghost/session";
+import { PewterApp } from "./session";
 import { isDialogOpen, openDialog } from "./ui/Dialog";
 import { h } from "./ui/dom";
 import { toggleHelp } from "./ui/HelpOverlay";
@@ -63,6 +64,8 @@ declare global {
       modes: ModeState;
       settings: PlaySettingsStore;
       api?: EditorApi;
+      /** The fill loop, session and research log (session.ts). */
+      app?: PewterApp;
     };
   }
 }
@@ -79,8 +82,10 @@ const model = new LevelModel();
 const modes = new ModeState("select");
 const settings = new PlaySettingsStore();
 const storage = browserStorage();
-/** Research log: writes to the active EventLog when the session has one. */
-const log: EditorLogger = (e: LogEvent) => logEvent(e);
+/** Session, research log, fillers, agent, fill loop and patrol (session.ts). */
+const app = new PewterApp({ model });
+/** Research log: buffered until the session resolves, then the session's EventLog. */
+const log: EditorLogger = (e: LogEvent) => app.log(e);
 const heldKeys = new Set<string>();
 
 // ---------------------------------------------------------------------------
@@ -150,7 +155,8 @@ const gameConfig: Phaser.Types.Core.GameConfig = {
 };
 const game = new Phaser.Game(gameConfig);
 
-window.__pewter = { model, scene: editorScene, game, config, modes, settings };
+window.__pewter = { model, scene: editorScene, game, config, modes, settings, app };
+registerGhostStarter((api) => app.attachEditor(api, startGhost));
 
 // ---------------------------------------------------------------------------
 // Saving
@@ -164,7 +170,10 @@ const saveSources: SaveSources = {
 const autosaver = new AutoSaver(saveSources, storage, 1000);
 model.subscribe(() => autosaver.schedule());
 settings.subscribe(() => autosaver.schedule());
-addEventListener("pagehide", () => autosaver.flush());
+addEventListener("pagehide", () => {
+  autosaver.flush();
+  app.unload();
+});
 addEventListener("beforeunload", () => autosaver.flush());
 if (!storage) toasts.show("This browser is not keeping local saves (private mode?). Use Save task to download your level.", { kind: "warn", ms: 8000 });
 
@@ -173,6 +182,7 @@ function doSaveTask(): void {
   const r = saveTask(saveSources, storage);
   downloadText(r.fileName, r.text);
   log({ type: "save", t: performance.now(), snapshotId: r.snapshotId });
+  void app.flushLog();
   toasts.show(r.storedLocally ? `Saved ${r.fileName}. A copy is kept in this browser.` : `Saved ${r.fileName}.`, {
     ms: 6000,
     actions: r.storedLocally ? [{ label: "Reload from save", run: confirmReload }] : [],
@@ -354,6 +364,7 @@ function localStorageHintShown(): boolean {
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
     autosaver.flush();
+    app.dispose();
     game.destroy(true);
   });
 }

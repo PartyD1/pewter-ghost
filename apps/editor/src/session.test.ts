@@ -244,7 +244,7 @@ describe("FillLoop", () => {
   });
 
   it("a failed answer is sent back once and both calls are logged with their verdicts", async () => {
-    // A filler that always proposes a floating block far from anything reachable.
+    // A filler that always proposes an enemy with no floor under it (fails the validator).
     let calls = 0;
     const bad: Filler = {
       name: "llm",
@@ -253,12 +253,12 @@ describe("FillLoop", () => {
         return {
           id: `bad${calls}`,
           kind: "extend",
-          adds: Array.from({ length: 30 }, (_, i) => ({ x: 40 + (i % 10), y: 2 + Math.floor(i / 10), tile: TILE.BLOCK })),
+          adds: [],
           removes: [],
-          entities: [],
+          entities: [{ kind: "slime", x: 16, y: 3 }],
           confidence: 0.9,
-          label: "a wall in the sky",
-          anchor: { x: 40, y: 2 },
+          label: "a slime in the sky",
+          anchor: { x: 16, y: 3 },
           requestHash: `${req.previousFailure ? "b" : "a"}`.repeat(64),
           filler: "llm",
           latencyMs: 1,
@@ -336,9 +336,9 @@ describe("FillLoop", () => {
     const l = makeLoop(new StubFiller(), { patrol: true });
     const { sink, offers } = managerSink(() => cfg);
     l.setGhost(sink);
-    // A platform 9 columns past the start platform's edge: a gap no jump clears.
+    // A platform past a 14-wide pit (start platform ends at x=11; the knight clears 11).
     model.beginStroke();
-    for (let x = 21; x <= 26; x++) model.paintTile(x, 15, TILE.GRASS);
+    for (let x = 26; x <= 31; x++) model.paintTile(x, 15, TILE.GRASS);
     model.endStroke();
     l.cancel(); // only the patrol trip matters here
     await waitFor(() => log.some((e) => e.type === "patrol"), 15000);
@@ -350,16 +350,12 @@ describe("FillLoop", () => {
     expect(o.request.mode).toBe("patrol");
     expect(o.request.blockedAt).toBeDefined();
     expect(o.request.previousFailure?.stage).toBe("agent");
-    if (o.verify?.verified) {
-      const v = o.verify.verified;
-      expect(v.kind).toBe("fix");
-      expect(v.mode).toBe("patrol");
-      expect(offers.some((s) => s.id === v.id)).toBe(true);
-    } else {
-      // The ≤3-tile repair cannot bridge every gap; then nothing unverified is shown.
-      expect(offers).toHaveLength(0);
-      expect(o.verify?.usedFallback || (o.verify?.verdicts.length ?? 0) > 0).toBe(true);
-    }
+    const v = o.verify?.verified;
+    expect(v, JSON.stringify(o.verify?.verdicts)).toBeTruthy();
+    expect(v!.kind).toBe("fix");
+    expect(v!.mode).toBe("patrol");
+    expect(v!.adds.length).toBeLessThanOrEqual(3);
+    expect(offers.some((s) => s.id === v!.id)).toBe(true);
   }, 30000);
 
   it("a scripted stub session passes the completeness checker", async () => {
@@ -438,5 +434,28 @@ describe("PewterApp boot", () => {
     expect(JSON.stringify(ev)).not.toContain("tok123");
     app.dispose();
     agent.dispose();
+  });
+});
+
+describe("no key in the bundle", () => {
+  it("app code reads import.meta.env only by static property (else Vite inlines every VITE_* var, the key too)", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const root = path.resolve(__dirname, "..", "..", "..");
+    const bad: string[] = [];
+    const walk = (dir: string) => {
+      for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, ent.name);
+        if (ent.isDirectory()) {
+          if (ent.name !== "node_modules" && !ent.name.startsWith("__")) walk(p);
+        } else if (/\.ts$/.test(ent.name) && !/\.test\.ts$/.test(ent.name)) {
+          const src = fs.readFileSync(p, "utf8");
+          if (/import\.meta\s+as\b|import\.meta\.env(?!\.[A-Z_]+\b)|import\.meta\.env\.VITE_LLM/.test(src)) bad.push(path.relative(root, p));
+        }
+      }
+    };
+    walk(path.join(root, "apps"));
+    walk(path.join(root, "packages"));
+    expect(bad).toEqual([]);
   });
 });

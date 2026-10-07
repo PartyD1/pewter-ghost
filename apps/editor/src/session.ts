@@ -186,10 +186,14 @@ export function sessionEvent(
   };
 }
 
+/**
+ * Build commit for the session event. ONLY a static property read (VITE_COMMIT):
+ * reading the whole env object makes Vite inline every VITE_*
+ * variable into the bundle (VITE_LLM_API_KEY included).
+ */
 function buildCommit(): string {
   try {
-    const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env;
-    return env?.VITE_COMMIT || "dev";
+    return import.meta.env.VITE_COMMIT || "dev";
   } catch {
     return "dev";
   }
