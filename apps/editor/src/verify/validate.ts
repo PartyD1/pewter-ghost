@@ -68,9 +68,15 @@ import {
 export const VALIDATION_BANDS = {
   /** Most cells (adds + removes + entities) one suggestion may touch. */
   maxCells: 160,
-  /** Density band: |merged - reference| <= densityAbs + densityRel * reference. */
+  /**
+   * Density band: |merged - reference| <= densityAbs + densityRel * reference.
+   * Started wide: the upper bound catches walls of solid fill. With
+   * densityRel < 1 the lower bound bites only once the drawing is dense
+   * (reference > densityAbs / (1 - densityRel) = 48%), e.g. an empty screen
+   * offered after screens of dense terrain; below that it is 0 (upper-only).
+   */
   densityAbs: 0.12,
-  densityRel: 1.0,
+  densityRel: 0.75,
   /** Widest gap the suggestion may involve, as a fraction of maxGapRun:
    * max(gapRatioFloor, widest gap in the last two screens + gapRatioSlack). */
   gapRatioSlack: 0.4,

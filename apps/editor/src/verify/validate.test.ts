@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import fc from "fast-check";
-import { ENEMY_KINDS, SOLID_TILES, TILE, type Suggestion } from "../contracts";
+import { ENEMY_KINDS, SOLID_TILES, TILE, type Point, type Suggestion } from "../contracts";
 import { ents, GROUND, groundRows, H, modelFrom, rect, snapshotFrom, sugg, W } from "./__fixtures__/levels";
+import { BH, BW, frame, gridFromCells, isStandable, Level, search, settleStart, spawnBody, T, type SolidGrid } from "@physsim";
 import { mergeSuggestion } from "./merge";
 import { validateSuggestion, VALIDATION_BANDS } from "./validate";
 
@@ -227,9 +228,86 @@ describe("validateSuggestion: property", () => {
 
 describe("VALIDATION_BANDS", () => {
   it("are exported and start wide", () => {
-    expect(VALIDATION_BANDS.densityRel).toBeGreaterThanOrEqual(1);
+    // Wide: the lower bound only bites on dense drawings (see VALIDATION_BANDS).
+    expect(VALIDATION_BANDS.densityRel).toBeGreaterThanOrEqual(0.5);
+    expect(VALIDATION_BANDS.densityRel).toBeLessThan(1);
     expect(VALIDATION_BANDS.enemyMinPatrol).toBe(4);
     expect(VALIDATION_BANDS.enemyLandingClearance).toBe(2);
     expect(snapshotFrom(groundRows([[0, 3]])).w).toBe(W);
   });
+});
+
+describe("validateSuggestion: density band lower bound", () => {
+  it("rejects a near-empty screen after dense drawing, but not after sparse drawing", () => {
+    // Columns 4..47 solid from y=3 down (~70% dense) in a 96-wide level; the
+    // suggestion opens a near-empty screen beyond.
+    const dense = modelFrom(groundRows([[0, 47]], 96, H, (x, y) => (x >= 4 && x <= 47 && y >= 3 ? "#" : undefined)));
+    const thin = sugg({ adds: rect(60, 62, H - 1, H - 1) });
+    const v = validateSuggestion(dense, thin, { frontierX: 47 });
+    expect(v).toMatchObject({ ok: false, stage: "measure" });
+    expect(v.reason).toMatch(/solid; the drawing so far is/);
+    // The same thin suggestion after ordinary ground passes.
+    expect(validateSuggestion(base(), sugg({ adds: rect(20, 22, H - 1, H - 1) }), { frontierX: 19 }).ok).toBe(true);
+  });
+});
+
+/**
+ * Agent reachability of a coin: some standing cell within 8 columns is reached
+ * by the physics agent from the start, and from it a jump (run-up of r frames,
+ * jump held k frames, direction kept) makes the knight's body overlap the
+ * coin's tile. The agent's search only ends on the ground, so the airborne
+ * part is played out here with the same frame() physics.
+ */
+function coinReachable(grid: SolidGrid, start: Point, coin: Point): boolean {
+  const L = new Level(grid);
+  const hits = (b: { x: number; y: number }) =>
+    b.x < (coin.x + 1) * T && b.x + BW > coin.x * T && b.y < (coin.y + 1) * T && b.y + BH > coin.y * T;
+  for (let sx = Math.max(0, coin.x - 8); sx <= Math.min(grid.w - 1, coin.x + 8); sx++)
+    for (let sy = 0; sy + 1 < grid.h; sy++) {
+      if (!isStandable(grid, sx, sy)) continue;
+      const here = { x: sx, y: sy };
+      if (!(sx === start.x && sy === start.y) && !search(grid, start, here, { xRange: [0, grid.w - 1], capMs: 2000 }).found) continue;
+      for (const dir of [-1, 0, 1] as const)
+        for (const runUp of [0, 4, 8, 16, 30])
+          for (const hold of [1, 4, 8, 12, 16, 20, 30]) {
+            const b = spawnBody(sx, sy, L);
+            for (let f = 0; f < runUp + 120; f++) {
+              const jumping = f >= runUp && f < runUp + hold;
+              frame(L, b, dir, jumping);
+              if (hits(b)) return true;
+            }
+          }
+    }
+  return false;
+}
+
+describe("G-26: every accepted arc coin is reachable by the agent", () => {
+  const fixtures: { name: string; rows: string[]; coins: [number, number][] }[] = [
+    {
+      name: "coins over a 4-wide pit",
+      rows: groundRows([[0, 19], [24, 47]]),
+      coins: [[20, 5], [21, 4], [22, 4], [23, 5]],
+    },
+    {
+      name: "hop arc over flat ground",
+      rows: groundRows([[0, 47]]),
+      coins: [[30, 5], [31, 4], [32, 5]],
+    },
+    {
+      name: "coins up to a raised ledge",
+      rows: groundRows([[0, 47]], W, H, (x, y) => (x >= 26 && x <= 34 && y >= GROUND - 2 ? "#" : undefined)),
+      coins: [[24, 4], [25, 3]],
+    },
+  ];
+  for (const f of fixtures) {
+    it(f.name, () => {
+      const level = modelFrom(f.rows);
+      const s = sugg({ entities: ents("coin", f.coins) });
+      expect(validateSuggestion(level, s).ok).toBe(true);
+      const snap = level.snapshot();
+      const grid = gridFromCells(snap.cells, snap.w, snap.h);
+      const start = settleStart(grid, snap.start)!;
+      for (const [x, y] of f.coins) expect(coinReachable(grid, start, { x, y }), `coin (${x},${y}) in "${f.name}"`).toBe(true);
+    });
+  }
 });

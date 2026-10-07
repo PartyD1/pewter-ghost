@@ -109,18 +109,20 @@ describe("Patrol", () => {
     p.stop();
   });
 
-  it("an over-cap run the rules call fine is inconclusive, not blocked", async () => {
+  it("an over-cap run the rules call fine is inconclusive, not blocked (and not logged)", async () => {
     const level = modelFrom(groundRows([[0, 30]]));
     const onBlocked = vi.fn();
+    const log = vi.fn();
     const slow = {
       async patrol(_q: AgentQuery): Promise<AgentResult> {
         return { found: false, path: [], nodes: 1, ms: 1000, timedOut: true, exhausted: false, rules: { ok: true, path: [], unreachable: [], ms: 1 } };
       },
     };
-    const p = new Patrol({ level, agent: slow, config, onBlocked });
+    const p = new Patrol({ level, agent: slow, config, onBlocked, log });
     const r = await p.runNow();
     expect(r.beatable).toBeNull();
     expect(onBlocked).not.toHaveBeenCalled();
+    expect(log).not.toHaveBeenCalled();
   });
 
   it("runs after patrolIdleMs of no edits; edits restart the countdown", async () => {
@@ -172,6 +174,37 @@ describe("verifyPatrolFix", () => {
     // Accepting it makes the level beatable to the frontier.
     level.applySuggestion(out.verified as Suggestion);
     expect((await new Patrol({ level, agent, config }).runNow()).beatable).toBe(true);
+  });
+
+  it("rejects a fix drawn away from the block and uses the fallback", async () => {
+    const level = pitLevel();
+    const r = await new Patrol({ level, agent, config }).runNow();
+    const blocked = r.blocked!;
+    // A tile on the runway, far left of the pit: valid on its own, fixes nothing.
+    const unrelated = (id: string) => sugg({ id, kind: "fix", mode: "patrol", adds: [{ x: 5, y: GROUND - 1, tile: TILE.GRASS }], latencyMs: 100 });
+    const requests: FillRequest[] = [];
+    const filler = { fill: vi.fn(async (q: FillRequest) => (requests.push(q), unrelated("second"))) };
+    const out = await verifyPatrolFix(level, patrolRequest(fillRequest(), blocked), unrelated("first"), filler, blocked, { agent, config });
+    expect(out.verdicts[0]).toMatchObject({ ok: false, stage: "agent", source: "model" });
+    expect(out.verdicts[0].reason).toMatch(/does not get the knight past/);
+    expect(requests[0].previousFailure?.reason).toMatch(/does not get the knight past/);
+    expect(out.verdicts[1]).toMatchObject({ ok: false, attempt: 2 });
+    expect(out.usedFallback).toBe(true);
+    expect(out.verified).toMatchObject({ filler: "algo" });
+    level.applySuggestion(out.verified as Suggestion);
+    expect((await new Patrol({ level, agent, config }).runNow()).beatable).toBe(true);
+  });
+
+  it("a slow unrelated fix goes straight to the fallback (last allowed model attempt)", async () => {
+    const level = pitLevel();
+    const blocked = (await new Patrol({ level, agent, config }).runNow()).blocked!;
+    const fix = sugg({ id: "slow", kind: "fix", mode: "patrol", adds: [{ x: 5, y: GROUND - 1, tile: TILE.GRASS }], latencyMs: 5000 });
+    const filler = { fill: vi.fn() };
+    const out = await verifyPatrolFix(level, fillRequest(), fix, filler, blocked, { agent, config });
+    expect(filler.fill).not.toHaveBeenCalled();
+    expect(out.attempts).toBe(1);
+    expect(out.usedFallback).toBe(true);
+    expect(isVerified(out.verified)).toBe(true);
   });
 
   it("keeps the model's fix when it works", async () => {
