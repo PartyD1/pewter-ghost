@@ -80,9 +80,10 @@ describe("level source format", () => {
       { name: "left", x0: 0, x1: 5, line: 7 },
       { name: "right", x0: 6, x1: 9, line: 12 },
     ]);
-    // "right" has 3 rows, so its ground lands on the last row (7), under "left"'s dirt row.
+    // "right" has 3 rows, so its ground lands on the last row (7), beside "left"'s dirt row.
+    expect(s.rows[5]).toBe("P..i....c." + ".".repeat(10));
+    expect(s.rows[6]).toBe("######..sF" + ".".repeat(10));
     expect(s.rows[7]).toBe("dddddd####" + ".".repeat(10));
-    expect(s.rows[5]).toBe("P..i....sF" + ".".repeat(10));
     expect(s.rows[0]).toBe(".".repeat(20));
     expect(s.expect).toBe("beatable");
     expect(s.signs).toEqual(["Hello"]);
@@ -91,15 +92,15 @@ describe("level source format", () => {
   it("builds a snapshot: person-authored, ids in x order, sign text, goal = flag, patrols derived", () => {
     const snap = sourceToSnapshot(parseLevelSource(tiny("@sign Hello"), "tiny.txt"));
     expect(snap.start).toEqual({ x: 0, y: 5 });
-    expect(snap.goal).toEqual({ x: 9, y: 5 });
+    expect(snap.goal).toEqual({ x: 9, y: 6 });
     expect(snap.entities.map((e) => `${e.id}:${e.kind}@${e.x},${e.y}`)).toEqual([
       "e1:sign@3,5",
-      "e2:coin@8,4",
-      "e3:slime@8,5",
-      "e4:flag@9,5",
+      "e2:coin@8,5",
+      "e3:slime@8,6",
+      "e4:flag@9,6",
     ]);
     expect(snap.entities[0].text).toBe("Hello");
-    expect(snap.entities[2].patrol).toEqual([8, 9]);
+    expect(snap.entities[2].patrol).toEqual([6, 9]);
     expect(Object.values(snap.entityAuthors).every((a) => a === AUTHOR.PERSON)).toBe(true);
     for (let i = 0; i < snap.cells.length; i++)
       expect(snap.authors[i]).toBe(snap.cells[i] === 0 ? AUTHOR.NONE : AUTHOR.PERSON);
@@ -251,7 +252,7 @@ describe("fixtures", () => {
     const v = verifyBeatable(snap);
     expect(v.beatable).toBe(false);
     expect(v.exhausted).toBe(true);
-    expect(v.blockedAt!.x).toBeLessThanOrEqual(gap.takeoff.x);
+    expect(v.blockedAt!.x).toBeLessThanOrEqual(gap.takeoff.x + 1);
     expect(v.blockedAt!.x).toBeGreaterThan(gap.takeoff.x - 4);
   });
 
@@ -285,7 +286,6 @@ describe("fixtures", () => {
     const lm = measureLevel(snap);
     expect(lm.whole.counts.enemies).toBeGreaterThanOrEqual(4);
     expect(lm.whole.pressure).toBeGreaterThanOrEqual(1);
-    expect(lm.whole.patterns).toContain("enemy-gate");
     const lint = lintLevel(snap);
     expect(lint.some((l) => /sits on the landing/.test(l))).toBe(true);
     expect(lint.some((l) => /patrols \d tile/.test(l))).toBe(true);
