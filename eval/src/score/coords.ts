@@ -171,7 +171,7 @@ export function scoreCoords(
         standables.some((s) => {
           const dx = Math.abs(c.x - s.x);
           const up = s.y - c.y; // > 0: the group is above the surface
-          return dx <= knight.maxGapRun + 1 && up <= knight.maxRise + 1 && up >= -(level.h);
+          return dx <= knight.maxGapRun + 1 && up <= knight.maxRise;
         }),
       );
     // The bottom row is a death pit: a lone group there with nothing to touch is junk.
