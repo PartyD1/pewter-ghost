@@ -11,7 +11,7 @@ import { EnemySprite, type EnemyHost } from "./EnemySprite";
 const WARN_TINT = 0xffe066;
 
 export class UltraSlime extends EnemySprite {
-  private state: UltraState = createUltraState();
+  private brain: UltraState = createUltraState();
   private blinkMs = 0;
 
   constructor(scene: Phaser.Scene, entity: Entity, host: EnemyHost) {
@@ -19,7 +19,7 @@ export class UltraSlime extends EnemySprite {
   }
 
   protected think(deltaMs: number, player: { x: number; y: number } | undefined): BrainStep {
-    const out = stepUltraSlime(this.state, deltaMs, { x: this.x, y: this.y }, player, this.range, this.host.tuning());
+    const out = stepUltraSlime(this.brain, deltaMs, { x: this.x, y: this.y }, player, this.range, this.host.tuning());
     if (out.warning) {
       this.blinkMs += deltaMs;
       if (Math.floor(this.blinkMs / 100) % 2 === 0) this.setTint(WARN_TINT);
@@ -38,7 +38,7 @@ export class UltraSlime extends EnemySprite {
   }
 
   protected resetBrain(): void {
-    this.state = createUltraState();
+    this.brain = createUltraState();
     this.blinkMs = 0;
     this.clearTint();
   }

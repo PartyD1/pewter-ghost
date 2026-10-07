@@ -56,7 +56,7 @@ export const UI_EVENT = {
 } as const;
 
 export class EditorScene extends Phaser.Scene {
-  renderer!: Renderer;
+  levelRenderer!: Renderer;
   camera!: CameraController;
   painter!: StrokePainter;
   pointer!: PointerBinding;
@@ -89,14 +89,14 @@ export class EditorScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(SKY_COLOR);
     this.physics.world.gravity.y = 0;
 
-    this.renderer = new Renderer(this, model);
+    this.levelRenderer = new Renderer(this, model);
     this.painter = new StrokePainter(model, {
       onBegin: (s) => this.events2.emit("stroke:begin", s),
       onEnd: (s) => this.events2.emit("stroke:end", s),
     });
     this.camera = new CameraController(
       this,
-      { w: this.renderer.widthPx, h: this.renderer.heightPx },
+      { w: this.levelRenderer.widthPx, h: this.levelRenderer.heightPx },
       () => this.painter.isActive,
     );
     this.camera.home(model.start);
@@ -118,7 +118,7 @@ export class EditorScene extends Phaser.Scene {
     this.play = new PlayController({
       scene: this,
       model,
-      renderer: this.renderer,
+      renderer: this.levelRenderer,
       camera: this.camera,
       settings: this.deps.settings,
       log: this.deps.log,
@@ -324,7 +324,7 @@ export class EditorScene extends Phaser.Scene {
     for (const c of this.cleanups.splice(0)) c();
     this.scale.off(Phaser.Scale.Events.RESIZE, this.onResize, this);
     this.pointer?.destroy();
-    this.renderer?.destroy();
+    this.levelRenderer?.destroy();
     retractEditorApi();
   }
 }

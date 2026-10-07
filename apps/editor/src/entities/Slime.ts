@@ -8,14 +8,14 @@ import { createSlimeState, SLIME, stepSlime, type BrainStep, type Shot, type Sli
 import { EnemySprite, type EnemyHost } from "./EnemySprite";
 
 export class Slime extends EnemySprite {
-  private state: SlimeState = createSlimeState();
+  private brain: SlimeState = createSlimeState();
 
   constructor(scene: Phaser.Scene, entity: Entity, host: EnemyHost) {
     super(scene, entity, host, SLIME.health);
   }
 
   protected think(deltaMs: number): BrainStep {
-    return stepSlime(this.state, deltaMs, this.x, this.range, this.host.tuning());
+    return stepSlime(this.brain, deltaMs, this.x, this.range, this.host.tuning());
   }
 
   protected pelletFor(_shot: Shot) {
@@ -23,6 +23,6 @@ export class Slime extends EnemySprite {
   }
 
   protected resetBrain(): void {
-    this.state = createSlimeState();
+    this.brain = createSlimeState();
   }
 }
