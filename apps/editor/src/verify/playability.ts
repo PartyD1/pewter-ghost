@@ -41,9 +41,9 @@ export interface AgentLike {
 export interface PlayabilityOptions {
   /** Columns of slack each side of the section. Default 2 (plan G-16). */
   margin?: number;
-  /** How far left of the suggestion to look for a standable start, in columns. Default 12. */
+  /** How far left of the suggestion to look for a standable start, in columns. Default 24 (a screen). */
   lookBehind?: number;
-  /** How far right of the suggestion to look for a standable goal, in columns. Default 12. */
+  /** How far right of the suggestion to look for a standable goal, in columns. Default 24 (a screen). */
   lookAhead?: number;
   /** Rule check options (tier, arc). xRange is set by the verifier. */
   rules?: Omit<RuleOptions, "xRange">;
@@ -94,8 +94,8 @@ export function sectionFor(
   const b = suggestionBounds(s);
   if (!b) return null;
   const margin = o.margin ?? 2;
-  const lookBehind = o.lookBehind ?? 12;
-  const lookAhead = o.lookAhead ?? 12;
+  const lookBehind = o.lookBehind ?? 24;
+  const lookAhead = o.lookAhead ?? 24;
   const midY = (b.y0 + b.y1) / 2;
 
   // From: nearest standable column left of the suggestion; prefer cells the

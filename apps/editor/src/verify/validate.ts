@@ -161,7 +161,7 @@ export function validateSuggestion(
 
   const merged = mergeSuggestion(before, suggestion);
   const tier = ctx.tier ?? DESIGN_TIER;
-  const rect = analysisRect(merged, suggestion);
+  const rect = analysisRect(merged, suggestion, tier);
   const analysis = analyzeWindow(merged, merged.entities, rect, { tier });
   const tags = suggestionTags(analysis, suggestion, bands);
 
@@ -309,14 +309,34 @@ function checkRepeat(
 // Stage 3: measure (bands, gaps, collectables, enemies)
 // ---------------------------------------------------------------------------
 
-/** One screen of columns centred on the suggestion (wider if the suggestion is), full height. */
-function analysisRect(snap: LevelSnapshot, s: Edits): Rect {
+/**
+ * The window the gap and enemy checks look at: the suggestion plus the
+ * knight's longest jump (+4) each side, so the surfaces it jumps from and to are in
+ * view; at least one screen wide; full height.
+ */
+function analysisRect(snap: LevelSnapshot, s: Edits, tier: Tier): Rect {
   const b = suggestionBounds(s)!;
-  const w = Math.min(snap.w, Math.max(SCREEN_COLS, b.x1 - b.x0 + 1 + 4));
-  const cx = (b.x0 + b.x1) / 2;
-  let x = Math.round(cx - w / 2);
-  x = Math.max(0, Math.min(snap.w - w, x));
+  const pad = knightLimits(tier).maxGapRun + 4;
+  let x0 = Math.max(0, b.x0 - pad);
+  let x1 = Math.min(snap.w - 1, b.x1 + pad);
+  while (x1 - x0 + 1 < Math.min(SCREEN_COLS, snap.w)) {
+    if (x0 > 0) x0--;
+    if (x1 < snap.w - 1) x1++;
+  }
+  return { x: x0, y: 0, w: x1 - x0 + 1, h: snap.h };
+}
+
+/** One screen (SCREEN_COLS, wider if the suggestion is) centred on the suggestion, full height. */
+function screenRect(snap: LevelSnapshot, b: { x0: number; x1: number }): Rect {
+  const w = Math.min(snap.w, Math.max(SCREEN_COLS, b.x1 - b.x0 + 1));
+  const x = Math.max(0, Math.min(snap.w - w, Math.round((b.x0 + b.x1 + 1) / 2 - w / 2)));
   return { x, y: 0, w, h: snap.h };
+}
+
+function densityIn(snap: LevelSnapshot, r: Rect): number {
+  let n = 0;
+  for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (SOLID_TILES.has(snap.cells[y * snap.w + x])) n++;
+  return r.w * r.h ? n / (r.w * r.h) : 0;
 }
 
 const near = (p: Point, b: { x0: number; x1: number; y0: number; y1: number }, d: number) =>
@@ -356,12 +376,12 @@ function checkMeasure(
     const tol = bands.densityAbs + bands.densityRel * refDensity;
     const lo = Math.max(0, refDensity - tol);
     const hi = refDensity + tol;
-    const d = analysis.density;
+    const d = densityIn(merged, screenRect(merged, b));
     if (d > hi || d < lo) {
       const pct = (v: number) => `${Math.round(v * 100)}%`;
       return {
         stage: "measure",
-        reason: `with this suggestion the screen around ${spanText(analysis.rect.x, analysis.rect.x + analysis.rect.w - 1)} is ${pct(d)} solid; the drawing so far is ${pct(refDensity)} (keep it within ${pct(lo)}..${pct(hi)})`,
+        reason: `with this suggestion the screen around ${spanText(b.x0, b.x1)} is ${pct(d)} solid; the drawing so far is ${pct(refDensity)} (keep it within ${pct(lo)}..${pct(hi)})`,
       };
     }
   }
