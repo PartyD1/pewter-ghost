@@ -18,8 +18,6 @@ const patrolReply =
     b.request.mode === "patrol" ? { fixture } : { fixture: "decline" };
 
 test.describe("patrol and fix", () => {
-  test.afterEach(({}, info) => void info);
-
   test("an unbeatable level gets a Fix ghost after idle", async ({ page }) => {
     const ed = await Editor.open(page, { proxy: { condition: "llm", fill: patrolReply("patrol-bridge-fix") } });
     await ed.pick("grass");
