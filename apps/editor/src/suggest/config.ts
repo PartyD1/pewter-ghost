@@ -68,6 +68,14 @@ export interface GhostConfig {
   adaptMax: number;
   /** Outcomes of one type in a row that trigger an adaptation step. */
   adaptRun: number;
+
+  // --- Fill loop (session.ts) ------------------------------------------------
+  /**
+   * Speculative fills: placements arriving within this many ms are coalesced
+   * into one request (a brush drag emits one placement per cell). The newest
+   * request always wins; this only avoids a call per cell.
+   */
+  fillDebounceMs: number;
 }
 
 export const DEFAULT_CONFIG: GhostConfig = {
@@ -103,6 +111,7 @@ export const DEFAULT_CONFIG: GhostConfig = {
   adaptMin: 0.5,
   adaptMax: 0.95,
   adaptRun: 2,
+  fillDebounceMs: 40,
 };
 
 export const config: GhostConfig = structuredClone(DEFAULT_CONFIG);

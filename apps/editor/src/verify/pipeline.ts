@@ -88,11 +88,13 @@ export async function verifyOnce(
   if (!v.ok) return v;
   if (suggestionCells(s).length === 0) return { ok: false, stage: "shape", reason: "the answer changes nothing", ms: v.ms };
   const p = await verifyPlayability(level, s, deps.agent, cfg, { ...deps.playability, signal: deps.signal });
-  if (!p.ok || !deps.extraCheck) return { ...p, ms: v.ms + p.ms };
+  // Keep the validator's pattern tags on the final verdict (lastGhosts.patterns, G-25).
+  const tagged = <T extends Verdict>(x: T): T => (v.tags ? Object.assign(x, { tags: v.tags }) : x);
+  if (!p.ok || !deps.extraCheck) return tagged({ ...p, ms: v.ms + p.ms });
   throwIfAborted(deps.signal);
   const x = await deps.extraCheck(mergeSuggestion(snapshotOf(level), s), s, deps.signal);
-  if (x && !x.ok) return { ...x, ms: v.ms + p.ms + x.ms };
-  return { ...p, ms: v.ms + p.ms + (x?.ms ?? 0) };
+  if (x && !x.ok) return tagged({ ...x, ms: v.ms + p.ms + x.ms });
+  return tagged({ ...p, ms: v.ms + p.ms + (x?.ms ?? 0) });
 }
 
 /**
