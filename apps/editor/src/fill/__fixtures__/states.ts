@@ -46,10 +46,12 @@ export function freshStart(): FixtureState {
   const { model, stream, tick, row, now } = setup();
   model.paint(row(15, 0, 19, TILE.GRASS));
   tick(1500);
+  model.beginStroke();
   for (const x of [12, 13, 14]) {
     tick(140);
     model.paintTile(x, 12, TILE.BLOCK);
   }
+  model.endStroke();
   tick(900);
   return { name: "fresh-start", model, stream, now: now() };
 }

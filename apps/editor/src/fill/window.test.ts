@@ -62,22 +62,25 @@ describe("golden windows", () => {
 });
 
 describe("window placement", () => {
-  it("fresh start: frontier at the floor's end, window clamped at x=0", () => {
+  it("fresh start: frontier at the floor's end, window shifted toward it", () => {
     const req = build(freshStart());
-    expect(req.origin).toEqual({ x: 0, y: 8 });
+    // Stroke centre x=13, frontier x=19: centre moves 3 toward the frontier.
+    expect(req.origin).toEqual({ x: 4, y: 8 });
     expect(req.size).toEqual({ w: 24, h: 12 });
     // Frontier: rightmost floor column 19, top row 15 -> window-relative.
-    expect(req.frontier).toEqual({ x: 19, y: 7, idleMs: 900 });
+    expect(req.frontier).toEqual({ x: 15, y: 7, idleMs: 900 });
   });
 
-  it("mid staircase: last stroke inside, frontier biased to ~60% of the width", () => {
+  it("mid staircase: last stroke, ghost steps and frontier all inside, bias capped", () => {
     const fx = midStaircase();
     const req = build(fx);
     const f = fx.stream.frontier(fx.model, fx.now)!;
-    const fr = levelToWindow(f, req);
-    expect(fr.x).toBeGreaterThanOrEqual(12);
-    expect(fr.x).toBeLessThanOrEqual(16);
+    expect(f).toMatchObject({ x: 70, y: 17, direction: "horizontal" });
+    expect(inWindow(levelToWindow(f, req), req)).toBe(true);
     for (const e of fx.stream.lastStroke()) expect(inWindow(levelToWindow(e, req), req)).toBe(true);
+    for (const x of [50, 51, 52]) expect(inWindow(levelToWindow({ x, y: 15 }, req), req)).toBe(true);
+    // Stroke centre 55 shifted by at most a quarter window (6) toward x=70.
+    expect(req.origin.x).toBe(55 + 6 - 12);
   });
 
   it("vertical tower: room above the frontier", () => {
@@ -85,16 +88,19 @@ describe("window placement", () => {
     const req = build(fx);
     expect(fx.stream.direction()).toBe("vertical");
     const top = fx.stream.frontier(fx.model, fx.now)!;
-    expect(top.y).toBe(6);
+    // The fruit placed on top is the last stroke and the highest placement.
+    expect(top).toMatchObject({ x: 103, y: 5 });
     const rel = levelToWindow(top, req);
-    expect(rel.y).toBeGreaterThanOrEqual(3);
-    expect(rel.y).toBeLessThanOrEqual(5);
+    expect(rel.y).toBe(4); // ~40% from the top
+    expect(inWindow(rel, req)).toBe(true);
   });
 
-  it("patrol: centred on blockedAt and clamped to the right edge", () => {
+  it("patrol: blockedAt ~40% from the left, far side in view", () => {
     const fx = patrolRightEdge();
     const req = build(fx);
-    expect(req.origin.x).toBe(200 - 24);
+    expect(req.origin).toEqual({ x: 185 - 9, y: 8 });
+    expect(req.blockedAt).toEqual({ x: 9, y: 7 });
+    expect(gridRows(req.grid)[7][22]).toBe("F"); // the far side (flag) is in view
     expect(req.blockedAt).toEqual(levelToWindow(fx.blockedAt!, req));
     expect(req.mode).toBe("patrol");
     expect(req.previousFailure?.stage).toBe("agent");
@@ -113,7 +119,7 @@ describe("window placement", () => {
     expect(l).toEqual({ x: 0, y: 0, w: 24, h: 12 });
   });
 
-  it("drawing leftward: the stroke stays inside even when the frontier is to its right", () => {
+  it("a far frontier: the window follows the stroke, shifted at most a quarter window", () => {
     const r = placeWindow({
       levelW: 200,
       levelH: 20,
@@ -123,7 +129,8 @@ describe("window placement", () => {
       frontier: { x: 100, y: 10, direction: "horizontal" },
     });
     expect(80 - r.x).toBeGreaterThanOrEqual(2);
-    expect(100 - r.x).toBeLessThanOrEqual(23);
+    // Centre moved toward the frontier by the cap (a quarter window), no more.
+    expect(r.x).toBe(80 + 6 - 12);
   });
 
   it("uses the level start when nothing has been drawn", () => {
@@ -156,33 +163,37 @@ describe("grid format", () => {
       const p = levelToWindow({ x, y }, req);
       return rows[p.y][p.x];
     };
-    expect(at(40, 17)).toBe("D"); // person dirt
+    expect(at(60, 17)).toBe("D"); // person dirt
     expect(at(50, 16)).toBe("g"); // ghost grass
     expect(fx.model.authorAt(50, 16)).toBe(AUTHOR.GHOST);
     expect(at(55, 13)).toBe("G"); // person grass
-    expect(at(46, 13)).toBe("o"); // coin
+    expect(at(52, 13)).toBe("o"); // coin (accepted with the ghost steps)
     expect(at(62, 16)).toBe("S"); // slime
     expect(at(60, 16)).toBe("~"); // its patrol span
     expect(req.grid).toMatch(/Enemies: slime \(\d+,\d+\) patrols x \d+\.\.\d+\./);
   });
 
   it("marks the start, flag, sign and ultraslime", () => {
-    const req = build(patrolRightEdge());
-    const rows = gridRows(req.grid).join("\n");
+    const fx = patrolRightEdge();
+    const rows = renderCells(fx.model, { x: 176, y: 8, w: 24, h: 12 }).join("\n");
     expect(rows).toContain("F");
     expect(rows).toContain("!");
     expect(rows).toContain("U");
     expect(rows).toContain("Q");
-    const fresh = build(freshStart());
-    const p = levelToWindow({ x: 2, y: 14 }, fresh);
-    expect(gridRows(fresh.grid)[p.y][p.x]).toBe("@");
+    const fresh = freshStart();
+    expect(renderCells(fresh.model, { x: 0, y: 8, w: 24, h: 12 })[6][2]).toBe("@");
   });
 
   it("renders a level smaller than the window without out-of-level cells", () => {
     const m = new LevelModel({ w: 8, h: 5, clock: () => 0 });
     m.paintTile(3, 4, TILE.GRASS);
-    const cells = renderCells(m, { x: 0, y: 0, w: 8, h: 5 });
-    expect(cells).toEqual(["........", "........", "........", "..@.....".replace("@", ".").slice(0, 8), "...G...."].map((r, i) => (i === 3 ? r : r)));
+    m.setStart({ x: 3, y: 3 });
+    expect(renderCells(m, { x: 0, y: 0, w: 8, h: 5 })).toEqual(["........", "........", "........", "...@....", "...G...."]);
+    const req = buildFillRequest(m, new PlacementStream({ clock: () => 0 }), { now: 0, cols: 24, rows: 12 });
+    expect(req.size).toEqual({ w: 8, h: 5 });
+    expect(req.origin).toEqual({ x: 0, y: 0 });
+    expect(gridRows(req.grid)).toEqual(["........", "........", "........", "...@....", "...G...."]);
+    expect(req.grid).not.toContain("/");
   });
 });
 

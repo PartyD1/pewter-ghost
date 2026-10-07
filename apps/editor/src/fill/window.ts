@@ -131,11 +131,11 @@ export interface PlaceWindowInput {
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /**
- * Where the window goes. Horizontal drawing: the frontier sits at ~60% of the
- * width (room ahead to extend) while the last stroke stays at least 2 columns
- * inside; rows centre between stroke and frontier with the stroke at least one
- * row inside. Vertical drawing: the frontier sits at ~40% of the height (room
- * above). A focus point (patrol) is centred. Always clamped to the level.
+ * Where the window goes. Centred on the last stroke, shifted toward the
+ * frontier by half the distance (at most a quarter of the window), with the
+ * stroke's centre kept at least 2 columns / 1 row inside. Vertical drawing:
+ * the frontier sits ~40% from the top (room above to keep climbing). A focus
+ * point (patrol blockedAt) sits ~40% from the left, centred vertically. Always clamped to the level.
  */
 export function placeWindow(inp: PlaceWindowInput): Rect {
   const w = Math.max(1, Math.min(inp.cols, inp.levelW));
@@ -147,7 +147,8 @@ export function placeWindow(inp: PlaceWindowInput): Rect {
     h,
   });
 
-  if (inp.focus) return fit(inp.focus.x - Math.floor(w / 2), inp.focus.y - Math.floor(h / 2));
+  // Patrol: the blocking point ~40% from the left, so the far side of the obstacle shows.
+  if (inp.focus) return fit(inp.focus.x - Math.floor(w * 0.4), inp.focus.y - Math.floor(h / 2));
 
   const f = inp.frontier;
   let sx0: number, sx1: number, sy0: number, sy1: number;
@@ -167,15 +168,19 @@ export function placeWindow(inp: PlaceWindowInput): Rect {
   const keepX = (x0: number) => (w >= 5 ? Math.min(Math.max(x0, cx - w + 3), cx - 2) : x0);
   const keepY = (y0: number) => (h >= 3 ? Math.min(Math.max(y0, cy - h + 2), cy - 1) : y0);
 
+  // Shift the centre toward the frontier by half the distance, at most a quarter window.
+  const bias = (from: number, to: number, size: number) => {
+    const lim = Math.floor(size / 4);
+    return clamp(Math.round((to - from) / 2), -lim, lim);
+  };
+  const bx = f ? bias(cx, f.x, w) : 0;
   if (f && f.direction === "vertical") {
+    // Frontier ~40% from the top: room above to keep climbing.
     const y0 = keepY(f.y - Math.floor(h * 0.4));
-    const x0 = Math.round((cx + f.x) / 2) - Math.floor(w / 2);
-    return fit(keepX(x0), y0);
+    return fit(keepX(cx + bx - Math.floor(w / 2)), y0);
   }
-  const x0 = f ? keepX(f.x - Math.floor(w * 0.6)) : cx - Math.floor(w / 2);
-  const my = f ? Math.round((cy + f.y) / 2) : cy;
-  const y0 = keepY(my - Math.floor(h / 2));
-  return fit(x0, y0);
+  const by = f ? bias(cy, f.y, h) : 0;
+  return fit(keepX(cx + bx - Math.floor(w / 2)), keepY(cy + by - Math.floor(h / 2)));
 }
 
 // ---------------------------------------------------------------------------

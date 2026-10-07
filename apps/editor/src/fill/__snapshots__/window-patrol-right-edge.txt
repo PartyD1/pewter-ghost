@@ -1,0 +1,156 @@
+Window 24x12 = level x 176..199, y 8..19. All coordinates are window-relative: x 0..23 right, y 0..11 down.
+Legend: . empty | G grass D dirt B block H half-block Q ?-block (person's) | g d b h q same tiles accepted from Ghost | o coin * fruit S slime U ultraslime ~ enemy patrol F flag ! sign @ knight start
+   000000000011111111112222
+   012345678901234567890123
+ 0 ........................
+ 1 ........................
+ 2 ........................
+ 3 ........................
+ 4 ..............Q.........
+ 5 ........................
+ 6 ........................
+ 7 ~~!~~U~~~~............F.
+ 8 GGGGGGGGGG..........GGGG
+ 9 DDDDDDDDDD..........DDDD
+10 ........................
+11 ........................
+Enemies: ultraslime (5,7) patrols x 0..9.
+
+--- fields (brief: 393 chars, placeholder-0) ---
+{
+ "origin": {
+  "x": 176,
+  "y": 8
+ },
+ "size": {
+  "w": 24,
+  "h": 12
+ },
+ "recent": [
+  {
+   "dt": 0,
+   "x": 6,
+   "y": 9,
+   "tile": "dirt",
+   "tool": "paint"
+  },
+  {
+   "dt": 0,
+   "x": 7,
+   "y": 9,
+   "tile": "dirt",
+   "tool": "paint"
+  },
+  {
+   "dt": 0,
+   "x": 8,
+   "y": 9,
+   "tile": "dirt",
+   "tool": "paint"
+  },
+  {
+   "dt": 0,
+   "x": 9,
+   "y": 9,
+   "tile": "dirt",
+   "tool": "paint"
+  },
+  {
+   "dt": 0,
+   "x": 20,
+   "y": 9,
+   "tile": "dirt",
+   "tool": "paint"
+  },
+  {
+   "dt": 0,
+   "x": 21,
+   "y": 9,
+   "tile": "dirt",
+   "tool": "paint"
+  },
+  {
+   "dt": 0,
+   "x": 22,
+   "y": 9,
+   "tile": "dirt",
+   "tool": "paint"
+  },
+  {
+   "dt": 0,
+   "x": 23,
+   "y": 9,
+   "tile": "dirt",
+   "tool": "paint"
+  },
+  {
+   "dt": 0,
+   "x": 14,
+   "y": 4,
+   "tile": "question",
+   "tool": "paint"
+  },
+  {
+   "dt": 0,
+   "x": 22,
+   "y": 7,
+   "tile": "flag",
+   "tool": "paint"
+  },
+  {
+   "dt": 0,
+   "x": 2,
+   "y": 7,
+   "tile": "sign",
+   "tool": "paint"
+  },
+  {
+   "dt": 0,
+   "x": 5,
+   "y": 7,
+   "tile": "ultraslime",
+   "tool": "paint"
+  }
+ ],
+ "frontier": {
+  "x": 14,
+  "y": 4,
+  "idleMs": 4000
+ },
+ "knight": {
+  "maxGapStand": 8,
+  "maxGapRun": 11,
+  "maxRise": 6
+ },
+ "measured": {
+  "density": 0,
+  "gapHist": [
+   0,
+   0,
+   0,
+   0,
+   0
+  ],
+  "verticality": 0,
+  "rewardSpacing": 0,
+  "pressure": 0
+ },
+ "briefVersion": "placeholder-0",
+ "lastGhosts": [
+  {
+   "kind": "fix",
+   "label": "bridge the pit",
+   "outcome": "drawn-over"
+  }
+ ],
+ "mode": "patrol",
+ "previousFailure": {
+  "reason": "gap at x=186 is 10 wide; knight clears 8 standing",
+  "stage": "agent"
+ },
+ "blockedAt": {
+  "x": 9,
+  "y": 7
+ },
+ "summary": "Level 200x20, drawn up to x 23 (window-relative); left of window: empty; right: empty; start 174 cols left of window; flag in window."
+}
