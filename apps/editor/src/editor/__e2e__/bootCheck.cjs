@@ -139,6 +139,23 @@ function assert(cond, msg) {
     await page.mouse.click(p.x, p.y);
     assert((await tileAt(x0 + 6, row)) === 0, "Erase mode erased a tile");
 
+    // nudgeTo never moves the camera during a stroke; it runs once the stroke ends.
+    await page.click('[data-item="grass"]');
+    p = await screenOf(x0 + 2, row - 5);
+    await page.mouse.move(p.x, p.y);
+    await page.mouse.down();
+    const before = await page.evaluate(() => window.__pewter.scene.camera.centerPx);
+    await page.evaluate(() => window.__pewter.api.camera.nudgeTo(150, 10));
+    await page.waitForTimeout(600);
+    const during = await page.evaluate(() => window.__pewter.scene.camera.centerPx);
+    assert(during.x === before.x && during.y === before.y, "camera holds still during a stroke");
+    await page.mouse.up();
+    await page.waitForTimeout(700);
+    const after = await page.evaluate(() => window.__pewter.scene.camera.centerPx);
+    assert(after.x > before.x + 100, `nudge ran after the stroke (${before.x.toFixed(0)} -> ${after.x.toFixed(0)})`);
+    await page.evaluate(() => window.__pewter.scene.camera.home(window.__pewter.model.start));
+    await page.keyboard.press("Control+z");
+
     // Put a coin and a slime down so Play has entities.
     await page.click('[data-item="coin"]');
     p = await screenOf(x0 + 2, row - 1);
@@ -177,6 +194,59 @@ function assert(cond, msg) {
     const helpText = await page.locator("#pg-help").innerText();
     assert(/Tab/.test(helpText) && /Ctrl \+ Space/.test(helpText), "help lists Tab and Ctrl+Space");
     await page.keyboard.press("Escape");
+
+    // Play with enemies; run off the start platform to die; deaths are counted.
+    await page.evaluate(() => {
+      const m = window.__pewter.model;
+      m.placeEntity("slime", 9, 14);
+      m.placeEntity("ultraslime", 194, 14);
+      window.__pewterEnds = [];
+      window.__pewter.api.on("play:end", (r) => window.__pewterEnds.push(r));
+    });
+    const patrol = await page.evaluate(() => window.__pewter.model.entities.find((e) => e.kind === "slime").patrol);
+    assert(Array.isArray(patrol) && patrol[0] === 0 && patrol[1] === 11, `slime patrol span from the model ${JSON.stringify(patrol)}`);
+    await page.keyboard.press("p");
+    await page.keyboard.down("ArrowRight");
+    await page.waitForTimeout(2500);
+    await page.keyboard.up("ArrowRight");
+    const deaths = await page.evaluate(() => window.__pewter.scene.play.stats.deaths);
+    assert(deaths >= 1, `falling off counts a death (${deaths})`);
+    await page.keyboard.press("q");
+    await page.waitForTimeout(100);
+    let ends = await page.evaluate(() => window.__pewterEnds);
+    assert(ends.length === 1 && ends[0].reachedGoal === false && ends[0].deaths === deaths, "play.end reports deaths, no goal");
+
+    // Reaching the flag ends Play.
+    await page.evaluate(() => {
+      const m = window.__pewter.model;
+      const flag = m.entities.find((e) => e.kind === "flag");
+      m.removeEntity(flag.id);
+      m.placeEntity("flag", m.start.x + 5, m.start.y);
+    });
+    await page.keyboard.press("p");
+    await page.keyboard.down("ArrowRight");
+    await page.waitForFunction(() => window.__pewterEnds.length === 2, null, { timeout: 5000 });
+    await page.keyboard.up("ArrowRight");
+    ends = await page.evaluate(() => window.__pewterEnds);
+    assert(ends[1].reachedGoal === true, "touching the flag ends Play with reachedGoal");
+    assert(!(await page.evaluate(() => window.__pewter.api.isPlaying())), "editor is back after the goal");
+
+    // Play settings dialog changes a stored setting.
+    await page.click('[data-cmd="settings"]');
+    await page.locator('input[data-setting="gravityScale"]').fill("1.25");
+    await page.keyboard.press("Escape");
+    assert((await page.evaluate(() => window.__pewter.settings.get().gravityScale)) === 1.25, "gravity setting stored");
+
+    // Save task downloads a v2 file carrying the settings.
+    const [dl] = await Promise.all([page.waitForEvent("download"), page.click('[data-cmd="save"]')]);
+    const file = JSON.parse(fs.readFileSync(await dl.path(), "utf8"));
+    assert(file.version === 2 && file.playSettings && file.playSettings.gravityScale === 1.25, `Save task file ${dl.suggestedFilename()}`);
+
+    // Share code dialog produces a code.
+    await page.click('[data-cmd="share"]');
+    await page.waitForFunction(() => (document.querySelector("#pg-share-out") || {}).value?.startsWith("pg1."), null, { timeout: 5000 });
+    await page.keyboard.press("Escape");
+    assert(true, "share code generated");
 
     assert(errors.length === 0, `no console errors${errors.length ? ": " + errors.join(" | ") : ""}`);
     console.log("BOOT CHECK PASSED");

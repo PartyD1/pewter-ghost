@@ -77,7 +77,7 @@ export class Toolbar {
         cmd("share", "Share code", "Copy the level as a code, or open one"),
       ),
       h("div", { class: "pg-spacer" }),
-      h("div", { class: "pg-group" }, cmd("settings", "⚙ Play settings", "Gravity, speed, jump, enemies"), cmd("help", "? Help", "Keys (?)")),
+      h("div", { class: "pg-group" }, cmd("settings", "⚙ Settings", "Play settings: gravity, speed, jump, enemies"), cmd("help", "? Help", "Keys (?)")),
     );
     parent.append(this.el);
   }

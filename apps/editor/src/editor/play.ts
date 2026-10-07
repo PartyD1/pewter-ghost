@@ -36,6 +36,19 @@ import {
 import type { Renderer } from "./render";
 
 export const MAX_HEALTH = 5;
+/** Keys PlayerController registers (createCursorKeys + W,A,S,D). */
+const PLAYER_KEY_CODES = [
+  Phaser.Input.Keyboard.KeyCodes.UP,
+  Phaser.Input.Keyboard.KeyCodes.DOWN,
+  Phaser.Input.Keyboard.KeyCodes.LEFT,
+  Phaser.Input.Keyboard.KeyCodes.RIGHT,
+  Phaser.Input.Keyboard.KeyCodes.SPACE,
+  Phaser.Input.Keyboard.KeyCodes.SHIFT,
+  Phaser.Input.Keyboard.KeyCodes.W,
+  Phaser.Input.Keyboard.KeyCodes.A,
+  Phaser.Input.Keyboard.KeyCodes.S,
+  Phaser.Input.Keyboard.KeyCodes.D,
+];
 const INVULNERABLE_MS = 1000;
 const RESPAWN_DELAY_MS = 700;
 const STOMP_BOUNCE_PX = -360;
@@ -201,11 +214,9 @@ export class PlayController implements EnemyHost {
     scene.physics.world.gravity.y = 0;
     // The controller registered cursor and WASD keys (with capture); release them
     // so Space and arrows work in the editor and in text fields again.
+    // Only the controller's keys are removed: other modules' Phaser keys stay.
     const kb = scene.input.keyboard;
-    if (kb) {
-      kb.removeAllKeys(true);
-      kb.clearCaptures();
-    }
+    if (kb) for (const code of PLAYER_KEY_CODES) kb.removeKey(code, true, true);
     camera.stopFollow();
     renderer.setEditView(true);
     const result: PlayResult = { reachedGoal, deaths: this.deaths, coins: this.coins, timeMs: Math.round(this.elapsedMs) };

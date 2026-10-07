@@ -60,7 +60,7 @@ export function buildTextures(scene: Phaser.Scene): void {
     const g = textures.createCanvas(ASSET.grid, TILE_PX, TILE_PX);
     if (!g) throw new Error("could not create the grid texture");
     const ctx = g.context;
-    ctx.fillStyle = "rgba(20, 40, 70, 0.16)";
+    ctx.fillStyle = "rgba(20, 40, 70, 0.11)";
     ctx.fillRect(0, 0, TILE_PX, 1);
     ctx.fillRect(0, 1, 1, TILE_PX - 1);
     g.refresh();

@@ -88,7 +88,7 @@ export class CameraController implements CameraApi {
 
   /** Fit the level height and look at tile (x, y) near the left third of the screen. */
   home(focus: Point): void {
-    this._zoom = Phaser.Math.Clamp(fitZoom(this.viewport, this.levelPx) * 1.6, 1, 4);
+    this._zoom = this.homeZoom();
     const vw = this.viewport.w / this._zoom;
     this.center = { x: focus.x * TILE_PX + vw * 0.3, y: this.levelPx.h / 2 };
     this.apply();
@@ -124,7 +124,12 @@ export class CameraController implements CameraApi {
   }
 
   zoomReset(): void {
-    this.zoomBy(Phaser.Math.Clamp(fitZoom(this.viewport, this.levelPx) * 1.6, 1, 4) / this._zoom);
+    this.zoomBy(this.homeZoom() / this._zoom);
+  }
+
+  /** The whole level height in view (at least 1x, at most 4x). */
+  private homeZoom(): number {
+    return Phaser.Math.Clamp(fitZoom(this.viewport, this.levelPx), 1, 4);
   }
 
   /** Native wheel event (trackpad two-finger pan, pinch zoom, mouse wheel). */
