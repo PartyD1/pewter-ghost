@@ -105,7 +105,7 @@ describe("verifyPlayability", () => {
     await fc.assert(
       fc.asyncProperty(
         fc.integer({ min: 1, max: 14 }),
-        fc.integer({ min: -4, max: 3 }),
+        fc.integer({ min: -3, max: 4 }),
         fc.integer({ min: 2, max: 8 }),
         async (gap, rise, width) => {
           const m = modelFrom(groundRows([[0, 19]]));

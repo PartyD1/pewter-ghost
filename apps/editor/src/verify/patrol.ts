@@ -205,8 +205,8 @@ export class Patrol {
     if (c.source === "load" || c.start) this.invalidate();
     else if (this.checkpointCell) {
       const cp = this.checkpointCell;
-      // A change at or just right of the checkpoint can alter the run-up into it.
-      if (c.cells.some((p) => p.x <= cp.x + 1)) this.checkpointCell = null;
+      // A change at or left of the checkpoint can change the route into it.
+      if (c.cells.some((p) => p.x <= cp.x)) this.checkpointCell = null;
     }
     this.poke();
   }

@@ -13,10 +13,11 @@
  *               kinds in REPEAT_TAG_KINDS, i.e. Extend) the same pattern tags
  *               as BOTH of the last two ghosts (@measure tags).
  *  3. measure — on the merged level (the level as it would be after Tab):
- *               density of the window around the suggestion within a band
- *               around the drawing's last two screens; every gap the
- *               suggestion creates or lands on clearable at the design tier
- *               and no wider than a band around the widest gap drawn so far;
+ *               every gap the suggestion creates or lands on clearable at the
+ *               design tier; for finish/extend also the density of the screen
+ *               around it within a band around the drawing's last two
+ *               screens, and gaps no wider than a band around the widest gap
+ *               drawn so far (a fix is judged by playability instead);
  *               coins not flat on floors in a coin-looking level; enemies
  *               with >= 4 tiles of patrol and not within 2 tiles of a landing.
  *
@@ -39,7 +40,6 @@ import {
 } from "@measure";
 import { DESIGN_TIER, FULL_RUNWAY, knightLimits, maxGap, type Tier } from "@jump-tables";
 import {
-  COLLECTABLE_KINDS,
   ENEMY_KINDS,
   SOLID_TILES,
   type LevelSnapshot,
@@ -136,8 +136,6 @@ interface Fail {
   reason: string;
 }
 
-const kindLabel = (k: string) => k;
-
 /** Run every validation stage; first failure wins. */
 export function validateSuggestion(
   level: LevelSource,
@@ -220,14 +218,14 @@ function checkShape(
       return fail(`the tile at ${fmtP(a)} would bury the knight's start`);
     if (!isFix) {
       if (tile(a) !== 0)
-        return fail(`cell ${fmtP(a)} already holds a tile; a ${kindLabel(s.kind)} only adds to empty cells (use kind "fix" to change existing tiles)`);
+        return fail(`cell ${fmtP(a)} already holds a tile; a ${s.kind} only adds to empty cells (use kind "fix" to change existing tiles)`);
       const e = entityAt(a);
-      if (e) return fail(`cell ${fmtP(a)} holds a ${e.kind}; a ${kindLabel(s.kind)} only adds to empty cells`);
+      if (e) return fail(`cell ${fmtP(a)} holds a ${e.kind}; a ${s.kind} only adds to empty cells`);
     }
   }
 
   if (removes.length > 0 && !isFix)
-    return fail(`removes are only allowed in a fix; this answer is a ${kindLabel(s.kind)}`);
+    return fail(`removes are only allowed in a fix; this answer is a ${s.kind}`);
   const removeKeys = new Set<string>();
   for (const r of removes) {
     if (removeKeys.has(key(r))) return fail(`cell ${fmtP(r)} is removed twice`);
@@ -416,7 +414,8 @@ function checkMeasure(
           : `the knight clears ${clears}${t.runway < FULL_RUNWAY ? ` with a ${t.runway}-tile run-up (${full} with a full run-up)` : " with a full run-up"}`;
       return { stage: "measure", reason: `gap at x=${gx} is ${t.gap} wide${height}; ${clearText}` };
     }
-    if (t.gap > allowedGap) {
+    // The band is about style (finish / extend); a fix is judged by playability.
+    if (s.kind !== "fix" && t.gap > allowedGap) {
       const refGap = Math.round(refMaxRatio * limits.maxGapRun);
       return {
         stage: "measure",
@@ -474,10 +473,10 @@ function checkEnemies(merged: LevelSnapshot, a: WindowAnalysis, s: Edits, bands:
   return null;
 }
 
-/** For tests and the logger: is a suggestion's collectable set "coin-looking"? */
+/** Is the level (with the suggestion's coins) "coin-looking" by the G-26 rule? */
 export function isCoinLevel(level: LevelSource, s?: Pick<Suggestion, "entities">, bands: ValidationBands = VALIDATION_BANDS): boolean {
   const snap = snapshotOf(level);
-  const n = snap.entities.filter((e) => COLLECTABLE_KINDS.has(e.kind) && e.kind === "coin").length;
+  const n = snap.entities.filter((e) => e.kind === "coin").length;
   const m = s ? s.entities.filter((e) => e.kind === "coin").length : 0;
   return n >= bands.coinLevelMin || m >= bands.coinGroupForLevel;
 }
