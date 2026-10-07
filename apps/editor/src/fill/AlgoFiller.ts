@@ -178,6 +178,13 @@ export interface AlgoFillerOptions {
   /** Extend width bounds in columns (default 6..14). */
   minWidth?: number;
   maxWidth?: number;
+  /**
+   * Flat columns at the start and end of an Extend chunk (default 1 and 2).
+   * The person's own floor already gives the run-in, so the chunk spends its
+   * width on pieces; the rule check judges the run-up actually available.
+   */
+  startRun?: number;
+  endRun?: number;
   /** Jump tier for the generator caps and the rule check (default NORMAL). */
   tier?: Tier;
   timing?: Partial<AlgoTiming>;
@@ -326,7 +333,16 @@ export class AlgoFiller implements Filler {
     let best: Cand | null = null;
     let valid = 0;
     for (let k = 0; k < n; k++) {
-      const chunk = generateChunk({ w: width, h, ground: sy, seed: Math.abs(seedBase + k), profile, caps });
+      const chunk = generateChunk({
+        w: width,
+        h,
+        ground: sy,
+        seed: Math.abs(seedBase + k),
+        profile,
+        caps,
+        startRun: this.opts.startRun ?? 1,
+        endRun: this.opts.endRun ?? 2,
+      });
       const platform = new Set(chunk.platforms.map((p) => `${p.x},${p.y}`));
       const adds: ModelAnswer["adds"] = [];
       const merged = Uint8Array.from(g.solid);

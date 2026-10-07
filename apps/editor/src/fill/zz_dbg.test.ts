@@ -1,0 +1,22 @@
+import { it } from "vitest";
+import { chunkRows } from "@chunks";
+import { TILE } from "../contracts";
+import { LevelModel } from "../level/LevelModel";
+import { PlacementStream } from "./stream";
+import { buildFillRequest } from "./window";
+import { measureRequestWindow } from "./brief";
+import { AlgoFiller } from "./AlgoFiller";
+it("dbg", () => {
+  let t = 1000; const clock = () => t;
+  const model = new LevelModel({ clock });
+  const stream = new PlacementStream({ clock, recentCount: 12, pauseMs: 800, longPauseMs: 2500, newStructureTiles: 6 });
+  stream.attach(model);
+  const cells = []; for (let x = 0; x <= 20; x++) cells.push({ x, y: 15, tile: TILE.GRASS }, { x, y: 16, tile: TILE.DIRT });
+  model.paint(cells as any); t += 2000;
+  model.beginStroke(); model.paint([{ x: 21, y: 15, tile: TILE.GRASS }, { x: 21, y: 16, tile: TILE.DIRT }] as any); model.endStroke(); t += 1200;
+  const req = buildFillRequest(model, stream, { now: t, measure: measureRequestWindow, cols: 24, rows: 12 });
+  console.log(req.grid, JSON.stringify(req.frontier), JSON.stringify(req.origin));
+  const f = new AlgoFiller({ config: { kinds: { finish: false, extend: true, fix: true }, pauseMs: 800 } });
+  const p = f.propose(req);
+  console.log(p.valid, p.candidates, p.chunk?.desc, p.chunk && chunkRows(p.chunk).join("\n"));
+});
