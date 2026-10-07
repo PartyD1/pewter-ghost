@@ -1,0 +1,37 @@
+; Pewter Ghost level source. Build: npx tsx levels/build.ts (format: levels/README.md)
+; . empty  # grass  d dirt  B block  = half block  ? question block
+; c coin  f fruit  s slime  U ultraslime  F flag  i sign  P start
+@name enemy-cluster
+@kind fixture
+@title Enemy cluster
+@note Five enemies packed around two landings: pressure well above the brief's band and lint failures.
+@note Geometry alone is beatable (the agent does not model enemies).
+
+== start
+....................
+..P.................
+####################
+dddddddddddddddddddd
+dddddddddddddddddddd
+dddddddddddddddddddd
+dddddddddddddddddddd
+
+== cluster
+.....................
+................s.U..
+.....................
+....s.U..s.....######
+....########...dddddd
+....dddddddd...dddddd
+....dddddddd...dddddd
+....dddddddd...dddddd
+....dddddddd...dddddd
+
+== after
+...............................................................................................................................................................
+...........................................................................................................................................................F...
+...############################################################################################################################################################
+...dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+...dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+...dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+...dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd

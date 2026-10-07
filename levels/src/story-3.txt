@@ -1,0 +1,91 @@
+; Pewter Ghost level source. Build: npx tsx levels/build.ts (format: levels/README.md)
+; . empty  # grass  d dirt  B block  = half block  ? question block
+; c coin  f fruit  s slime  U ultraslime  F flag  i sign  P start
+@name story-3
+@kind reference
+@type story
+@title Lantern Hill
+@note Up a terraced hill to a lookout, a reveal of question blocks at the top, and down the far side.
+@sign The lanterns on the hill are lit tonight.
+@sign Terraces: one step at a time.
+@sign From the lookout you can see the whole valley.
+@sign Question blocks hold surprises.
+@sign Down the far side, gently.
+
+== foot of the hill
+....................
+..P...i.........i...
+####################
+dddddddddddddddddddd
+dddddddddddddddddddd
+dddddddddddddddddddd
+dddddddddddddddddddd
+
+== terraces
+.........................
+....................#####
+...............#####ddddd
+..........#####dddddddddd
+.....#####ddddddddddddddd
+#####dddddddddddddddddddd
+ddddddddddddddddddddddddd
+ddddddddddddddddddddddddd
+ddddddddddddddddddddddddd
+ddddddddddddddddddddddddd
+ddddddddddddddddddddddddd
+
+== lookout
+........................
+..........????..........
+........................
+........................
+....i...........i.......
+########################
+dddddddddddddddddddddddd
+dddddddddddddddddddddddd
+dddddddddddddddddddddddd
+dddddddddddddddddddddddd
+dddddddddddddddddddddddd
+dddddddddddddddddddddddd
+dddddddddddddddddddddddd
+dddddddddddddddddddddddd
+dddddddddddddddddddddddd
+dddddddddddddddddddddddd
+
+== descent
+.........................
+#####....................
+ddddd#####...............
+dddddddddd#####..........
+ddddddddddddddd#####.....
+dddddddddddddddddddd#####
+ddddddddddddddddddddddddd
+ddddddddddddddddddddddddd
+ddddddddddddddddddddddddd
+ddddddddddddddddddddddddd
+ddddddddddddddddddddddddd
+
+== valley
+....................................................
+..c.................................................
+.................................cc................c
+.c................c.............c...................
+..................................................c.
+....................................................
+c...................................................
+.................c.............c.................c..
+.......i...................................s........
+...##############..############....##############...
+...dddddddddddddd..dddddddddddd....dddddddddddddd...
+...dddddddddddddd..dddddddddddd....dddddddddddddd...
+...dddddddddddddd..dddddddddddd....dddddddddddddd...
+...dddddddddddddd..dddddddddddd....dddddddddddddd...
+
+== goal
+......................................................
+..................................................F...
+######################################################
+dddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddd

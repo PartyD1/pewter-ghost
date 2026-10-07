@@ -1,0 +1,36 @@
+; Pewter Ghost level source. Build: npx tsx levels/build.ts (format: levels/README.md)
+; . empty  # grass  d dirt  B block  = half block  ? question block
+; c coin  f fruit  s slime  U ultraslime  F flag  i sign  P start
+@name unbeatable-gap
+@kind fixture
+@title Unbeatable gap
+@expect unbeatable
+@note A 14-tile pit after a full run-up: wider than the knight's best jump (maxGapRun 11, impossible from 13).
+@note The agent must exhaust its search and report the pit edge as blockedAt.
+
+== run-up
+........................
+..P.....................
+########################
+dddddddddddddddddddddddd
+dddddddddddddddddddddddd
+dddddddddddddddddddddddd
+dddddddddddddddddddddddd
+
+== pit
+..............
+..............
+..............
+..............
+..............
+..............
+..............
+
+== far side
+..................................................................................................................................................................
+..............................................................................................................................................................F...
+##################################################################################################################################################################
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd

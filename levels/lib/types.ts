@@ -7,8 +7,9 @@
  *
  *  parkour        sparse, bursty (hard jumps then a rest), gaps often 0.6-0.9,
  *                 narrow landings and pillars, few coins and enemies.
- *  maze           dense and vertical, walls/tunnels/ceilings, small gaps
- *                 (<= 0.4), fruit rewarding dead ends.
+ *  maze           dense and vertical, walls/tunnels/ceilings, fruit
+ *                 rewarding dead ends. (Its "small gaps" rule is not banded:
+ *                 @measure's arcs ignore ceilings, see TYPE_RULES.maze.)
  *  collect-a-thon a reward every few tiles, coins on arcs (never rows on the
  *                 floor), moderate gaps.
  *  story          gentle: long rests, signs before new ideas, few enemies,
@@ -137,42 +138,44 @@ const rule = (id: string, key: keyof TypeNumbers, text: string, min?: number, ma
 export const TYPE_RULES: Record<LevelType, readonly TypeRule[]> = {
   parkour: [
     rule("sparse", "density", "sparse terrain", undefined, 0.2),
-    rule("hard-gaps", "gapNear", "most gaps 0.6+ of the knight's limit", 0.45),
+    rule("hard-gaps", "gapNear", "most gaps 0.6+ of the knight's limit", 0.6),
     rule("many-jumps", "gaps", "a gap jump every screen or so", 10),
-    rule("bursty", "rhythmCV", "bursts of jumps then rests (irregular takeoffs)", 0.45),
+    rule("bursty", "rhythmCV", "bursts of jumps then rests (irregular takeoffs)", 0.3),
     rule("rests", "restScreens", "rests between bursts", 2),
     rule("few-coins", "collectables", "few rewards", undefined, 16),
     rule("few-enemies", "enemies", "few enemies", undefined, 4),
-    rule("hard", "meanDifficulty", "harder than the other types", 0.3),
+    rule("hard", "meanDifficulty", "hard on average", 0.25),
+    rule("peaks", "maxDifficulty", "the hardest screen near the top of the scale", 0.5),
   ],
+  // No gap band for mazes: @measure's arcs assume open sky (ceilings are not
+  // checked), so its gap shares under a roof count jumps nobody can make.
   maze: [
     rule("dense", "density", "dense terrain", 0.4),
-    rule("vertical", "verticality", "paths go up and down", 0.25),
-    rule("winding", "linearity", "surfaces far from one line", undefined, 0.6),
-    rule("small-gaps", "gapNear", "gaps 0.4 of the limit at most (ceilings cut arcs)", undefined, 0.1),
+    rule("vertical", "verticality", "paths go up and down", 0.3),
+    rule("winding", "linearity", "surfaces far from one line", undefined, 0.7),
     rule("walls", "wallScreens", "walls in most screens", 4),
     rule("tunnels", "tunnelScreens", "tunnels or low ceilings", 2),
     rule("dead-end-fruit", "fruit", "fruit rewarding dead ends", 2),
   ],
   "collect-a-thon": [
-    rule("many-rewards", "rewardsPerScreen", "a reward every few tiles (3+ per screen)", 3),
+    rule("many-rewards", "rewardsPerScreen", "rewards all along the route (5+ per screen)", 5),
     rule("close-rewards", "rewardSpacing", "rewards close together along the route", 1, 9),
-    rule("coins-on-arcs", "coinsOnArc", "coins on jump arcs", 0.6),
-    rule("no-floor-rows", "coinsOnFloor", "coins (almost) never on the floor", undefined, 0.15),
+    rule("coins-on-arcs", "coinsOnArc", "coins on jump arcs", 0.8),
+    rule("no-floor-rows", "coinsOnFloor", "coins (almost) never on the floor", undefined, 0.1),
     rule("moderate-gaps", "gapNear", "gaps moderate (few at the limit)", undefined, 0.35),
   ],
   story: [
     rule("signs", "signs", "signs before new ideas", 3),
     rule("rests", "restScreens", "long rests", 4),
-    rule("gentle", "meanDifficulty", "gentle difficulty", undefined, 0.25),
-    rule("small-gaps", "gapNear", "gaps 0.5 of the limit at most", undefined, 0),
-    rule("few-enemies", "enemies", "few enemies", undefined, 4),
+    rule("gentle", "meanDifficulty", "gentle difficulty", undefined, 0.2),
+    rule("small-gaps", "gapNear", "gaps about 0.5 of the limit at most (none 0.6+)", undefined, 0),
+    rule("few-enemies", "enemies", "few enemies", undefined, 2),
   ],
   speedrun: [
-    rule("rhythm", "rhythmCV", "takeoffs at a steady rhythm", undefined, 0.35),
-    rule("linear", "linearity", "flat-ish linear route", 0.7),
-    rule("flat", "verticality", "little climbing", undefined, 0.2),
-    rule("run-gaps", "gapMid", "gaps 0.4-0.8 with a full run-up", 0.7),
+    rule("rhythm", "rhythmCV", "takeoffs at a steady rhythm", undefined, 0.15),
+    rule("linear", "linearity", "flat-ish linear route", 0.85),
+    rule("flat", "verticality", "little climbing", undefined, 0.15),
+    rule("run-gaps", "gapMid", "gaps 0.4-0.8 with a full run-up", 0.8),
     rule("wide-landings", "meanLandingWidth", "landings 3+ wide to keep speed", 3),
     rule("many-jumps", "jumps", "constant jumping", 15),
     rule("no-walls", "wallScreens", "almost no walls", undefined, 1),

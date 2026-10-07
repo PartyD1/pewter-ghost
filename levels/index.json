@@ -1,0 +1,1600 @@
+{
+  "version": 1,
+  "generatedBy": "levels/build.ts",
+  "levels": [
+    {
+      "name": "coin-floor",
+      "kind": "fixture",
+      "title": "Coins on the floor",
+      "file": "fixtures/coin-floor.json",
+      "expect": "beatable",
+      "notes": [
+        "Collect-a-thon draft with coins laid in rows on the floor instead of on arcs.",
+        "coin-row-on-floor should fire and coinsOnFloorShare should dominate; the placement Fix moves them."
+      ],
+      "sections": [
+        {
+          "name": "start",
+          "x0": 0,
+          "x1": 11
+        },
+        {
+          "name": "floor row 1",
+          "x0": 12,
+          "x1": 29
+        },
+        {
+          "name": "floor row 2",
+          "x0": 30,
+          "x1": 48
+        },
+        {
+          "name": "floor row 3",
+          "x0": 49,
+          "x1": 66
+        },
+        {
+          "name": "floor row 4",
+          "x0": 67,
+          "x1": 85
+        },
+        {
+          "name": "floor row 5",
+          "x0": 86,
+          "x1": 103
+        },
+        {
+          "name": "arc for contrast",
+          "x0": 104,
+          "x1": 115
+        },
+        {
+          "name": "goal",
+          "x0": 116,
+          "x1": 199
+        }
+      ],
+      "numbers": {
+        "density": 0.2245,
+        "linearity": 1,
+        "verticality": 0,
+        "meanDifficulty": 0.1119,
+        "maxDifficulty": 0.2758,
+        "jumps": 5,
+        "gaps": 5,
+        "gapNear": 0,
+        "gapMid": 0.4,
+        "gapSmall": 0.6,
+        "meanLandingWidth": 30.4,
+        "rhythmCV": 0.027,
+        "collectables": 35,
+        "coins": 35,
+        "fruit": 0,
+        "enemies": 0,
+        "signs": 0,
+        "rewardsPerScreen": 3.8889,
+        "rewardSpacing": 2.6746,
+        "coinsOnArc": 0.1429,
+        "coinsOnFloor": 0.8571,
+        "pressure": 0,
+        "restScreens": 9,
+        "wallScreens": 0,
+        "tunnelScreens": 0,
+        "pillarScreens": 0,
+        "screens": 9,
+        "distinctPatterns": 6
+      },
+      "agent": {
+        "beatable": true,
+        "exhausted": false,
+        "seconds": 12.53,
+        "frames": 752
+      }
+    },
+    {
+      "name": "collect-a-thon-1",
+      "kind": "reference",
+      "type": "collect-a-thon",
+      "title": "Coin Meadow",
+      "file": "reference/collect-a-thon-1.json",
+      "expect": "beatable",
+      "notes": [
+        "A coin arc over every pit, fruit on the high ledges, slimes guarding coin arches."
+      ],
+      "sections": [
+        {
+          "name": "start",
+          "x0": 0,
+          "x1": 9
+        },
+        {
+          "name": "first arcs",
+          "x0": 10,
+          "x1": 41
+        },
+        {
+          "name": "guarded arch",
+          "x0": 42,
+          "x1": 58
+        },
+        {
+          "name": "meadow rest",
+          "x0": 59,
+          "x1": 73
+        },
+        {
+          "name": "step ups",
+          "x0": 74,
+          "x1": 101
+        },
+        {
+          "name": "valley",
+          "x0": 102,
+          "x1": 119
+        },
+        {
+          "name": "long arcs",
+          "x0": 120,
+          "x1": 159
+        },
+        {
+          "name": "last arcs",
+          "x0": 160,
+          "x1": 174
+        },
+        {
+          "name": "goal",
+          "x0": 175,
+          "x1": 199
+        }
+      ],
+      "numbers": {
+        "density": 0.178,
+        "linearity": 0.9593,
+        "verticality": 0.0713,
+        "meanDifficulty": 0.2453,
+        "maxDifficulty": 0.3333,
+        "jumps": 14,
+        "gaps": 14,
+        "gapNear": 0,
+        "gapMid": 0.5714,
+        "gapSmall": 0.4286,
+        "meanLandingWidth": 8.7857,
+        "rhythmCV": 0.2839,
+        "collectables": 78,
+        "coins": 76,
+        "fruit": 2,
+        "enemies": 2,
+        "signs": 0,
+        "rewardsPerScreen": 8.6667,
+        "rewardSpacing": 3.0425,
+        "coinsOnArc": 1,
+        "coinsOnFloor": 0,
+        "pressure": 0,
+        "restScreens": 9,
+        "wallScreens": 0,
+        "tunnelScreens": 0,
+        "pillarScreens": 0,
+        "screens": 9,
+        "distinctPatterns": 6
+      },
+      "agent": {
+        "beatable": true,
+        "exhausted": false,
+        "seconds": 12.53,
+        "frames": 752
+      },
+      "fitsType": true
+    },
+    {
+      "name": "collect-a-thon-2",
+      "kind": "reference",
+      "type": "collect-a-thon",
+      "title": "Sky Orchard",
+      "file": "reference/collect-a-thon-2.json",
+      "expect": "beatable",
+      "notes": [
+        "Floating half-block platforms climbing and falling, coin arcs on every hop, fruit on the peaks."
+      ],
+      "sections": [
+        {
+          "name": "start",
+          "x0": 0,
+          "x1": 8
+        },
+        {
+          "name": "climb",
+          "x0": 9,
+          "x1": 34
+        },
+        {
+          "name": "fall",
+          "x0": 35,
+          "x1": 52
+        },
+        {
+          "name": "orchard floor",
+          "x0": 53,
+          "x1": 66
+        },
+        {
+          "name": "second climb",
+          "x0": 67,
+          "x1": 110
+        },
+        {
+          "name": "rest with guard",
+          "x0": 111,
+          "x1": 128
+        },
+        {
+          "name": "third climb",
+          "x0": 129,
+          "x1": 166
+        },
+        {
+          "name": "floor",
+          "x0": 167,
+          "x1": 183
+        },
+        {
+          "name": "goal",
+          "x0": 184,
+          "x1": 199
+        }
+      ],
+      "numbers": {
+        "density": 0.1,
+        "linearity": 0.9277,
+        "verticality": 0.1754,
+        "meanDifficulty": 0.2547,
+        "maxDifficulty": 0.3208,
+        "jumps": 18,
+        "gaps": 18,
+        "gapNear": 0,
+        "gapMid": 0.2778,
+        "gapSmall": 0.7222,
+        "meanLandingWidth": 6.3889,
+        "rhythmCV": 0.2473,
+        "collectables": 82,
+        "coins": 80,
+        "fruit": 2,
+        "enemies": 1,
+        "signs": 0,
+        "rewardsPerScreen": 9.1111,
+        "rewardSpacing": 3.2775,
+        "coinsOnArc": 1,
+        "coinsOnFloor": 0,
+        "pressure": 0,
+        "restScreens": 9,
+        "wallScreens": 0,
+        "tunnelScreens": 0,
+        "pillarScreens": 0,
+        "screens": 9,
+        "distinctPatterns": 6
+      },
+      "agent": {
+        "beatable": true,
+        "exhausted": false,
+        "seconds": 12.53,
+        "frames": 752
+      },
+      "fitsType": true
+    },
+    {
+      "name": "collect-a-thon-3",
+      "kind": "reference",
+      "type": "collect-a-thon",
+      "title": "Question Quarry",
+      "file": "reference/collect-a-thon-3.json",
+      "expect": "beatable",
+      "notes": [
+        "Stone pillars in a quarry, coin arcs between them, coin ladders up the shafts, question blocks overhead."
+      ],
+      "sections": [
+        {
+          "name": "start",
+          "x0": 0,
+          "x1": 9
+        },
+        {
+          "name": "pillars",
+          "x0": 10,
+          "x1": 41
+        },
+        {
+          "name": "ladder shaft",
+          "x0": 42,
+          "x1": 61
+        },
+        {
+          "name": "pillar row",
+          "x0": 62,
+          "x1": 104
+        },
+        {
+          "name": "guarded quarry floor",
+          "x0": 105,
+          "x1": 121
+        },
+        {
+          "name": "last pillars",
+          "x0": 122,
+          "x1": 152
+        },
+        {
+          "name": "goal",
+          "x0": 153,
+          "x1": 199
+        }
+      ],
+      "numbers": {
+        "density": 0.1831,
+        "linearity": 0.8169,
+        "verticality": 0.1332,
+        "meanDifficulty": 0.2547,
+        "maxDifficulty": 0.4178,
+        "jumps": 19,
+        "gaps": 18,
+        "gapNear": 0.1111,
+        "gapMid": 0.5555,
+        "gapSmall": 0.4444,
+        "meanLandingWidth": 6.4737,
+        "rhythmCV": 0.4289,
+        "collectables": 77,
+        "coins": 77,
+        "fruit": 0,
+        "enemies": 1,
+        "signs": 0,
+        "rewardsPerScreen": 8.5556,
+        "rewardSpacing": 3.0407,
+        "coinsOnArc": 0.961,
+        "coinsOnFloor": 0,
+        "pressure": 0,
+        "restScreens": 7,
+        "wallScreens": 0,
+        "tunnelScreens": 0,
+        "pillarScreens": 0,
+        "screens": 9,
+        "distinctPatterns": 7
+      },
+      "agent": {
+        "beatable": true,
+        "exhausted": false,
+        "seconds": 12.8,
+        "frames": 768
+      },
+      "fitsType": true
+    },
+    {
+      "name": "enemy-cluster",
+      "kind": "fixture",
+      "title": "Enemy cluster",
+      "file": "fixtures/enemy-cluster.json",
+      "expect": "beatable",
+      "notes": [
+        "Five enemies packed around two landings: pressure well above the brief's band and lint failures.",
+        "Geometry alone is beatable (the agent does not model enemies)."
+      ],
+      "sections": [
+        {
+          "name": "start",
+          "x0": 0,
+          "x1": 19
+        },
+        {
+          "name": "cluster",
+          "x0": 20,
+          "x1": 40
+        },
+        {
+          "name": "after",
+          "x0": 41,
+          "x1": 199
+        }
+      ],
+      "numbers": {
+        "density": 0.2398,
+        "linearity": 0.9873,
+        "verticality": 0.0222,
+        "meanDifficulty": 0.0449,
+        "maxDifficulty": 0.4038,
+        "jumps": 3,
+        "gaps": 3,
+        "gapNear": 0,
+        "gapMid": 0,
+        "gapSmall": 1,
+        "meanLandingWidth": 56.6667,
+        "rhythmCV": 0.1429,
+        "collectables": 0,
+        "coins": 0,
+        "fruit": 0,
+        "enemies": 5,
+        "signs": 0,
+        "rewardsPerScreen": 0,
+        "rewardSpacing": 0,
+        "coinsOnArc": 0,
+        "coinsOnFloor": 0,
+        "pressure": 1.3333,
+        "restScreens": 9,
+        "wallScreens": 0,
+        "tunnelScreens": 0,
+        "pillarScreens": 0,
+        "screens": 9,
+        "distinctPatterns": 3
+      },
+      "agent": {
+        "beatable": true,
+        "exhausted": false,
+        "seconds": 12.53,
+        "frames": 752
+      }
+    },
+    {
+      "name": "maze-1",
+      "kind": "reference",
+      "type": "maze",
+      "title": "Root Cellar",
+      "file": "reference/maze-1.json",
+      "expect": "beatable",
+      "notes": [
+        "Tunnels and shafts under a solid roof; two fruit dead ends reward exploring."
+      ],
+      "sections": [
+        {
+          "name": "room and crawl",
+          "x0": 0,
+          "x1": 22
+        },
+        {
+          "name": "shaft and fruit alcove",
+          "x0": 23,
+          "x1": 28
+        },
+        {
+          "name": "upper corridor",
+          "x0": 29,
+          "x1": 60
+        },
+        {
+          "name": "drop and hall",
+          "x0": 61,
+          "x1": 90
+        },
+        {
+          "name": "stair tunnel",
+          "x0": 91,
+          "x1": 110
+        },
+        {
+          "name": "upper room",
+          "x0": 111,
+          "x1": 130
+        },
+        {
+          "name": "down shaft and crawl",
+          "x0": 131,
+          "x1": 160
+        },
+        {
+          "name": "goal hall",
+          "x0": 161,
+          "x1": 199
+        }
+      ],
+      "numbers": {
+        "density": 0.7329,
+        "linearity": 0.6182,
+        "verticality": 0.5322,
+        "meanDifficulty": 0.2454,
+        "maxDifficulty": 0.5273,
+        "jumps": 20,
+        "gaps": 7,
+        "gapNear": 0.5715,
+        "gapMid": 0.2858,
+        "gapSmall": 0.2857,
+        "meanLandingWidth": 5.3,
+        "rhythmCV": 0.8811,
+        "collectables": 4,
+        "coins": 2,
+        "fruit": 2,
+        "enemies": 1,
+        "signs": 0,
+        "rewardsPerScreen": 0.4444,
+        "rewardSpacing": 39.8442,
+        "coinsOnArc": 0,
+        "coinsOnFloor": 1,
+        "pressure": 0,
+        "restScreens": 9,
+        "wallScreens": 7,
+        "tunnelScreens": 3,
+        "pillarScreens": 0,
+        "screens": 9,
+        "distinctPatterns": 6
+      },
+      "agent": {
+        "beatable": true,
+        "exhausted": false,
+        "seconds": 13.8,
+        "frames": 828
+      },
+      "fitsType": true
+    },
+    {
+      "name": "maze-2",
+      "kind": "reference",
+      "type": "maze",
+      "title": "Clocktower",
+      "file": "reference/maze-2.json",
+      "expect": "beatable",
+      "notes": [
+        "Climb a zigzag tower, cross the roof gallery, descend, and climb a second tower; fruit at the gallery's dead end."
+      ],
+      "sections": [
+        {
+          "name": "start",
+          "x0": 0,
+          "x1": 20
+        },
+        {
+          "name": "tower 1",
+          "x0": 21,
+          "x1": 30
+        },
+        {
+          "name": "roof gallery",
+          "x0": 31,
+          "x1": 48
+        },
+        {
+          "name": "hall",
+          "x0": 49,
+          "x1": 80
+        },
+        {
+          "name": "tower 2",
+          "x0": 81,
+          "x1": 88
+        },
+        {
+          "name": "corridor",
+          "x0": 89,
+          "x1": 120
+        },
+        {
+          "name": "stairs down",
+          "x0": 121,
+          "x1": 138
+        },
+        {
+          "name": "final hall",
+          "x0": 139,
+          "x1": 199
+        }
+      ],
+      "numbers": {
+        "density": 0.7238,
+        "linearity": 0.5797,
+        "verticality": 0.4342,
+        "meanDifficulty": 0.2206,
+        "maxDifficulty": 0.6042,
+        "jumps": 20,
+        "gaps": 10,
+        "gapNear": 0.6,
+        "gapMid": 0.2,
+        "gapSmall": 0.4,
+        "meanLandingWidth": 6.35,
+        "rhythmCV": 1.7228,
+        "collectables": 4,
+        "coins": 2,
+        "fruit": 2,
+        "enemies": 1,
+        "signs": 0,
+        "rewardsPerScreen": 0.4444,
+        "rewardSpacing": 30.7283,
+        "coinsOnArc": 0,
+        "coinsOnFloor": 1,
+        "pressure": 0,
+        "restScreens": 8,
+        "wallScreens": 6,
+        "tunnelScreens": 5,
+        "pillarScreens": 0,
+        "screens": 9,
+        "distinctPatterns": 4
+      },
+      "agent": {
+        "beatable": true,
+        "exhausted": false,
+        "seconds": 14.67,
+        "frames": 880
+      },
+      "fitsType": true
+    },
+    {
+      "name": "maze-3",
+      "kind": "reference",
+      "type": "maze",
+      "title": "Burrows",
+      "file": "reference/maze-3.json",
+      "expect": "beatable",
+      "notes": [
+        "An upper gallery that goes on and a lower one that dead-ends at fruit, a fruit chimney, a zigzag and a guarded crawl."
+      ],
+      "sections": [
+        {
+          "name": "start",
+          "x0": 0,
+          "x1": 12
+        },
+        {
+          "name": "galleries",
+          "x0": 13,
+          "x1": 65
+        },
+        {
+          "name": "shaft",
+          "x0": 66,
+          "x1": 70
+        },
+        {
+          "name": "chimney",
+          "x0": 71,
+          "x1": 100
+        },
+        {
+          "name": "zigzag",
+          "x0": 101,
+          "x1": 130
+        },
+        {
+          "name": "down",
+          "x0": 131,
+          "x1": 134
+        },
+        {
+          "name": "crawl",
+          "x0": 135,
+          "x1": 170
+        },
+        {
+          "name": "goal room",
+          "x0": 171,
+          "x1": 199
+        }
+      ],
+      "numbers": {
+        "density": 0.7037,
+        "linearity": 0.5033,
+        "verticality": 0.5457,
+        "meanDifficulty": 0.182,
+        "maxDifficulty": 0.3633,
+        "jumps": 19,
+        "gaps": 4,
+        "gapNear": 0,
+        "gapMid": 0.75,
+        "gapSmall": 0.25,
+        "meanLandingWidth": 6.5789,
+        "rhythmCV": 1.6262,
+        "collectables": 6,
+        "coins": 4,
+        "fruit": 2,
+        "enemies": 1,
+        "signs": 0,
+        "rewardsPerScreen": 0.6667,
+        "rewardSpacing": 17.5747,
+        "coinsOnArc": 0.75,
+        "coinsOnFloor": 0.25,
+        "pressure": 0,
+        "restScreens": 8,
+        "wallScreens": 7,
+        "tunnelScreens": 3,
+        "pillarScreens": 0,
+        "screens": 9,
+        "distinctPatterns": 6
+      },
+      "agent": {
+        "beatable": true,
+        "exhausted": false,
+        "seconds": 12.87,
+        "frames": 772
+      },
+      "fitsType": true
+    },
+    {
+      "name": "parkour-1",
+      "kind": "reference",
+      "type": "parkour",
+      "title": "Pillar Run",
+      "file": "reference/parkour-1.json",
+      "expect": "beatable",
+      "notes": [
+        "Bursts of three pillar hops near the knight's limit, each followed by a flat rest."
+      ],
+      "sections": [
+        {
+          "name": "start",
+          "x0": 0,
+          "x1": 11
+        },
+        {
+          "name": "burst 1: rising pillars",
+          "x0": 12,
+          "x1": 38
+        },
+        {
+          "name": "rest 1",
+          "x0": 39,
+          "x1": 50
+        },
+        {
+          "name": "burst 2: wide pits",
+          "x0": 51,
+          "x1": 81
+        },
+        {
+          "name": "rest 2",
+          "x0": 82,
+          "x1": 97
+        },
+        {
+          "name": "burst 3: long flat leap, then up",
+          "x0": 98,
+          "x1": 136
+        },
+        {
+          "name": "rest 3",
+          "x0": 137,
+          "x1": 150
+        },
+        {
+          "name": "burst 4",
+          "x0": 151,
+          "x1": 180
+        },
+        {
+          "name": "goal",
+          "x0": 181,
+          "x1": 199
+        }
+      ],
+      "numbers": {
+        "density": 0.1357,
+        "linearity": 0.9125,
+        "verticality": 0.1705,
+        "meanDifficulty": 0.4154,
+        "maxDifficulty": 0.6333,
+        "jumps": 13,
+        "gaps": 13,
+        "gapNear": 1,
+        "gapMid": 0.6923,
+        "gapSmall": 0,
+        "meanLandingWidth": 6.2308,
+        "rhythmCV": 0.3818,
+        "collectables": 2,
+        "coins": 2,
+        "fruit": 0,
+        "enemies": 0,
+        "signs": 0,
+        "rewardsPerScreen": 0.2222,
+        "rewardSpacing": 120.0666,
+        "coinsOnArc": 0,
+        "coinsOnFloor": 0,
+        "pressure": 0,
+        "restScreens": 7,
+        "wallScreens": 0,
+        "tunnelScreens": 0,
+        "pillarScreens": 1,
+        "screens": 9,
+        "distinctPatterns": 4
+      },
+      "agent": {
+        "beatable": true,
+        "exhausted": false,
+        "seconds": 12.53,
+        "frames": 752
+      },
+      "fitsType": true
+    },
+    {
+      "name": "parkour-2",
+      "kind": "reference",
+      "type": "parkour",
+      "title": "Spire Climb",
+      "file": "reference/parkour-2.json",
+      "expect": "beatable",
+      "notes": [
+        "Rising steps up narrow spires, long drops back to ground, and a pit run on half blocks."
+      ],
+      "sections": [
+        {
+          "name": "start",
+          "x0": 0,
+          "x1": 9
+        },
+        {
+          "name": "rising spires",
+          "x0": 10,
+          "x1": 44
+        },
+        {
+          "name": "drop to rest",
+          "x0": 45,
+          "x1": 64
+        },
+        {
+          "name": "half-block skips",
+          "x0": 65,
+          "x1": 102
+        },
+        {
+          "name": "rest",
+          "x0": 103,
+          "x1": 117
+        },
+        {
+          "name": "second spire",
+          "x0": 118,
+          "x1": 156
+        },
+        {
+          "name": "ledge rest",
+          "x0": 157,
+          "x1": 165
+        },
+        {
+          "name": "last leap",
+          "x0": 166,
+          "x1": 175
+        },
+        {
+          "name": "goal",
+          "x0": 176,
+          "x1": 199
+        }
+      ],
+      "numbers": {
+        "density": 0.131,
+        "linearity": 0.9608,
+        "verticality": 0.0868,
+        "meanDifficulty": 0.2883,
+        "maxDifficulty": 0.5712,
+        "jumps": 14,
+        "gaps": 14,
+        "gapNear": 1,
+        "gapMid": 0.7857,
+        "gapSmall": 0,
+        "meanLandingWidth": 5.6429,
+        "rhythmCV": 0.3936,
+        "collectables": 1,
+        "coins": 0,
+        "fruit": 1,
+        "enemies": 0,
+        "signs": 0,
+        "rewardsPerScreen": 0.1111,
+        "rewardSpacing": 0,
+        "coinsOnArc": 0,
+        "coinsOnFloor": 0,
+        "pressure": 0,
+        "restScreens": 6,
+        "wallScreens": 0,
+        "tunnelScreens": 0,
+        "pillarScreens": 1,
+        "screens": 9,
+        "distinctPatterns": 4
+      },
+      "agent": {
+        "beatable": true,
+        "exhausted": false,
+        "seconds": 12.53,
+        "frames": 752
+      },
+      "fitsType": true
+    },
+    {
+      "name": "parkour-3",
+      "kind": "reference",
+      "type": "parkour",
+      "title": "Broken Bridge",
+      "file": "reference/parkour-3.json",
+      "expect": "beatable",
+      "notes": [
+        "A ruined bridge: floating block stubs over a pit, a risky coin, rests on intact spans."
+      ],
+      "sections": [
+        {
+          "name": "start",
+          "x0": 0,
+          "x1": 13
+        },
+        {
+          "name": "stubs",
+          "x0": 14,
+          "x1": 51
+        },
+        {
+          "name": "span 1",
+          "x0": 52,
+          "x1": 63
+        },
+        {
+          "name": "high stubs",
+          "x0": 64,
+          "x1": 103
+        },
+        {
+          "name": "span 2",
+          "x0": 104,
+          "x1": 118
+        },
+        {
+          "name": "pillars",
+          "x0": 119,
+          "x1": 158
+        },
+        {
+          "name": "span 3",
+          "x0": 159,
+          "x1": 170
+        },
+        {
+          "name": "final stubs",
+          "x0": 171,
+          "x1": 188
+        },
+        {
+          "name": "goal",
+          "x0": 189,
+          "x1": 199
+        }
+      ],
+      "numbers": {
+        "density": 0.1074,
+        "linearity": 0.9227,
+        "verticality": 0.1135,
+        "meanDifficulty": 0.3545,
+        "maxDifficulty": 0.5712,
+        "jumps": 14,
+        "gaps": 14,
+        "gapNear": 1,
+        "gapMid": 0.6429,
+        "gapSmall": 0,
+        "meanLandingWidth": 5,
+        "rhythmCV": 0.386,
+        "collectables": 1,
+        "coins": 1,
+        "fruit": 0,
+        "enemies": 0,
+        "signs": 0,
+        "rewardsPerScreen": 0.1111,
+        "rewardSpacing": 0,
+        "coinsOnArc": 1,
+        "coinsOnFloor": 0,
+        "pressure": 0,
+        "restScreens": 5,
+        "wallScreens": 0,
+        "tunnelScreens": 0,
+        "pillarScreens": 0,
+        "screens": 9,
+        "distinctPatterns": 4
+      },
+      "agent": {
+        "beatable": true,
+        "exhausted": false,
+        "seconds": 12.53,
+        "frames": 752
+      },
+      "fitsType": true
+    },
+    {
+      "name": "speedrun-1",
+      "kind": "reference",
+      "type": "speedrun",
+      "title": "Metronome",
+      "file": "reference/speedrun-1.json",
+      "expect": "beatable",
+      "notes": [
+        "Five-wide platforms at an even jump rhythm: hold right and tap jump on the beat."
+      ],
+      "sections": [
+        {
+          "name": "run-up",
+          "x0": 0,
+          "x1": 13
+        },
+        {
+          "name": "beats 1-5",
+          "x0": 14,
+          "x1": 69
+        },
+        {
+          "name": "beats 6-10",
+          "x0": 70,
+          "x1": 125
+        },
+        {
+          "name": "beats 11-15",
+          "x0": 126,
+          "x1": 175
+        },
+        {
+          "name": "goal",
+          "x0": 176,
+          "x1": 199
+        }
+      ],
+      "numbers": {
+        "density": 0.1435,
+        "linearity": 1,
+        "verticality": 0,
+        "meanDifficulty": 0.2825,
+        "maxDifficulty": 0.3394,
+        "jumps": 15,
+        "gaps": 15,
+        "gapNear": 0.1333,
+        "gapMid": 1,
+        "gapSmall": 0,
+        "meanLandingWidth": 6.2667,
+        "rhythmCV": 0.0314,
+        "collectables": 0,
+        "coins": 0,
+        "fruit": 0,
+        "enemies": 0,
+        "signs": 0,
+        "rewardsPerScreen": 0,
+        "rewardSpacing": 0,
+        "coinsOnArc": 0,
+        "coinsOnFloor": 0,
+        "pressure": 0,
+        "restScreens": 9,
+        "wallScreens": 0,
+        "tunnelScreens": 0,
+        "pillarScreens": 0,
+        "screens": 9,
+        "distinctPatterns": 3
+      },
+      "agent": {
+        "beatable": true,
+        "exhausted": false,
+        "seconds": 12.53,
+        "frames": 752
+      },
+      "fitsType": true
+    },
+    {
+      "name": "speedrun-2",
+      "kind": "reference",
+      "type": "speedrun",
+      "title": "Downhill",
+      "file": "reference/speedrun-2.json",
+      "expect": "beatable",
+      "notes": [
+        "A long descent: each platform one row lower, the same distance apart, so speed never drops."
+      ],
+      "sections": [
+        {
+          "name": "summit",
+          "x0": 0,
+          "x1": 13
+        },
+        {
+          "name": "slope 1",
+          "x0": 14,
+          "x1": 33
+        },
+        {
+          "name": "slope 2",
+          "x0": 34,
+          "x1": 53
+        },
+        {
+          "name": "slope 3",
+          "x0": 54,
+          "x1": 73
+        },
+        {
+          "name": "valley run",
+          "x0": 74,
+          "x1": 143
+        },
+        {
+          "name": "last beats",
+          "x0": 144,
+          "x1": 169
+        },
+        {
+          "name": "goal",
+          "x0": 170,
+          "x1": 199
+        }
+      ],
+      "numbers": {
+        "density": 0.1907,
+        "linearity": 0.9852,
+        "verticality": 0.0556,
+        "meanDifficulty": 0.2448,
+        "maxDifficulty": 0.3242,
+        "jumps": 16,
+        "gaps": 16,
+        "gapNear": 0,
+        "gapMid": 1,
+        "gapSmall": 0,
+        "meanLandingWidth": 5.625,
+        "rhythmCV": 0,
+        "collectables": 6,
+        "coins": 6,
+        "fruit": 0,
+        "enemies": 0,
+        "signs": 0,
+        "rewardsPerScreen": 0.6667,
+        "rewardSpacing": 1.9269,
+        "coinsOnArc": 1,
+        "coinsOnFloor": 0,
+        "pressure": 0,
+        "restScreens": 9,
+        "wallScreens": 0,
+        "tunnelScreens": 0,
+        "pillarScreens": 0,
+        "screens": 9,
+        "distinctPatterns": 5
+      },
+      "agent": {
+        "beatable": true,
+        "exhausted": false,
+        "seconds": 12.53,
+        "frames": 752
+      },
+      "fitsType": true
+    },
+    {
+      "name": "speedrun-3",
+      "kind": "reference",
+      "type": "speedrun",
+      "title": "Canal",
+      "file": "reference/speedrun-3.json",
+      "expect": "beatable",
+      "notes": [
+        "Floating half-block barges over a canal at an even spacing; one coin arc rewards the racing line."
+      ],
+      "sections": [
+        {
+          "name": "dock",
+          "x0": 0,
+          "x1": 11
+        },
+        {
+          "name": "barges 1-5",
+          "x0": 12,
+          "x1": 63
+        },
+        {
+          "name": "barges 6-10",
+          "x0": 64,
+          "x1": 116
+        },
+        {
+          "name": "barges 11-15",
+          "x0": 117,
+          "x1": 163
+        },
+        {
+          "name": "goal",
+          "x0": 164,
+          "x1": 199
+        }
+      ],
+      "numbers": {
+        "density": 0.0903,
+        "linearity": 0.9707,
+        "verticality": 0.0525,
+        "meanDifficulty": 0.2439,
+        "maxDifficulty": 0.3402,
+        "jumps": 15,
+        "gaps": 15,
+        "gapNear": 0,
+        "gapMid": 1,
+        "gapSmall": 0,
+        "meanLandingWidth": 7.0667,
+        "rhythmCV": 0.0476,
+        "collectables": 28,
+        "coins": 28,
+        "fruit": 0,
+        "enemies": 0,
+        "signs": 0,
+        "rewardsPerScreen": 3.1111,
+        "rewardSpacing": 2.6632,
+        "coinsOnArc": 1,
+        "coinsOnFloor": 0,
+        "pressure": 0,
+        "restScreens": 9,
+        "wallScreens": 0,
+        "tunnelScreens": 0,
+        "pillarScreens": 0,
+        "screens": 9,
+        "distinctPatterns": 5
+      },
+      "agent": {
+        "beatable": true,
+        "exhausted": false,
+        "seconds": 12.53,
+        "frames": 752
+      },
+      "fitsType": true
+    },
+    {
+      "name": "staircase-mid-flight",
+      "kind": "fixture",
+      "title": "Staircase mid-flight",
+      "file": "fixtures/staircase-mid-flight.json",
+      "expect": "open",
+      "notes": [
+        "The person has drawn the start ground and four steps of a rising staircase, then paused.",
+        "No flag: the frontier is the top step; the rest of the level is empty for Ghost to extend."
+      ],
+      "sections": [
+        {
+          "name": "start ground",
+          "x0": 0,
+          "x1": 13
+        },
+        {
+          "name": "staircase",
+          "x0": 14,
+          "x1": 25
+        }
+      ],
+      "numbers": {
+        "density": 0.173,
+        "linearity": 0.8937,
+        "verticality": 0.2778,
+        "meanDifficulty": 0.049,
+        "maxDifficulty": 0.0979,
+        "jumps": 4,
+        "gaps": 0,
+        "gapNear": 0,
+        "gapMid": 0,
+        "gapSmall": 0,
+        "meanLandingWidth": 3,
+        "rhythmCV": 0,
+        "collectables": 0,
+        "coins": 0,
+        "fruit": 0,
+        "enemies": 0,
+        "signs": 0,
+        "rewardsPerScreen": 0,
+        "rewardSpacing": 0,
+        "coinsOnArc": 0,
+        "coinsOnFloor": 0,
+        "pressure": 0,
+        "restScreens": 1,
+        "wallScreens": 0,
+        "tunnelScreens": 0,
+        "pillarScreens": 0,
+        "screens": 2,
+        "distinctPatterns": 2
+      },
+      "agent": {
+        "beatable": true,
+        "exhausted": false,
+        "seconds": 1.8,
+        "frames": 108
+      }
+    },
+    {
+      "name": "story-1",
+      "kind": "reference",
+      "type": "story",
+      "title": "First Steps",
+      "file": "reference/story-1.json",
+      "expect": "beatable",
+      "notes": [
+        "A tutorial walk: each sign introduces one idea, then the level lets you try it on a rest."
+      ],
+      "sections": [
+        {
+          "name": "meadow",
+          "x0": 0,
+          "x1": 21
+        },
+        {
+          "name": "first gap",
+          "x0": 22,
+          "x1": 39
+        },
+        {
+          "name": "coin hop",
+          "x0": 40,
+          "x1": 61
+        },
+        {
+          "name": "steps",
+          "x0": 62,
+          "x1": 73
+        },
+        {
+          "name": "hilltop",
+          "x0": 74,
+          "x1": 85
+        },
+        {
+          "name": "slime meadow",
+          "x0": 86,
+          "x1": 111
+        },
+        {
+          "name": "last gap",
+          "x0": 112,
+          "x1": 132
+        },
+        {
+          "name": "goal",
+          "x0": 133,
+          "x1": 199
+        }
+      ],
+      "numbers": {
+        "density": 0.2488,
+        "linearity": 0.9648,
+        "verticality": 0.1389,
+        "meanDifficulty": 0.0963,
+        "maxDifficulty": 0.2439,
+        "jumps": 7,
+        "gaps": 4,
+        "gapNear": 0,
+        "gapMid": 0,
+        "gapSmall": 1,
+        "meanLandingWidth": 19.8571,
+        "rhythmCV": 0.7184,
+        "collectables": 11,
+        "coins": 11,
+        "fruit": 0,
+        "enemies": 1,
+        "signs": 6,
+        "rewardsPerScreen": 1.2222,
+        "rewardSpacing": 10.3465,
+        "coinsOnArc": 1,
+        "coinsOnFloor": 0,
+        "pressure": 0,
+        "restScreens": 9,
+        "wallScreens": 1,
+        "tunnelScreens": 0,
+        "pillarScreens": 0,
+        "screens": 9,
+        "distinctPatterns": 6
+      },
+      "agent": {
+        "beatable": true,
+        "exhausted": false,
+        "seconds": 12.53,
+        "frames": 752
+      },
+      "fitsType": true
+    },
+    {
+      "name": "story-2",
+      "kind": "reference",
+      "type": "story",
+      "title": "The Old Well",
+      "file": "reference/story-2.json",
+      "expect": "beatable",
+      "notes": [
+        "A village, a well to climb down for a hidden fruit, and a gentle road out."
+      ],
+      "sections": [
+        {
+          "name": "village",
+          "x0": 0,
+          "x1": 25
+        },
+        {
+          "name": "the well",
+          "x0": 26,
+          "x1": 36
+        },
+        {
+          "name": "well stones",
+          "x0": 37,
+          "x1": 48
+        },
+        {
+          "name": "gentle road",
+          "x0": 49,
+          "x1": 92
+        },
+        {
+          "name": "east road",
+          "x0": 93,
+          "x1": 110
+        },
+        {
+          "name": "orchard",
+          "x0": 111,
+          "x1": 143
+        },
+        {
+          "name": "goal",
+          "x0": 144,
+          "x1": 199
+        }
+      ],
+      "numbers": {
+        "density": 0.2262,
+        "linearity": 0.9004,
+        "verticality": 0.1753,
+        "meanDifficulty": 0.1524,
+        "maxDifficulty": 0.3492,
+        "jumps": 10,
+        "gaps": 7,
+        "gapNear": 0,
+        "gapMid": 0.1429,
+        "gapSmall": 0.8572,
+        "meanLandingWidth": 16.6,
+        "rhythmCV": 0.6701,
+        "collectables": 20,
+        "coins": 19,
+        "fruit": 1,
+        "enemies": 1,
+        "signs": 4,
+        "rewardsPerScreen": 2.2222,
+        "rewardSpacing": 7.2631,
+        "coinsOnArc": 1,
+        "coinsOnFloor": 0,
+        "pressure": 0,
+        "restScreens": 8,
+        "wallScreens": 1,
+        "tunnelScreens": 0,
+        "pillarScreens": 0,
+        "screens": 9,
+        "distinctPatterns": 6
+      },
+      "agent": {
+        "beatable": true,
+        "exhausted": false,
+        "seconds": 12.53,
+        "frames": 752
+      },
+      "fitsType": true
+    },
+    {
+      "name": "story-3",
+      "kind": "reference",
+      "type": "story",
+      "title": "Lantern Hill",
+      "file": "reference/story-3.json",
+      "expect": "beatable",
+      "notes": [
+        "Up a terraced hill to a lookout, a reveal of question blocks at the top, and down the far side."
+      ],
+      "sections": [
+        {
+          "name": "foot of the hill",
+          "x0": 0,
+          "x1": 19
+        },
+        {
+          "name": "terraces",
+          "x0": 20,
+          "x1": 44
+        },
+        {
+          "name": "lookout",
+          "x0": 45,
+          "x1": 68
+        },
+        {
+          "name": "descent",
+          "x0": 69,
+          "x1": 93
+        },
+        {
+          "name": "valley",
+          "x0": 94,
+          "x1": 145
+        },
+        {
+          "name": "goal",
+          "x0": 146,
+          "x1": 199
+        }
+      ],
+      "numbers": {
+        "density": 0.3051,
+        "linearity": 0.9369,
+        "verticality": 0.25,
+        "meanDifficulty": 0.0814,
+        "maxDifficulty": 0.2439,
+        "jumps": 11,
+        "gaps": 4,
+        "gapNear": 0,
+        "gapMid": 0,
+        "gapSmall": 1,
+        "meanLandingWidth": 13.3636,
+        "rhythmCV": 0.8299,
+        "collectables": 12,
+        "coins": 12,
+        "fruit": 0,
+        "enemies": 1,
+        "signs": 5,
+        "rewardsPerScreen": 1.3333,
+        "rewardSpacing": 6.0932,
+        "coinsOnArc": 1,
+        "coinsOnFloor": 0,
+        "pressure": 0,
+        "restScreens": 9,
+        "wallScreens": 0,
+        "tunnelScreens": 1,
+        "pillarScreens": 0,
+        "screens": 9,
+        "distinctPatterns": 7
+      },
+      "agent": {
+        "beatable": true,
+        "exhausted": false,
+        "seconds": 12.6,
+        "frames": 756
+      },
+      "fitsType": true
+    },
+    {
+      "name": "unbeatable-gap",
+      "kind": "fixture",
+      "title": "Unbeatable gap",
+      "file": "fixtures/unbeatable-gap.json",
+      "expect": "unbeatable",
+      "notes": [
+        "A 14-tile pit after a full run-up: wider than the knight's best jump (maxGapRun 11, impossible from 13).",
+        "The agent must exhaust its search and report the pit edge as blockedAt."
+      ],
+      "sections": [
+        {
+          "name": "run-up",
+          "x0": 0,
+          "x1": 23
+        },
+        {
+          "name": "pit",
+          "x0": 24,
+          "x1": 37
+        },
+        {
+          "name": "far side",
+          "x0": 38,
+          "x1": 199
+        }
+      ],
+      "numbers": {
+        "density": 0.2338,
+        "linearity": 1,
+        "verticality": 0,
+        "meanDifficulty": 0,
+        "maxDifficulty": 0,
+        "jumps": 1,
+        "gaps": 1,
+        "gapNear": 1,
+        "gapMid": 0,
+        "gapSmall": 0,
+        "meanLandingWidth": 162,
+        "rhythmCV": 0,
+        "collectables": 0,
+        "coins": 0,
+        "fruit": 0,
+        "enemies": 0,
+        "signs": 0,
+        "rewardsPerScreen": 0,
+        "rewardSpacing": 0,
+        "coinsOnArc": 0,
+        "coinsOnFloor": 0,
+        "pressure": 0,
+        "restScreens": 9,
+        "wallScreens": 0,
+        "tunnelScreens": 0,
+        "pillarScreens": 0,
+        "screens": 9,
+        "distinctPatterns": 2
+      },
+      "agent": {
+        "beatable": false,
+        "exhausted": true
+      }
+    }
+  ]
+}

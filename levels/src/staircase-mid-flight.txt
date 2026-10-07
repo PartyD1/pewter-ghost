@@ -1,0 +1,31 @@
+; Pewter Ghost level source. Build: npx tsx levels/build.ts (format: levels/README.md)
+; . empty  # grass  d dirt  B block  = half block  ? question block
+; c coin  f fruit  s slime  U ultraslime  F flag  i sign  P start
+@name staircase-mid-flight
+@kind fixture
+@title Staircase mid-flight
+@expect open
+@note The person has drawn the start ground and four steps of a rising staircase, then paused.
+@note No flag: the frontier is the top step; the rest of the level is empty for Ghost to extend.
+
+== start ground
+..............
+..P...........
+##############
+dddddddddddddd
+dddddddddddddd
+dddddddddddddd
+dddddddddddddd
+
+== staircase
+............
+.........BBB
+......BBBBBB
+......BBBBBB
+...BBBBBBBBB
+BBBBBBBBBBBB
+BBBBBBBBBBBB
+BBBBBBBBBBBB
+BBBBBBBBBBBB
+BBBBBBBBBBBB
+BBBBBBBBBBBB

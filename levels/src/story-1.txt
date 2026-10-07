@@ -1,0 +1,103 @@
+; Pewter Ghost level source. Build: npx tsx levels/build.ts (format: levels/README.md)
+; . empty  # grass  d dirt  B block  = half block  ? question block
+; c coin  f fruit  s slime  U ultraslime  F flag  i sign  P start
+@name story-1
+@kind reference
+@type story
+@title First Steps
+@note A tutorial walk: each sign introduces one idea, then the level lets you try it on a rest.
+@sign Hold right to run. The flag is at the far end.
+@sign Press jump to hop over a gap.
+@sign Coins float where your jump goes. Follow them.
+@sign Steps go up one at a time.
+@sign Slimes walk back and forth. Jump over them.
+@sign Almost home. Mind the last gap.
+
+== meadow
+......................
+..P..i............i...
+######################
+dddddddddddddddddddddd
+dddddddddddddddddddddd
+dddddddddddddddddddddd
+dddddddddddddddddddddd
+
+== first gap
+..................
+..........i.......
+..################
+..dddddddddddddddd
+..dddddddddddddddd
+..dddddddddddddddd
+..dddddddddddddddd
+
+== coin hop
+......................
+..cc..................
+.c....................
+......................
+......................
+......................
+c.....................
+................i.....
+....##################
+....dddddddddddddddddd
+....dddddddddddddddddd
+....dddddddddddddddddd
+....dddddddddddddddddd
+
+== steps
+............
+........####
+....####dddd
+####dddddddd
+dddddddddddd
+dddddddddddd
+dddddddddddd
+dddddddddddd
+dddddddddddd
+
+== hilltop
+............
+........i...
+############
+dddddddddddd
+dddddddddddd
+dddddddddddd
+dddddddddddd
+dddddddddddd
+dddddddddddd
+dddddddddddd
+
+== slime meadow
+..........................
+................s.........
+##########################
+dddddddddddddddddddddddddd
+dddddddddddddddddddddddddd
+dddddddddddddddddddddddddd
+dddddddddddddddddddddddddd
+
+== last gap
+.....................
+..c................cc
+..................c..
+.c...................
+.....................
+.....................
+c................c...
+.....i...............
+...##############....
+...dddddddddddddd....
+...dddddddddddddd....
+...dddddddddddddd....
+...dddddddddddddd....
+
+== goal
+...................................................................
+...............................................................F...
+###################################################################
+ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd

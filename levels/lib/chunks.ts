@@ -39,9 +39,12 @@ export function buildChunksFile(levels: readonly { name: string; type: LevelType
   return { version: CHUNKS_VERSION, generatedBy: "levels/build.ts", slice: { ...CHUNK_SLICE }, sources, chunks };
 }
 
-/** JSON text: one chunk per block, stable key order (sliceLevel's). */
+/** JSON text: header fields one per line, then one chunk per line (diffable, compact). */
 export function formatChunksFile(f: ChunksFile): string {
-  return JSON.stringify(f, null, 1) + "\n";
+  const { chunks, ...head } = f;
+  const lines = Object.entries(head).map(([k, v]) => `  ${JSON.stringify(k)}: ${JSON.stringify(v)},`);
+  const body = chunks.map((c, i) => `    ${JSON.stringify(c)}${i < chunks.length - 1 ? "," : ""}`);
+  return ["{", ...lines, `  "chunks": [`, ...body, "  ]", "}"].join("\n") + "\n";
 }
 
 /** Validate a parsed chunks.json and return its chunks. Throws on a file that is not one. */
