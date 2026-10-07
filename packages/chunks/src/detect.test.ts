@@ -118,6 +118,16 @@ describe("detectFinish: unit repeats", () => {
     expect(cells(r.adds)).toEqual([...pillar(10), [13, 7], [13, 8], [13, 9], [13, 10]]);
   });
 
+  it("continues a zig-zag tower (offsets alternating)", () => {
+    const ledge = (x: number, y: number): [number, number][] => [[x, y], [x + 1, y]];
+    const pts = [...ledge(4, 10), ...ledge(6, 8), ...ledge(4, 6), ...ledge(6, 4)];
+    const [best] = detectFinish(grid(draw(blank(16, 13, 12), pts)), paint(pts, "grass_half"));
+    expect(best.pattern).toBe("zigzag");
+    expect(best.repeats).toBe(4);
+    expect(cells(best.adds)).toEqual([...ledge(4, 2), ...ledge(6, 0)]);
+    expect(best.adds[0].tile).toBe("grass_half");
+  });
+
   it("repeats floating platforms", () => {
     const plat = (x: number, y: number): [number, number][] => [[x, y], [x + 1, y], [x + 2, y]];
     const pts = [...plat(1, 8), ...plat(6, 6)];

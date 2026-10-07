@@ -7,7 +7,8 @@
  *   - spaced: single cells at a larger constant step (stepping stones);
  *   - pillars / platforms / repeat: multi-cell units (4-connected groups of one
  *     tile) of the same shape at a constant offset, including completing a
- *     unit that is still being drawn;
+ *     unit that is still being drawn; zigzag: the same with offsets
+ *     alternating a, b, a, b (a climbing tower of ledges);
  *   - arc / coin-line: coins at a constant dx whose heights follow a line, a
  *     parabola, or (once past the apex) mirror the way up.
  *  Open structures:
@@ -47,6 +48,7 @@ export type FinishPattern =
   | "pillars"
   | "platforms"
   | "repeat"
+  | "zigzag"
   | "arc"
   | "coin-line"
   | "end-cap"
@@ -298,41 +300,39 @@ function unitRepeat(v: View, seq: Cell[], o: DetectOptions, fresh: boolean): Fin
     const bottomY = Math.max(...u.cells.map((c) => c.y));
     return u.cells.filter((c) => c.y === bottomY).every((c) => v.solid(c.x, c.y + 1));
   };
-  const off = (a: Unit, b: Unit): Point => ({ x: b.anchor.x - a.anchor.x, y: b.anchor.y - a.anchor.y });
   const eq = (p: Point, q: Point) => p.x === q.x && p.y === q.y;
 
-  let ref: Unit;
-  let offset: Point;
-  let complete: number;
-  let partial: Unit | null = null;
   const last = us[m - 1];
   const prev = us[m - 2];
-  if (sameShape(last.shape, prev.shape) && last.tile === prev.tile) {
+  const same = (a: Unit, b: Unit) => a.tile === b.tile && sameShape(a.shape, b.shape);
+  let partial: Unit | null = null;
+  if (same(last, prev)) {
     if (last.cells.length < 2) return null; // single cells: cellRepeat's job
-    ref = last;
-    offset = off(prev, last);
-    complete = 2;
-    for (let i = m - 2; i > 0; i--) {
-      if (!sameShape(us[i - 1].shape, ref.shape) || us[i - 1].tile !== ref.tile || !eq(off(us[i - 1], us[i]), offset)) break;
-      complete++;
-    }
-  } else if (subShape(last.shape, prev.shape) && last.tile === prev.tile && prev.cells.length >= 2) {
-    // The last unit is still being drawn.
-    partial = last;
-    ref = prev;
-    offset = off(prev, last);
-    complete = 1;
-    for (let i = m - 2; i > 0; i--) {
-      if (!sameShape(us[i - 1].shape, ref.shape) || us[i - 1].tile !== ref.tile || !eq(off(us[i - 1], us[i]), offset)) break;
-      complete++;
-    }
-    if (complete < 2 && m >= 3) {
-      // Offsets must agree when there is history to compare.
-      if (!eq(off(us[m - 3], prev), offset)) return null;
-    }
+  } else if (last.tile === prev.tile && prev.cells.length >= 2 && subShape(last.shape, prev.shape)) {
+    partial = last; // the last unit is still being drawn
   } else return null;
-  if (offset.x === 0 && offset.y === 0) return null;
-
+  const full = partial ? us.slice(0, m - 1) : us;
+  const ref = full[full.length - 1];
+  let s0 = full.length - 1;
+  while (s0 > 0 && same(full[s0 - 1], ref)) s0--;
+  const anchors = full.slice(s0).map((u) => u.anchor);
+  if (partial) anchors.push(partial.anchor);
+  if (anchors.length < 2) return null;
+  const offsets = anchors.slice(1).map((a, i) => ({ x: a.x - anchors[i].x, y: a.y - anchors[i].y }));
+  const n = offsets.length;
+  // Period 1 (constant offset) or 2 (zig-zag: a, b, a, b...), over the trailing offsets.
+  let t1 = 1;
+  while (t1 < n && eq(offsets[n - 1 - t1], offsets[n - 1])) t1++;
+  let t2 = 0;
+  if (n >= 3 && !eq(offsets[n - 1], offsets[n - 2])) {
+    t2 = 2;
+    while (t2 < n && eq(offsets[n - 1 - t2], offsets[n - 1 - t2 + 2])) t2++;
+  }
+  const period = t2 >= 3 ? 2 : 1;
+  const used = period === 2 ? t2 : t1;
+  if (offsets.slice(n - used).some((o) => o.x === 0 && o.y === 0)) return null;
+  const repeats = used + 1; // units in the periodic run (the partial one included)
+  const nextOffset = (j: number): Point => offsets[n - period + ((j - 1) % period)];
   const grounded = groundedOf(ref);
   const adds: Cell[] = [];
   const taken = new Set<string>();
@@ -349,22 +349,23 @@ function unitRepeat(v: View, seq: Cell[], o: DetectOptions, fresh: boolean): Fin
     take(rest);
     placed++;
   }
-  const base = partial ?? ref;
+  let a = { ...(partial ?? ref).anchor };
   for (let j = 1; j <= moreUnits - (partial ? 1 : 0); j++) {
-    const a = { x: base.anchor.x + j * offset.x, y: base.anchor.y + j * offset.y };
+    const o = nextOffset(j);
+    a = { x: a.x + o.x, y: a.y + o.y };
     const cells = placeUnit(v, ref.shape, a, ref.tile, grounded, taken);
     if (!cells || !cells.length) break;
     take(cells);
     placed++;
   }
   if (!adds.length) return null;
-  const pattern = unitKind(ref.shape);
-  const noun = pattern === "pillars" ? "pillar" : pattern === "platforms" ? "platform" : "unit";
+  const pattern: FinishPattern = period === 2 ? "zigzag" : unitKind(ref.shape);
+  const noun = pattern === "pillars" ? "pillar" : pattern === "platforms" || pattern === "zigzag" ? "platform" : "unit";
   return {
     pattern,
     adds,
     entities: [],
-    repeats: complete + (partial ? 1 : 0),
+    repeats,
     open: false,
     touchesLast: fresh,
     label: partial
