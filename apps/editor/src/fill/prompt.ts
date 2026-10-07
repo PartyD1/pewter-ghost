@@ -322,7 +322,7 @@ function historyText(h: readonly GhostHistoryItem[]): string {
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
-function measuredText(m: MeasuredNumbers): string {
+function measuredText(m: MeasuredNumbers, origin: Point, size: { w: number; h: number }): string {
   const bins = ["0-20", "20-40", "40-60", "60-80", "80+"];
   const gaps = m.gapHist.some((v) => v > 0)
     ? m.gapHist
@@ -339,7 +339,7 @@ function measuredText(m: MeasuredNumbers): string {
   ];
   if (m.difficulty !== undefined) parts.push(`difficulty ${m.difficulty.toFixed(2)}`);
   if (m.patterns && m.patterns.length) parts.push(`patterns ${m.patterns.join(", ")}`);
-  return `measured (this window): ${parts.join("; ")}`;
+  return `measured, THIS WINDOW only (level x ${origin.x}..${origin.x + size.w - 1}; the design notes below measure the last two screens instead): ${parts.join("; ")}`;
 }
 
 export interface RenderUserOptions {
@@ -368,7 +368,7 @@ export function renderUserMessage(
     );
   }
   if (!opts.compact) {
-    if (req.measured) out.push(measuredText(req.measured));
+    if (req.measured) out.push(measuredText(req.measured, req.origin, req.size));
     if (req.summary) out.push(`rest of the level: ${req.summary}`);
   }
   out.push(historyText(req.lastGhosts));

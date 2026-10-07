@@ -96,10 +96,13 @@ export type BriefLevel = LevelSnapshot | (GridLike & { entities: readonly Entity
 /**
  * The rectangle of "the last `screens` screens" up to the screen holding
  * column `frontierX` (screens are SCREEN_COLS wide from x = 0, as in
- * @measure recentScreens and the validator), full level height.
+ * @measure recentScreens and the validator), full level height. `ahead`
+ * shifts the end that many screens to the right (used around a blocked
+ * cell, whose far side lies past it), clipped to the level.
  */
-export function briefRect(level: Pick<GridLike, "w" | "h">, frontierX: number, screens = 2): Rect {
-  const i = Math.max(0, Math.min(Math.ceil(level.w / SCREEN_COLS) - 1, Math.floor(frontierX / SCREEN_COLS)));
+export function briefRect(level: Pick<GridLike, "w" | "h">, frontierX: number, screens = 2, ahead = 0): Rect {
+  const last = Math.max(0, Math.ceil(level.w / SCREEN_COLS) - 1);
+  const i = Math.max(0, Math.min(last, Math.floor(frontierX / SCREEN_COLS) + Math.max(0, ahead)));
   const x0 = Math.max(0, (i - Math.max(1, screens) + 1) * SCREEN_COLS);
   const x1 = Math.min(level.w, (i + 1) * SCREEN_COLS);
   return { x: x0, y: 0, w: x1 - x0, h: level.h };
@@ -225,6 +228,13 @@ export interface BriefContext {
   frontierX?: number;
   /** Screens to measure, ending at the frontier's screen (default 2). */
   screens?: number;
+  /**
+   * Level column the request is about when it is not the frontier, e.g.
+   * blockedAt.x in patrol mode. When set, the measured screens are the
+   * focus screen and the one after it, so the far side of a blocked gap is
+   * measured too.
+   */
+  focusX?: number;
   /** Precomputed measures (skips measuring); `rect` should come with them. */
   measures?: WindowMeasures;
   rect?: Rect;
@@ -266,6 +276,10 @@ function measureFor(ctx: BriefContext): { m?: WindowMeasures; rect?: Rect } {
   if (ctx.measures) return { m: ctx.measures, rect: ctx.rect };
   const level = ctx.level;
   if (!level) return {};
+  if (ctx.focusX !== undefined) {
+    const rect = briefRect(level, ctx.focusX, ctx.screens ?? 2, 1);
+    return { m: measuresOf(analyzeWindow(level, level.entities, rect)), rect };
+  }
   let fx = ctx.frontierX;
   if (fx === undefined) {
     const b = contentBounds(level, level.entities);
@@ -358,38 +372,57 @@ export function assertBriefBudget(brief: Pick<Brief, "text">): void {
 
 /**
  * Caches the brief between placements (the timing budget wants the brief to
- * be a cached string). The key is whatever the caller says identifies the
- * inputs: level revision, frontier screen, history and last guess.
+ * be a cached string). The key covers every input that changes the text:
+ * level revision, frontier and focus screens, history, last guess, the
+ * knight, the budget and the example library (by identity), target and
+ * options (`exclude` by identity). Precomputed `measures` are compared by
+ * identity. The level itself is identified only by `revision`.
  */
 export class BriefCache {
   private key = "";
+  private refs: readonly unknown[] = [];
   private value: Brief | undefined;
   hits = 0;
   misses = 0;
 
   get(ctx: BriefContext & { revision: number }): Brief {
-    const fx = ctx.frontierX ?? -1;
-    const screen = fx < 0 ? -1 : Math.floor(fx / SCREEN_COLS);
+    const screenOf = (x: number | undefined) => (x === undefined || x < 0 ? -1 : Math.floor(x / SCREEN_COLS));
+    const ex = ctx.examples;
+    let examplesKey: unknown = null;
+    if (ex) {
+      // `exclude` is a function: compared by identity below, not serialised.
+      const { library, exclude: _exclude, ...opts } = ex;
+      const chunks = library instanceof ExampleLibrary ? library.chunks : library;
+      examplesKey = [chunks.length, opts];
+    }
+    // The level is identified by `revision` (snapshots are fresh objects each time).
+    const refs = [ex?.library, ex?.exclude, ctx.measures] as const;
     const key = JSON.stringify([
       ctx.revision,
-      screen,
+      screenOf(ctx.frontierX),
+      screenOf(ctx.focusX),
       ctx.screens ?? 2,
+      ctx.rect ?? null,
       ctx.lastGuess ?? "",
       ctx.lastGhosts ?? [],
       ctx.historyCount ?? liveConfig.historyCount,
-      ctx.examples ? (ctx.examples.library instanceof ExampleLibrary ? ctx.examples.library.size : ctx.examples.library.length) : 0,
+      ctx.knight ?? null,
+      ctx.maxTokens ?? null,
+      examplesKey,
     ]);
-    if (this.value && key === this.key) {
+    if (this.value && key === this.key && refs.every((r, i) => r === this.refs[i])) {
       this.hits++;
       return this.value;
     }
     this.misses++;
     this.value = buildBrief(ctx);
     this.key = key;
+    this.refs = refs;
     return this.value;
   }
 
   clear(): void {
+    this.refs = [];
     this.key = "";
     this.value = undefined;
   }
