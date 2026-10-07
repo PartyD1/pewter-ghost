@@ -1,0 +1,75 @@
+/**
+ * A scripted session covering every LogEvent variant in a realistic order.
+ * Used by the completeness checker test (G-18 "replays a scripted session").
+ */
+import type { LogEvent } from "../../contracts";
+
+export function scriptedSession(sessionId = "p01"): LogEvent[] {
+  return [
+    {
+      type: "session",
+      t: 0,
+      sessionId,
+      commit: "deadbee",
+      promptVersion: "fill.v1",
+      briefVersion: "brief.v1",
+      model: "gemini-3.7-flash",
+      filler: "llm",
+      config: { showNowAbove: 0.75 },
+    },
+    { type: "place", t: 1000, x: 10, y: 14, tile: 6, author: 1, stroke: "s1", tool: "paint" },
+    { type: "place", t: 1100, x: 11, y: 14, tile: 6, author: 1, stroke: "s1", tool: "paint" },
+    { type: "place", t: 1200, x: 12, y: 12, tile: "entity:coin", author: 1, stroke: "s2", tool: "paint" },
+    {
+      type: "fill.call",
+      t: 1300,
+      requestHash: "a".repeat(64),
+      mode: "auto",
+      superseded: true,
+      latencyMs: 0,
+      act: null,
+    },
+    {
+      type: "fill.call",
+      t: 1900,
+      requestHash: "b".repeat(64),
+      mode: "auto",
+      superseded: false,
+      latencyMs: 480,
+      act: true,
+      kind: "extend",
+      confidence: 0.82,
+      tiles: 4,
+      verdictStage: "ok",
+    },
+    { type: "ghost.show", t: 1950, suggestionId: "g1", kind: "extend", confidence: 0.82, shownBecause: "now", cells: 4, label: "continue ledge" },
+    { type: "ghost.end", t: 3950, suggestionId: "g1", outcome: "accepted", dwellMs: 2000, acceptedCells: 4 },
+    {
+      type: "fill.call",
+      t: 5000,
+      requestHash: "c".repeat(64),
+      mode: "requested",
+      superseded: false,
+      latencyMs: 610,
+      act: true,
+      kind: "finish",
+      confidence: 0.5,
+      tiles: 6,
+      verdictStage: "agent",
+      reason: "gap at x=14 too wide",
+      sendBack: true,
+    },
+    { type: "ghost.show", t: 5800, suggestionId: "g2", kind: "finish", confidence: 0.5, shownBecause: "requested", cells: 6, label: "finish section" },
+    { type: "erase", t: 6000, x: 14, y: 14, tile: 0, author: 1, stroke: "s3", tool: "erase" },
+    { type: "ghost.end", t: 6000, suggestionId: "g2", outcome: "partial", dwellMs: 200, acceptedCells: 2 },
+    { type: "undo", t: 6500, what: "ghost" },
+    { type: "redo", t: 6600, what: "ghost" },
+    { type: "patrol", t: 9000, beatable: false, blockedAt: { x: 30, y: 12 }, ms: 640 },
+    { type: "fill.call", t: 9100, requestHash: "d".repeat(64), mode: "patrol", superseded: false, latencyMs: 900, act: null, error: "timeout" },
+    { type: "ghost.show", t: 9500, suggestionId: "g3", kind: "fix", confidence: 0.3, shownBecause: "patrol", cells: 1, label: "bridge the gap" },
+    { type: "ghost.end", t: 12000, suggestionId: "g3", outcome: "esc", dwellMs: 2500 },
+    { type: "play.start", t: 13000 },
+    { type: "play.end", t: 20000, reachedGoal: true, deaths: 2 },
+    { type: "save", t: 21000, snapshotId: "snap-1" },
+  ];
+}

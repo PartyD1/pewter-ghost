@@ -1,0 +1,22 @@
+# Copy to wrangler.toml and fill in ids. Deploy with `npx wrangler deploy` from proxy/.
+# Secrets: `npx wrangler secret put GEMINI_API_KEY` (never commit the key).
+name = "pewter-ghost-proxy"
+main = "src/worker.ts"
+compatibility_date = "2025-09-01"
+
+[vars]
+VITE_LLM_MODEL_NAME = "gemini-3.7-flash"
+ALLOWED_ORIGINS = "https://<lab>.github.io"
+PROXY_UPSTREAM_TIMEOUT_MS = "10000"
+# PROXY_TOKENS = '{"tokens":{"<token>":{"condition":"llm","sessionId":"p01"}}}'
+
+[[kv_namespaces]]
+binding = "PEWTER_KV"
+id = "<kv-namespace-id>"
+
+# Optional: recordings/logs in R2 instead of KV
+# [[r2_buckets]]
+# binding = "PEWTER_R2"
+# bucket_name = "pewter-ghost-recordings"
+
+# The `@app/*` import in worker.ts resolves through ../tsconfig.json paths (esbuild honours them).

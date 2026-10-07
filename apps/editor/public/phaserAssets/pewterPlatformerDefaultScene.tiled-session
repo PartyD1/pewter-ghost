@@ -1,0 +1,46 @@
+{
+    "Map/SizeTest": {
+        "height": 4300,
+        "width": 2
+    },
+    "activeFile": "pewterPlatformerDefaultMap.tmx",
+    "expandedProjectPaths": [
+    ],
+    "file.lastUsedOpenFilter": "All Files (*)",
+    "fileStates": {
+        "#pewterPlatformerTileset": {
+            "scaleInDock": 3.8087
+        },
+        "pewterPlatformerDefaultMap.tmx": {
+            "scale": 0.19356249999999997,
+            "selectedLayer": 2,
+            "viewCenter": {
+                "x": 1601.5498869874075,
+                "y": 160.15498869874068
+            }
+        },
+        "pewterPlatformerDefaultMap.tmx#pewterPlatformerTileset": {
+            "scaleInDock": 1
+        }
+    },
+    "last.exportedFilePath": "/Users/shiva/Documents/CMPM120/Pewter-The-Platformer/public/phaserAssets",
+    "last.imagePath": "/Users/shiva/Documents/CMPM120/Pewter-The-Platformer/public/phaserAssets",
+    "map.height": 20,
+    "map.lastUsedExportFilter": "JSON map files (*.tmj *.json)",
+    "map.lastUsedFormat": "tmx",
+    "map.tileHeight": 16,
+    "map.tileWidth": 16,
+    "map.width": 200,
+    "openFiles": [
+        "pewterPlatformerDefaultMap.tmx"
+    ],
+    "project": "pewterPlatformerDefaultScene.tiled-project",
+    "recentFiles": [
+        "pewterPlatformerDefaultMap.tmx"
+    ],
+    "tileset.embedInMap": true,
+    "tileset.tileSize": {
+        "height": 16,
+        "width": 16
+    }
+}

@@ -1,0 +1,33 @@
+{
+  "name": "pewter-ghost",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Pewter Ghost: an LLM autofill for 2D platformer level design.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test -c tests/e2e/playwright.config.ts",
+    "proxy": "tsx proxy/src/dev.ts",
+    "eval": "tsx eval/src/cli.ts",
+    "jump-tables": "tsx packages/jump-tables/src/export.ts"
+  },
+  "dependencies": {
+    "easystarjs": "^0.4.4",
+    "phaser": "^3.90.0",
+    "zod": "^4.2.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "@types/node": "^22.10.0",
+    "fast-check": "^4.10.2",
+    "tsx": "^4.20.0",
+    "typescript": "~5.8.3",
+    "vite": "^7.0.6",
+    "vitest": "^3.2.4"
+  }
+}

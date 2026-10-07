@@ -1,0 +1,8 @@
+node_modules
+dist
+eval/reports/*.local.md
+proxy/.data
+test-results
+playwright-report
+.env
+.env.local

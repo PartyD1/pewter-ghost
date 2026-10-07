@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "groundTiles": [
+    {"x": 0, "y": 15, "index": 6}, {"x": 1, "y": 15, "index": 6}, {"x": 2, "y": 15, "index": 6},
+    {"x": 3, "y": 15, "index": 4}, {"x": 4, "y": 15, "index": 1}, {"x": 5, "y": 15, "index": 7},
+    {"x": 0, "y": 16, "index": 5}, {"x": 1, "y": 16, "index": 5},
+    {"x": 10, "y": 14, "index": 9}, {"x": 12, "y": 14, "index": 8},
+    {"x": 3, "y": 3, "index": -1},
+    {"x": 250, "y": 3, "index": 6},
+    {"x": 7, "y": 7, "index": 42}
+  ],
+  "collectablesTiles": [
+    {"x": 2, "y": 12, "index": 2}, {"x": 3, "y": 12, "index": 3},
+    {"x": 0, "y": 15, "index": 2}
+  ],
+  "enemies": [
+    {"kind": "Slime", "spawnX": 168, "spawnY": 232},
+    {"kind": "UltraSlime", "spawnX": 328, "spawnY": 232},
+    {"kind": "Slime", "spawnX": 200, "spawnY": 232}
+  ],
+  "selectionBoxes": [{"start": {"x": 0, "y": 0}, "end": {"x": 4, "y": 4}, "zLevel": 1, "placedTiles": [], "chatHistory": []}],
+  "userTiles": [],
+  "baseTiles": []
+}

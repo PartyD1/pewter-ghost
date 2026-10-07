@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "lib": ["ES2022", "DOM", "DOM.Iterable", "WebWorker"],
+    "types": ["vite/client", "node"],
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": false,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@app/*": ["apps/editor/src/*"],
+      "@physsim": ["packages/physsim/src/index.ts"],
+      "@physsim/*": ["packages/physsim/src/*"],
+      "@measure": ["packages/measure/src/index.ts"],
+      "@measure/*": ["packages/measure/src/*"],
+      "@jump-tables": ["packages/jump-tables/src/index.ts"],
+      "@jump-tables/*": ["packages/jump-tables/src/*"],
+      "@chunks": ["packages/chunks/src/index.ts"],
+      "@chunks/*": ["packages/chunks/src/*"]
+    }
+  },
+  "include": ["apps", "packages", "proxy", "eval", "tests", "vite.config.ts"]
+}
