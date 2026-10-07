@@ -1,7 +1,7 @@
-Drawing so far (last screens, level x 24..71):
+Drawing so far (last 2 screens, level x 24..71):
 - density 0.04, verticality 0.59, linearity 0.69, difficulty 0.20 (0 easy, 1 hard), leniency 1.00
 - 1 gap jump; widths as a share of the run limit 11: 0-20% 100%; landings 1.2 wide on average
-- 3 coins/fruit, one every 3.7 tiles; coins on jump arcs 0%, flat on floors 33%
+- 3 rewards (coins/fruit), one every 3.7 tiles; coins on jump arcs 0%, flat on floors 33%
 - 1 enemy, pressure 0.00 (share of landings with an enemy within 3 tiles)
 - patterns here: staircase, rest
 Keep these numbers unless the drawing is clearly changing them.

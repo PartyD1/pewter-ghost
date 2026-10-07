@@ -1,7 +1,7 @@
-Drawing so far (last screens, level x 72..119):
+Drawing so far (last 2 screens, level x 72..119):
 - density 0.03, verticality 0.80, linearity 0.01, difficulty 0.20 (0 easy, 1 hard), leniency 1.00
 - no gap jumps yet
-- 1 coins/fruit
+- 1 reward (coins/fruit)
 - no enemies yet
 - patterns here: rest, tunnel
 Keep these numbers unless the drawing is clearly changing them.

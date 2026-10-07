@@ -126,7 +126,8 @@ const GAP_BINS = ["0-20%", "20-40%", "40-60%", "60-80%", "80%+"];
 /** The measured block ("Drawing so far ..."). Exported for tests and the status line. */
 export function describeMeasures(m: WindowMeasures, rect: Rect, knight: KnightLimits): string {
   const lines: string[] = [];
-  lines.push(`Drawing so far (last screens, level x ${rect.x}..${rect.x + rect.w - 1}):`);
+  const screens = Math.max(1, Math.round(rect.w / SCREEN_COLS));
+  lines.push(`Drawing so far (last ${screens === 1 ? "screen" : `${screens} screens`}, level x ${rect.x}..${rect.x + rect.w - 1}):`);
   if (m.counts.solids === 0 && m.counts.collectables === 0 && m.counts.enemies === 0) {
     lines.push("- nothing drawn here yet; follow the person's first strokes.");
     return lines.join("\n");
@@ -150,7 +151,7 @@ export function describeMeasures(m: WindowMeasures, rect: Rect, knight: KnightLi
   if (m.counts.unreachable > 0) lines.push(`- ${m.counts.unreachable} jump(s) the knight cannot make: a fix may be due`);
   if (m.counts.collectables > 0) {
     lines.push(
-      `- ${m.counts.collectables} coins/fruit` +
+      `- ${m.counts.collectables} reward${m.counts.collectables === 1 ? "" : "s"} (coins/fruit)` +
         (m.rewardSpacing > 0 ? `, one every ${num(m.rewardSpacing, 1)} tiles` : "") +
         (m.counts.coins > 0 ? `; coins on jump arcs ${pct(m.coinsOnArcShare)}, flat on floors ${pct(m.coinsOnFloorShare)}` : ""),
     );

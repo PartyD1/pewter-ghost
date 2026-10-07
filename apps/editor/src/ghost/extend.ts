@@ -64,10 +64,10 @@ export interface EdgeArrow {
 
 /**
  * The edge arrow for a ghost that reaches past the viewport, or null when
- * the whole ghost is on screen. The arrow goes on the side where most of the
+ * the whole ghost is on screen (less than `tolerance` tiles hidden). The arrow goes on the side where most of the
  * hidden part is, level with the ghost's centre (clamped to the edge).
  */
-export function edgeArrow(view: ViewRect, b: Box, inset = 1): EdgeArrow | null {
+export function edgeArrow(view: ViewRect, b: Box, inset = 1, tolerance = 0.5): EdgeArrow | null {
   const right = b.x1 + 1 - (view.x + view.w);
   const left = view.x - b.x0;
   const down = b.y1 + 1 - (view.y + view.h);
@@ -80,7 +80,7 @@ export function edgeArrow(view: ViewRect, b: Box, inset = 1): EdgeArrow | null {
   ];
   options.sort((a, c) => c[1] - a[1]);
   const [side, beyond] = options[0];
-  if (beyond <= 0) return null;
+  if (beyond <= tolerance) return null; // a sliver past the edge is still "on screen"
   const cx = (b.x0 + b.x1 + 1) / 2;
   const cy = (b.y0 + b.y1 + 1) / 2;
   const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
