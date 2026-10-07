@@ -1,0 +1,53 @@
+{
+  "note": "Patrol: the person drew a platform at level (26..31,15) across a 14-wide pit from the start platform; the knight is blocked at (11,14). The model's Fix adds two stepping platforms (15..17,15) and (20..22,15). Window origin level (2,8).",
+  "recordedOrigin": {
+    "x": 2,
+    "y": 8
+  },
+  "response": {
+    "answer": {
+      "act": true,
+      "kind": "fix",
+      "adds": [
+        {
+          "x": 13,
+          "y": 7,
+          "tile": "grass"
+        },
+        {
+          "x": 14,
+          "y": 7,
+          "tile": "grass"
+        },
+        {
+          "x": 15,
+          "y": 7,
+          "tile": "grass"
+        },
+        {
+          "x": 18,
+          "y": 7,
+          "tile": "grass"
+        },
+        {
+          "x": 19,
+          "y": 7,
+          "tile": "grass"
+        },
+        {
+          "x": 20,
+          "y": 7,
+          "tile": "grass"
+        }
+      ],
+      "removes": [],
+      "entities": [],
+      "confidence": 0.8,
+      "label": "stepping stones over the pit"
+    },
+    "latencyMs": 640,
+    "model": "gemini-3.7-flash",
+    "promptVersion": "fill.v1-f9d1aef8",
+    "requestHash": "recorded-patrol-bridge-fix"
+  }
+}

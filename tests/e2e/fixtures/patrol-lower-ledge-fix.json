@@ -1,0 +1,51 @@
+{
+  "note": "Patrol: the person drew a ledge at level (16..22,8), 7 tiles above the ground, too high to reach. The model's Fix removes the first three ledge tiles (16..18,8) and puts them two rows lower at (16..18,10) as a step. Window origin level (2,8).",
+  "recordedOrigin": {
+    "x": 2,
+    "y": 8
+  },
+  "response": {
+    "answer": {
+      "act": true,
+      "kind": "fix",
+      "adds": [
+        {
+          "x": 14,
+          "y": 2,
+          "tile": "grass"
+        },
+        {
+          "x": 15,
+          "y": 2,
+          "tile": "grass"
+        },
+        {
+          "x": 16,
+          "y": 2,
+          "tile": "grass"
+        }
+      ],
+      "removes": [
+        {
+          "x": 14,
+          "y": 0
+        },
+        {
+          "x": 15,
+          "y": 0
+        },
+        {
+          "x": 16,
+          "y": 0
+        }
+      ],
+      "entities": [],
+      "confidence": 0.8,
+      "label": "lower the start of the ledge"
+    },
+    "latencyMs": 702,
+    "model": "gemini-3.7-flash",
+    "promptVersion": "fill.v1-f9d1aef8",
+    "requestHash": "recorded-patrol-lower-ledge-fix"
+  }
+}

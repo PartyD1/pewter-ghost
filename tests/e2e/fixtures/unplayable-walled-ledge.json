@@ -1,0 +1,118 @@
+{
+  "note": "Same staircase. The model walls the climb in: a 9-tall wall at level x=15 (y 6..14), a ceiling over the steps at y=7 (x 9..14) and a ledge behind the wall at (16..19,9). The ledge cannot be reached (the rule check fails it). Window origin level (2,6).",
+  "recordedOrigin": {
+    "x": 2,
+    "y": 6
+  },
+  "response": {
+    "answer": {
+      "act": true,
+      "kind": "finish",
+      "adds": [
+        {
+          "x": 13,
+          "y": 0,
+          "tile": "grass"
+        },
+        {
+          "x": 13,
+          "y": 1,
+          "tile": "grass"
+        },
+        {
+          "x": 13,
+          "y": 2,
+          "tile": "grass"
+        },
+        {
+          "x": 13,
+          "y": 3,
+          "tile": "grass"
+        },
+        {
+          "x": 13,
+          "y": 4,
+          "tile": "grass"
+        },
+        {
+          "x": 13,
+          "y": 5,
+          "tile": "grass"
+        },
+        {
+          "x": 13,
+          "y": 6,
+          "tile": "grass"
+        },
+        {
+          "x": 13,
+          "y": 7,
+          "tile": "grass"
+        },
+        {
+          "x": 13,
+          "y": 8,
+          "tile": "grass"
+        },
+        {
+          "x": 14,
+          "y": 3,
+          "tile": "grass"
+        },
+        {
+          "x": 15,
+          "y": 3,
+          "tile": "grass"
+        },
+        {
+          "x": 16,
+          "y": 3,
+          "tile": "grass"
+        },
+        {
+          "x": 17,
+          "y": 3,
+          "tile": "grass"
+        },
+        {
+          "x": 7,
+          "y": 1,
+          "tile": "grass"
+        },
+        {
+          "x": 8,
+          "y": 1,
+          "tile": "grass"
+        },
+        {
+          "x": 9,
+          "y": 1,
+          "tile": "grass"
+        },
+        {
+          "x": 10,
+          "y": 1,
+          "tile": "grass"
+        },
+        {
+          "x": 11,
+          "y": 1,
+          "tile": "grass"
+        },
+        {
+          "x": 12,
+          "y": 1,
+          "tile": "grass"
+        }
+      ],
+      "removes": [],
+      "entities": [],
+      "confidence": 0.85,
+      "label": "walled ledge"
+    },
+    "latencyMs": 431,
+    "model": "gemini-3.7-flash",
+    "promptVersion": "fill.v1-f9d1aef8",
+    "requestHash": "recorded-unplayable-walled-ledge"
+  }
+}

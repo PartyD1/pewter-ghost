@@ -173,6 +173,27 @@ export class Editor {
     await this.page.mouse.up();
   }
 
+  /**
+   * Click each tile on a fixed cadence (the n-th click lands `everyMs * n`
+   * after the first). Screen points are computed up front, so the camera must
+   * be still. Returns the Node clock time of each click.
+   */
+  async paintTimed(cells: [number, number][], everyMs: number): Promise<number[]> {
+    await this.settle();
+    const ps: Point[] = [];
+    for (const [x, y] of cells) ps.push(await this.screenOf(x, y));
+    await this.page.mouse.move(ps[0].x, ps[0].y);
+    const t0 = Date.now();
+    const at: number[] = [];
+    for (let i = 0; i < ps.length; i++) {
+      const wait = t0 + i * everyMs - Date.now();
+      if (wait > 0) await this.page.waitForTimeout(wait);
+      at.push(Date.now());
+      await this.page.mouse.click(ps[i].x, ps[i].y);
+    }
+    return at;
+  }
+
   /** Pick a palette item (switches to Paint). */
   async pick(item: "block" | "grass" | "grass_half" | "dirt" | "question" | "coin" | "fruit" | "slime" | "ultraslime" | string): Promise<void> {
     await this.page.click(`[data-item="${item}"]`);

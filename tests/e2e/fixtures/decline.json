@@ -1,0 +1,22 @@
+{
+  "note": "The model declined (act=false): nothing worth suggesting.",
+  "recordedOrigin": {
+    "x": 0,
+    "y": 0
+  },
+  "response": {
+    "answer": {
+      "act": false,
+      "kind": "finish",
+      "adds": [],
+      "removes": [],
+      "entities": [],
+      "confidence": 0.1,
+      "label": ""
+    },
+    "latencyMs": 388,
+    "model": "gemini-3.7-flash",
+    "promptVersion": "fill.v1-f9d1aef8",
+    "requestHash": "recorded-decline"
+  }
+}
