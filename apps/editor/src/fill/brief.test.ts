@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PATTERN_TAGS, snapshotFromAscii } from "@measure";
+import { PATTERN_TAGS, SCREEN_COLS, snapshotFromAscii } from "@measure";
 import type { GhostHistoryItem } from "../contracts";
 import {
   assertBriefBudget,
@@ -14,7 +14,7 @@ import {
   varietyRule,
 } from "./brief";
 import { seedLibrary } from "./examples";
-import { FIXTURES, midStaircase, verticalTower } from "./__fixtures__/states";
+import { FIXTURES, midStaircase, patrolRightEdge, verticalTower } from "./__fixtures__/states";
 import { buildFillRequest, estimateTokens } from "./window";
 
 const SNAP_DIR = "../../../../prompts/__snapshots__";
@@ -50,7 +50,8 @@ describe("static brief", () => {
     expect(BRIEF_STATIC).toContain("gap 5: (1,-1) (2,-4) (3,-6) (4,-6) (5,-5)");
     expect(BRIEF_STATIC).not.toContain("{{");
     expect(BRIEF_STATIC).toMatch(/at least 4 tiles wide/);
-    expect(BRIEF_STATIC).toMatch(/at least 2 tiles from where the knight lands/);
+    expect(BRIEF_STATIC).toMatch(/more than 2 tiles \(3 or more\) from where the knight lands/);
+    expect(BRIEF_STATIC).toMatch(/re-add it 3 or more tiles away/);
     expect(BRIEF_STATIC).toMatch(/every two to three screens/);
     expect(BRIEF_STATIC).toMatch(/fewest tiles/);
     expect(BRIEF_STATIC).toMatch(/different pattern from the last two accepted/);
@@ -72,6 +73,7 @@ describe("buildBrief", () => {
     const b = buildBrief({
       level: f.model.snapshot(),
       frontierX: f.stream.last?.x,
+      focusX: f.blockedAt?.x,
       lastGhosts: f.lastGhosts,
       lastGuess: "parkour",
       historyCount: 5,
@@ -174,6 +176,39 @@ describe("BriefCache", () => {
     cache.get({ level, frontierX: 80, revision: 4, historyCount: 5 }); // level changed
     cache.get({ level, frontierX: 80, revision: 4, historyCount: 5, lastGhosts: history });
     expect(cache.misses).toBe(4);
+  });
+
+  it("misses when only the example target, options, exclude or focus change", () => {
+    const f = midStaircase();
+    const cache = new BriefCache();
+    const level = f.model.snapshot();
+    const library = seedLibrary();
+    const base = { level, frontierX: 56, revision: 1, historyCount: 5 };
+    const a = cache.get({ ...base, examples: { library, k: 2 } });
+    expect(cache.get({ ...base, examples: { library, k: 2 } })).toBe(a);
+    cache.get({ ...base, examples: { library, k: 3 } });
+    cache.get({ ...base, examples: { library, k: 3, maxDistance: 0.2 } });
+    const target = { ...a.measures!, gapHist: [0, 0, 0, 0, 1] };
+    cache.get({ ...base, examples: { library, k: 3, maxDistance: 0.2, target } });
+    const exclude = () => false;
+    cache.get({ ...base, examples: { library, k: 3, maxDistance: 0.2, target, exclude } });
+    cache.get({ ...base, examples: { library, k: 3, maxDistance: 0.2, target, exclude: () => false } });
+    cache.get({ ...base, focusX: 100 });
+    expect(cache.hits).toBe(1);
+    expect(cache.misses).toBe(7);
+  });
+});
+
+describe("focusX", () => {
+  it("measures the blocked cell's screen and the one after it", () => {
+    expect(briefRect({ w: 200, h: 20 }, 190, 2, 1)).toEqual({ x: 168, y: 0, w: 32, h: 20 });
+    expect(briefRect({ w: 240, h: 20 }, 177, 2, 1)).toEqual({ x: 168, y: 0, w: 48, h: 20 });
+    const f = patrolRightEdge();
+    const b = buildBrief({ level: f.model.snapshot(), frontierX: f.stream.last?.x, focusX: f.blockedAt!.x, historyCount: 5 });
+    const bx = f.blockedAt!.x;
+    expect(b.rect!.x).toBeLessThanOrEqual(bx);
+    const nextScreenEnd = (Math.floor(bx / SCREEN_COLS) + 2) * SCREEN_COLS - 1;
+    expect(b.rect!.x + b.rect!.w - 1).toBe(Math.min(f.model.snapshot().w - 1, nextScreenEnd));
   });
 });
 

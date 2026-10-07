@@ -130,7 +130,7 @@ const GAP_BINS = ["0-20%", "20-40%", "40-60%", "60-80%", "80%+"];
 export function describeMeasures(m: WindowMeasures, rect: Rect, knight: KnightLimits): string {
   const lines: string[] = [];
   const screens = Math.max(1, Math.round(rect.w / SCREEN_COLS));
-  lines.push(`Drawing so far (last ${screens === 1 ? "screen" : `${screens} screens`}, level x ${rect.x}..${rect.x + rect.w - 1}):`);
+  lines.push(`Drawing so far (${screens === 1 ? "1 screen" : `${screens} screens`}, level x ${rect.x}..${rect.x + rect.w - 1}, full height):`);
   if (m.counts.solids === 0 && m.counts.collectables === 0 && m.counts.enemies === 0) {
     lines.push("- nothing drawn here yet; follow the person's first strokes.");
     return lines.join("\n");

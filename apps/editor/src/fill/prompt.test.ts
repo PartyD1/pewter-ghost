@@ -154,9 +154,9 @@ describe("renderFillPrompt", () => {
     const req = fixtureRequest(FIXTURES[1]);
     const full = renderUserMessage(req);
     const compact = renderUserMessage(req, { compact: true });
-    expect(full).toContain("measured (this window)");
+    expect(full).toContain("measured, THIS WINDOW only");
     expect(full).toContain("Design notes for this request");
-    expect(compact).not.toContain("measured (this window)");
+    expect(compact).not.toContain("measured, THIS WINDOW only");
     expect(compact).not.toContain("Design notes");
     expect(compact).not.toContain("rest of the level");
   });

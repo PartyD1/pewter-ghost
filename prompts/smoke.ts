@@ -53,6 +53,7 @@ function requestFor(f: FixtureState): FillRequest {
   const brief = buildBrief({
     level,
     frontierX: f.stream.last?.x,
+    focusX: f.blockedAt?.x,
     lastGhosts: f.lastGhosts,
     historyCount: 5,
     examples: { library: seedLibrary() },

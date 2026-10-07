@@ -45,6 +45,7 @@ import type {
   KnightLimits,
   MeasuredNumbers,
   ModelAnswer,
+  Point,
   RecentPlacement,
   RenderedPrompt,
   SuggestionKind,
@@ -339,7 +340,7 @@ function measuredText(m: MeasuredNumbers, origin: Point, size: { w: number; h: n
   ];
   if (m.difficulty !== undefined) parts.push(`difficulty ${m.difficulty.toFixed(2)}`);
   if (m.patterns && m.patterns.length) parts.push(`patterns ${m.patterns.join(", ")}`);
-  return `measured, THIS WINDOW only (level x ${origin.x}..${origin.x + size.w - 1}; the design notes below measure the last two screens instead): ${parts.join("; ")}`;
+  return `measured, THIS WINDOW only (level x ${origin.x}..${origin.x + size.w - 1}; the design notes below measure whole screens and may differ): ${parts.join("; ")}`;
 }
 
 export interface RenderUserOptions {

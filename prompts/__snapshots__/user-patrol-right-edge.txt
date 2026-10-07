@@ -21,7 +21,7 @@ frontier: (14,4), idle 4000 ms
 knight: clears gaps of 8 standing, 11 with a run-up; rises 6 at most
 blockedAt: (9,7), the agent could not get past this cell
 previous failure (stage agent; LEVEL coordinates, subtract the window origin (176,8)): gap at x=186 is 10 wide; knight clears 8 standing
-measured (this window): density 0.00; verticality 0.00; gap widths as share of run limit: none; reward spacing no rewards; enemy pressure 0.00
+measured, THIS WINDOW only (level x 176..199; the design notes below measure whole screens and may differ): density 0.00; verticality 0.00; gap widths as share of run limit: none; reward spacing no rewards; enemy pressure 0.00
 rest of the level: Level 200x20, drawn up to x 23 (window-relative); left of window: empty; right: empty; start 174 cols left of window; flag in window.
 last ghosts (oldest first): fix "bridge the pit" dismissed (drawn over)
 

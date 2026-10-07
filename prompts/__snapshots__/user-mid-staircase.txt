@@ -19,7 +19,7 @@ Enemies: slime (13,8) patrols x 2..21.
 recent (oldest first; tile (x,y) +ms since the previous placement): dirt (16,9) +0 · dirt (17,9) +0 · dirt (18,9) +0 · dirt (19,9) +0 · dirt (20,9) +0 · dirt (21,9) +0 · coin (-4,6) +0 · coin (-3,5) +0 · slime (13,8) +0 · grass (5,5) +2120 · grass (6,5) +120 · grass (7,4) +120
 frontier: (21,9), idle 300 ms
 knight: clears gaps of 8 standing, 11 with a run-up; rises 6 at most
-measured (this window): density 0.00; verticality 0.00; gap widths as share of run limit: none; reward spacing no rewards; enemy pressure 0.00
+measured, THIS WINDOW only (level x 49..72; the design notes below measure whole screens and may differ): density 0.00; verticality 0.00; gap widths as share of run limit: none; reward spacing no rewards; enemy pressure 0.00
 rest of the level: Level 200x20, drawn up to x 21 (window-relative); left of window: 13 tiles, 2 coins/fruit; right: empty; start 47 cols left of window; no flag yet.
 last ghosts (oldest first): extend "flat run" dismissed (Esc) · finish "staircase, three steps" accepted
 

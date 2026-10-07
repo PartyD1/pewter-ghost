@@ -18,7 +18,7 @@ Legend: . empty | G grass D dirt B block H half-block Q ?-block (person's) | g d
 recent (oldest first; tile (x,y) +ms since the previous placement): grass (7,7) +0 · grass (8,7) +0 · grass (9,7) +0 · grass (10,7) +0 · grass (11,7) +0 · grass (12,7) +0 · grass (13,7) +0 · grass (14,7) +0 · grass (15,7) +0 · block (8,4) +1640 · block (9,4) +140 · block (10,4) +140
 frontier: (15,7), idle 900 ms
 knight: clears gaps of 8 standing, 11 with a run-up; rises 6 at most
-measured (this window): density 0.00; verticality 0.00; gap widths as share of run limit: none; reward spacing no rewards; enemy pressure 0.00
+measured, THIS WINDOW only (level x 4..27; the design notes below measure whole screens and may differ): density 0.00; verticality 0.00; gap widths as share of run limit: none; reward spacing no rewards; enemy pressure 0.00
 rest of the level: Level 200x20, drawn up to x 15 (window-relative); left of window: 4 tiles; right: empty; start 2 cols left of window; no flag yet.
 last ghosts: none
 

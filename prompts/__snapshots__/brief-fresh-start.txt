@@ -1,4 +1,4 @@
-Drawing so far (last screen, level x 0..23):
+Drawing so far (1 screen, level x 0..23, full height):
 - density 0.05, verticality 0.75, linearity 0.75, difficulty 0.09 (0 easy, 1 hard), leniency 1.00
 - no gap jumps yet
 - no coins or fruit yet
