@@ -86,6 +86,8 @@ export class PlayController implements EnemyHost {
   private invulnerableMs = 0;
   private dyingMs = -1;
   private signText: string | undefined;
+  private signs: Phaser.GameObjects.Image[] = [];
+  private goalReached = false;
   private startedAt = 0;
   private _tuning: EnemyTuning = enemyTuning(1);
   private unsubscribeSettings: (() => void) | null = null;
@@ -128,6 +130,9 @@ export class PlayController implements EnemyHost {
     if (this.active) return false;
     const { scene, model, renderer, camera } = this.deps;
     this.active = true;
+    this.goalReached = false;
+    this.dyingMs = -1;
+    this.invulnerableMs = 0;
     this.deaths = 0;
     this.elapsedMs = 0;
     this.startedAt = this.clock();
@@ -211,6 +216,10 @@ export class PlayController implements EnemyHost {
 
   update(deltaMs: number): void {
     if (!this.active || !this.knight || !this.controller) return;
+    if (this.goalReached) {
+      this.stop(true);
+      return;
+    }
     const knight = this.knight;
     const s = this.deps.settings.get();
     this.elapsedMs += deltaMs;
@@ -295,8 +304,6 @@ export class PlayController implements EnemyHost {
     }
   }
 
-  private signs: Phaser.GameObjects.Image[] = [];
-
   private clearWorld(): void {
     for (const e of this.enemies) e.destroy();
     this.enemies = [];
@@ -331,7 +338,8 @@ export class PlayController implements EnemyHost {
     if (this.dyingMs >= 0) return;
     const kind = o.getData("kind") as Entity["kind"];
     if (kind === "flag") {
-      this.stop(true);
+      // Never tear the world down inside a physics callback: finish in update().
+      this.goalReached = true;
       return;
     }
     if (kind === "coin") this.coins++;
