@@ -300,6 +300,10 @@ describe("fillCallEvent", () => {
     const err = await filler(fakeFetch({ error: "nope" }, { status: 403 }).fetch).fillDetailed(request);
     expect(fillCallEvent(err, request, 1).act).toBeNull();
     expect(fillCallEvent(err, request, 1).error).toBe("http 403: nope");
+    // A plain filler (stub, algo) has no ModelAnswer: its suggestion says it acted.
+    const plain = { ...r, answer: null };
+    expect(fillCallEvent(plain, request, 1)).toMatchObject({ act: true, kind: "finish", tiles: 3 });
+    expect(fillCallEvent({ ...plain, suggestion: null }, request, 1).act).toBeNull();
   });
 });
 

@@ -388,9 +388,11 @@ export function fillCallEvent(r: FillResult, request: Pick<FillRequest, "mode">,
     mode: request.mode,
     superseded: r.superseded,
     latencyMs: r.latencyMs,
-    act: r.answer ? r.answer.act : null,
+    // A plain filler (stub, algo) reports no ModelAnswer: a suggestion means it acted.
+    act: r.answer ? r.answer.act : r.suggestion ? true : null,
   };
   if (r.answer?.act) e.kind = r.answer.kind;
+  else if (!r.answer && r.suggestion) e.kind = r.suggestion.kind;
   if (r.suggestion) {
     e.confidence = r.suggestion.confidence;
     e.tiles = r.suggestion.adds.length + r.suggestion.removes.length + r.suggestion.entities.length;

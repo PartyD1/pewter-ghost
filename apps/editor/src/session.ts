@@ -572,7 +572,7 @@ export class FillLoop {
   private schedulerFor(f: Filler): FillScheduler {
     let s = this.schedulers.get(f);
     if (!s) {
-      s = new FillScheduler(f, { clock: this.clock });
+      s = new FillScheduler(f, { clock: this.clock, maxInFlight: () => this.cfg().maxInFlight });
       this.schedulers.set(f, s);
     }
     return s;

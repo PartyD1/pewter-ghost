@@ -312,6 +312,12 @@ describe("FillLoop", () => {
 
   it("patrol: a gap the knight cannot clear gets a verified Fix (local repair after the stub fails)", async () => {
     cfg.patrolIdleMs = 10;
+    // The starter has a full ground floor: cut it back to the old 12-column
+    // start platform (x 0-11), so the pit below is there to be found.
+    const snap = model.snapshot();
+    for (let y = 0; y < snap.h; y++) for (let x = 12; x < snap.w; x++) snap.cells[y * snap.w + x] = 0;
+    snap.entities = snap.entities.filter((e) => e.x < 12);
+    model.load(snap);
     const l = makeLoop(new StubFiller(), { patrol: true });
     const { sink, offers } = managerSink(() => cfg);
     l.setGhost(sink);
@@ -462,15 +468,19 @@ describe("FillLoop speculation: calls are not cancelled, answers are reconciled"
     offPlacement = model.onPlacement((e) => manager.onPlacement(e));
 
     function makeSpecLoop(a: FillLoopOptions["agent"] = agent): FillLoop {
+      // Bind this test's arrays: a disposed loop of an earlier test still
+      // settles its cancelled trips and must not write into the next test's.
+      const myLog = log;
+      const myOutcomes = outcomes;
       const l = new FillLoop({
         model,
         agent: a,
         registry,
-        log: (e) => log.push(e),
+        log: (e) => myLog.push(e),
         config: () => cfg,
         clock: now,
         patrol: false,
-        onOutcome: (o) => outcomes.push(o),
+        onOutcome: (o) => myOutcomes.push(o),
       });
       l.refresh();
       return l;
@@ -547,7 +557,7 @@ describe("FillLoop speculation: calls are not cancelled, answers are reconciled"
     expect(c3).toMatchObject({ superseded: false, verdictStage: "ok" });
     expect(c2).toMatchObject({ superseded: true, error: "superseded", reason: "stale: newer shown" });
     expect(c2.verdictStage).toBeUndefined(); // dropped before verification
-    expect(loop!.stats).toMatchObject({ requests: 3, superseded: 1, stale: 1, trimmed: 2, offered: 2 });
+    expect(loop!.stats).toMatchObject({ requests: 3, superseded: 1, stale: 1, trimmed: 1, offered: 2 }); // trimmed counts answers
   });
 
   it("a newer answer with the same cells as the shown ghost is dropped by the manager (duplicate), not shown twice", async () => {
@@ -577,7 +587,8 @@ describe("FillLoop speculation: calls are not cancelled, answers are reconciled"
     expect(offers).toHaveLength(0);
     expect(manager.shown).toBeNull();
     const c = fillCalls().at(-1)!;
-    expect(c).toMatchObject({ superseded: true, error: "superseded", reason: "stale: cells drawn", act: null });
+    expect(c).toMatchObject({ superseded: true, error: "superseded", reason: "stale: cells drawn", act: true });
+    expect(c.verdictStage).toBeUndefined(); // dropped before verification
     expect(validateEvent(c, { strict: true }).ok).toBe(true);
 
     // An answer the person has since drawn completely: right, but late.
@@ -683,6 +694,20 @@ describe("FillLoop speculation: calls are not cancelled, answers are reconciled"
     expect(manager.shown?.id).toBe(outcomeOf(2)!.verify!.verified!.id);
     const c1 = fillCalls().find((c) => c.requestHash === o1.result.requestHash)!;
     expect(c1).toMatchObject({ superseded: true, error: "superseded", reason: "stale: newer shown", verdictStage: "ok" });
+  });
+
+  it('filler "none" makes zero calls: placements are logged, nothing is in flight', async () => {
+    cfg.filler = "none";
+    loop!.refresh();
+    await place(12, 14);
+    clock.advance(400);
+    await place(13, 13);
+    await sleep(20);
+    expect(filler.calls).toHaveLength(0);
+    expect(fillCalls()).toHaveLength(0);
+    expect(loop!.inFlight).toBe(0);
+    expect(loop!.stats.requests).toBe(0);
+    expect(log.filter((e) => e.type === "place")).toHaveLength(2);
   });
 
   it("cancel() (Play, load) aborts every call in flight, logged as cancelled", async () => {
