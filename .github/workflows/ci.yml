@@ -49,12 +49,12 @@ jobs:
         run: npx vite build
         env:
           VITE_COMMIT: ${{ github.sha }}
-          VITE_LLM_API_KEY: AIzaCANARYcanaryCANARYcanaryCANARYcan00
+          VITE_LLM_API_KEY: PEWTER-GHOST-CANARY-NOT-A-REAL-KEY
 
       - name: No key in dist
         run: |
           npx tsx proxy/src/keyScan.ts dist
-          if grep -rIl -e "AIza" -e "CANARYcanary" -e "VITE_LLM_API_KEY" dist; then
+          if grep -rIl -e "AIza" -e "PEWTER-GHOST-CANARY" -e "VITE_LLM_API_KEY" dist; then
             echo "::error::dist/ contains a key pattern"
             exit 1
           fi
