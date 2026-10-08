@@ -4,6 +4,7 @@ import { LevelModel } from "../level/LevelModel";
 import {
   OfferLedger,
   STALE,
+  areaLeft,
   freshness,
   reconcileAnswer,
   reconcileCells,
@@ -191,6 +192,35 @@ describe("reconcileAnswer / freshness", () => {
     expect(r.suggestion?.adds).toEqual([]);
     expect(r.suggestion?.entities).toEqual([{ kind: "coin", x: 16, y: 9 }]);
     expect(r.suggestion?.anchor).toEqual({ x: 16, y: 9 });
+  });
+
+  it("drops an answer for an area the person has left (latest placement since the request outside the box + newStructureTiles)", () => {
+    const a = answer(); // box x 15..16, y 9..11
+    // No placement since the request: the person paused, keep it.
+    expect(freshness(a, ctx({ placementsSince: [], localityTiles: 6 }))).toBeNull();
+    // Still drawing next to it (the staircase): keep it.
+    expect(freshness(a, ctx({ placementsSince: [{ x: 14, y: 12 }], localityTiles: 6 }))).toBeNull();
+    // Right at the edge of the grown box (16 + 6 = 22): keep it.
+    expect(areaLeft(a, [{ x: 22, y: 11 }], 6)).toBe(false);
+    // Moved on to x=60: drop it, before and after verification.
+    const far = ctx({ placementsSince: [{ x: 14, y: 12 }, { x: 60, y: 12 }], localityTiles: 6 });
+    expect(freshness(a, far)).toBe(STALE.areaLeft);
+    expect(reconcileAnswer(a, then, level, far)).toMatchObject({ suggestion: null, reason: STALE.areaLeft });
+    // Only the LATEST placement counts: came back next to it, keep it.
+    expect(areaLeft(a, [{ x: 60, y: 12 }, { x: 17, y: 11 }], 6)).toBe(false);
+  });
+
+  it("drops an older answer when a NEWER request whose window covers it declined (act:false); an older decline does not", () => {
+    const ledger = new OfferLedger();
+    ledger.recordDecline(2, { x0: 0, y0: 0, x1: 39, y1: 19 }, 0);
+    expect(freshness(answer(), ctx({ seq: 1, ledger }))).toBe(STALE.newerDeclined);
+    expect(freshness(answer(), ctx({ seq: 3, ledger }))).toBeNull();
+    // A decline is not an offer.
+    expect(ledger.newerOverlapping(1, answer(), 1)).toBe(false);
+    // A window elsewhere does not cover it.
+    const other = new OfferLedger();
+    other.recordDecline(2, { x0: 40, y0: 0, x1: 79, y1: 19 }, 0);
+    expect(freshness(answer(), ctx({ seq: 1, ledger: other }))).toBeNull();
   });
 
   it("OfferLedger prunes by time and caps its size", () => {

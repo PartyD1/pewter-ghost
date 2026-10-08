@@ -26,9 +26,20 @@
  *     verified and offered -> drop "stale: newer shown". An older answer
  *     never replaces a newer one; a newer answer replaces an older one only
  *     through the SuggestionManager's normal rules.
+ *  4. newer declined: a NEWER request whose window covered this answer's
+ *     cells was answered act:false (the model, with more context, chose to
+ *     do nothing there) -> drop "stale: newer declined". Newest wins, a
+ *     decline included.
+ *  5. area left: the person has placed since the request, and their latest
+ *     placement is outside the answer's box grown by config.newStructureTiles
+ *     -> drop "stale: area left". They are no longer drawing the same pattern
+ *     here ("If they are still drawing the same pattern, apply"); a ghost
+ *     shown behind them would be ended "drawn-over" by their next placement
+ *     (dismissOnDrawElsewhere) and counted as a dismissal they never made.
+ *     No placement since the request keeps the answer (the person paused).
  *
- * 1 and 3 are checked again after verification (it can take a send-back),
- * just before the offer. Pure, no Phaser: cells are read through CellReader,
+ * 1, 3, 4 and 5 are checked again after verification (it can take a
+ * send-back), just before the offer. Pure, no Phaser: cells are read through CellReader,
  * which LevelModel and `snapshotReader(snapshot)` both satisfy.
  */
 import type { EntityKind, LevelSnapshot, Point, Suggestion } from "../contracts";
@@ -40,6 +51,8 @@ export const STALE = {
   cellsDrawn: "stale: cells drawn",
   allDrawn: "stale: all cells drawn",
   newerShown: "stale: newer shown",
+  newerDeclined: "stale: newer declined",
+  areaLeft: "stale: area left",
 } as const;
 export type StaleReason = (typeof STALE)[keyof typeof STALE];
 
@@ -152,12 +165,15 @@ interface OfferEntry {
   seq: number;
   box: Box;
   at: number;
+  /** offer: a verified answer was offered; decline: the model answered act:false for this window. */
+  kind: "offer" | "decline";
 }
 
 /**
  * The answers the loop verified and offered (shown or held by the manager),
- * keyed by the sequence number of their request, so a late answer to an
- * older request can tell that a newer one already covers its area.
+ * and the requests the model declined (act:false, keyed by their window),
+ * by the sequence number of their request, so a late answer to an older
+ * request can tell that a newer one already settled its area.
  */
 export class OfferLedger {
   private entries: OfferEntry[] = [];
@@ -169,14 +185,29 @@ export class OfferLedger {
   }
 
   record(seq: number, s: Suggestion, at: number): void {
-    this.entries.push({ seq, box: suggestionBox(s), at });
+    this.push({ seq, box: suggestionBox(s), at, kind: "offer" });
+  }
+
+  /** The request `seq`, whose window is `window`, was answered act:false. */
+  recordDecline(seq: number, window: Box, at: number): void {
+    this.push({ seq, box: { ...window }, at, kind: "decline" });
+  }
+
+  private push(e: OfferEntry): void {
+    this.entries.push(e);
     if (this.entries.length > this.cap) this.entries.splice(0, this.entries.length - this.cap);
   }
 
   /** Was an answer to a request newer than `seq`, overlapping `s` (with `margin` tiles), offered? */
   newerOverlapping(seq: number, s: Suggestion, margin: number): boolean {
     const box = suggestionBox(s);
-    return this.entries.some((e) => e.seq > seq && boxesOverlap(e.box, box, margin));
+    return this.entries.some((e) => e.kind === "offer" && e.seq > seq && boxesOverlap(e.box, box, margin));
+  }
+
+  /** Did a request newer than `seq`, whose window overlaps `s`, answer act:false? */
+  newerDeclined(seq: number, s: Suggestion): boolean {
+    const box = suggestionBox(s);
+    return this.entries.some((e) => e.kind === "decline" && e.seq > seq && boxesOverlap(e.box, box, 0));
   }
 
   /**
@@ -207,16 +238,29 @@ export interface AnswerContext {
   maxAgeMs: number;
   /** Tiles a newer offer's box is grown by when testing overlap (config.cooldownMarginTiles). */
   margin: number;
+  /** The person's placements since the request, oldest first (step 5). Omitted or empty: no check. */
+  placementsSince?: readonly Point[];
+  /** Tiles the answer's box is grown by for step 5 (config.newStructureTiles). */
+  localityTiles?: number;
 }
 
-/** Steps 1 and 3 (age, newer shown): the checks repeated just before an offer. */
+/** Step 5: the person's latest placement since the request is away from the answer. */
+export function areaLeft(s: Suggestion, placements: readonly Point[] | undefined, tiles: number): boolean {
+  const p = placements?.[placements.length - 1];
+  if (!p) return false;
+  return !boxesOverlap(suggestionBox(s), { x0: p.x, y0: p.y, x1: p.x, y1: p.y }, Math.max(0, tiles));
+}
+
+/** Steps 1, 3, 4 and 5 (age, newer shown, newer declined, area left): the checks repeated just before an offer. */
 export function freshness(s: Suggestion, c: AnswerContext): StaleReason | null {
   if (c.now - c.requestedAt > c.maxAgeMs) return STALE.tooOld;
   if (c.ledger.newerOverlapping(c.seq, s, c.margin)) return STALE.newerShown;
+  if (c.ledger.newerDeclined(c.seq, s)) return STALE.newerDeclined;
+  if (areaLeft(s, c.placementsSince, c.localityTiles ?? 0)) return STALE.areaLeft;
   return null;
 }
 
-/** All three steps for an answer that just arrived: drop, trim, or keep as is. */
+/** All steps for an answer that just arrived: drop, trim, or keep as is. */
 export function reconcileAnswer(s: Suggestion, then: CellReader, now: CellReader, c: AnswerContext): CellsReconcile {
   if (c.now - c.requestedAt > c.maxAgeMs) return { suggestion: null, trimmed: 0, conflicts: [], reason: STALE.tooOld };
   const cells = reconcileCells(s, then, now);

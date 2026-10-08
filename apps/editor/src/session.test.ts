@@ -696,6 +696,96 @@ describe("FillLoop speculation: calls are not cancelled, answers are reconciled"
     expect(c1).toMatchObject({ superseded: true, error: "superseded", reason: "stale: newer shown", verdictStage: "ok" });
   });
 
+  it("a late answer for an area the person has LEFT is dropped (stale: area left): no ghost behind them, no dismissal counted", async () => {
+    await place(12, 14); // call 1, near the start
+    clock.advance(400);
+    await place(60, 12); // the person moves on: call 2
+    clock.advance(400);
+    await place(61, 12); // call 3
+    expect(filler.calls.map((c) => c.aborted)).toEqual([false, false, false]);
+    const streak = manager.streak;
+    const above = manager.showNowAbove;
+
+    // Call 1 answers late, within maxAnswerAgeMs, its cells untouched, nothing newer offered there.
+    clock.set(3100);
+    filler.calls[0].answer(stairsAnswer([[13, 13], [14, 12]]));
+    await settled(1);
+    expect(outcomeOf(1)).toMatchObject({ superseded: true, dropReason: "stale: area left" });
+    expect(outcomeOf(1)!.verify).toBeUndefined();
+    expect(offers).toHaveLength(0);
+    expect(manager.shown).toBeNull();
+    expect(fillCalls().at(-1)).toMatchObject({ superseded: true, error: "superseded", reason: "stale: area left" });
+    expect(validateEvent(fillCalls().at(-1)!, { strict: true }).ok).toBe(true);
+
+    // The person keeps drawing at x=62: nothing was shown, so nothing is dismissed.
+    await place(62, 12);
+    expect(ends).toEqual([]);
+    expect(manager.streak).toBe(streak);
+    expect(manager.showNowAbove).toBe(above);
+
+    // The answer where they ARE drawing still shows.
+    clock.set(3500);
+    filler.calls[2].answer(stairsAnswer([[62, 11], [63, 10]]));
+    await settled(3);
+    expect(outcomeOf(3)?.offer?.status).toBe("shown");
+  });
+
+  it("a NEWER request declining (act:false) its window makes an older answer for that area stale (stale: newer declined)", async () => {
+    // A filler that reports the model's answer, so act:false is a real decline.
+    const DECLINE = { decline: true } as unknown as Suggestion;
+    class Declining extends ScriptedFiller {
+      async fillDetailed(request: FillRequest, signal?: AbortSignal) {
+        const base = { requestHash: "f".repeat(64), latencyMs: 2100, samples: 1 as const, confidenceSource: "stated" as const, dropped: [], aborted: false, timedOut: false, superseded: false };
+        try {
+          const s = await this.fill(request, signal);
+          if (s === DECLINE) {
+            return { ...base, suggestion: null, answer: { act: false, kind: "extend" as const, adds: [], removes: [], entities: [], confidence: 0.2, label: "" } };
+          }
+          return { ...base, suggestion: s, answer: null };
+        } catch {
+          return { ...base, suggestion: null, answer: null, aborted: true, error: "aborted" };
+        }
+      }
+    }
+    loop!.dispose();
+    const declining = new Declining();
+    const registry = new FillerRegistry();
+    registry.register(declining);
+    loop = new FillLoop({ model, agent, registry, log: (e) => log.push(e), config: () => cfg, clock: () => clock.now(), patrol: false, onOutcome: (o) => outcomes.push(o) });
+    loop.refresh();
+    loop.setGhost(managerSink(() => cfg, {}, clock).sink);
+    const startOffers = 0;
+
+    await place(12, 14);
+    clock.advance(400);
+    await place(13, 13);
+    // The newest request (more context) says: do nothing here.
+    clock.set(2600);
+    declining.calls[1].answer(DECLINE);
+    await settled(2);
+    expect(outcomeOf(2)).toMatchObject({ superseded: false });
+    // The older one arrives after it and would have shown.
+    clock.set(3100);
+    declining.calls[0].answer(stairsAnswer([[13, 13], [14, 12]]));
+    await settled(1);
+    expect(outcomeOf(1)).toMatchObject({ superseded: true, dropReason: "stale: newer declined" });
+    expect(loop.stats.offered).toBe(startOffers);
+    expect(fillCalls().at(-1)).toMatchObject({ superseded: true, reason: "stale: newer declined" });
+  });
+
+  it("after dispose() a trip settling late writes no fill.call and reports no outcome", async () => {
+    await place(12, 14);
+    const before = fillCalls().length;
+    const outs = outcomes.length;
+    loop!.dispose();
+    await sleep(20);
+    filler.calls[0].answer(stairsAnswer([[13, 13]]));
+    await sleep(20);
+    expect(fillCalls()).toHaveLength(before);
+    expect(outcomes).toHaveLength(outs);
+    loop = null;
+  });
+
   it('filler "none" makes zero calls: placements are logged, nothing is in flight', async () => {
     cfg.filler = "none";
     loop!.refresh();

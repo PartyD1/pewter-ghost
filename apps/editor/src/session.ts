@@ -8,9 +8,10 @@
  *           placement does not cancel older calls, only overflow aborts the oldest)
  *       ──► reconcile the answer with the level NOW (fill/reconcile.ts):
  *           too old / cells drawn over / a newer overlapping answer already
- *           offered ──► dropped as stale; cells drawn as proposed ──► trimmed
+ *           offered / a newer request declined the area / the person has
+ *           left the area ──► dropped as stale; cells drawn as proposed ──► trimmed
  *       ──► verifyWithSendBack on the current level (validator, rule check,
- *           agent; one send-back) ──► age / newer-offer check again
+ *           agent; one send-back) ──► age / newer-offer / decline / area check again
  *       ──► GhostSession.offer ──► SuggestionManager ──► GhostLayer / StatusStrip
  *   Tab ──► LevelModel.applySuggestion (ghost/session.ts)
  *   idle ──► Patrol (agent, start → frontier) ──► blocked ──► patrol FillRequest
@@ -20,8 +21,10 @@
  * fill.call (one per model call, with the verdict stage and send-back;
  * `superseded: true` + error "superseded" when the call was aborted or its
  * answer dropped before showing, `reason` saying why: "stale: cells drawn",
- * "stale: all cells drawn", "stale: newer shown", "stale: too old",
- * "aborted: over maxInFlight", "cancelled"),
+ * "stale: all cells drawn", "stale: newer shown", "stale: newer declined",
+ * "stale: area left", "stale: too old", "aborted: over maxInFlight",
+ * "cancelled"; a trip cancelled by Play / load / cancel() still writes its
+ * "cancelled" fill.call, a trip settling after dispose() writes nothing),
  * ghost.show / ghost.end (ghost/session.ts), patrol, play.*, undo / redo, save
  * (editor). Events logged before the session resolves are buffered and written
  * after the `session` event.
@@ -304,8 +307,11 @@ export class FillLoop {
   private readonly trips = new Set<AbortController>();
   /** Request sequence numbers: answers arrive out of order, this says which request is newer. */
   private seq = 0;
-  /** Verified answers offered to the ghost, for the "stale: newer shown" rule. */
+  /** Verified answers offered to the ghost and newer declines, for "stale: newer shown / newer declined". */
   private readonly offers = new OfferLedger();
+  /** The person's recent placements, numbered, for "stale: area left" (oldest first). */
+  private placed: { n: number; x: number; y: number }[] = [];
+  private placedCount = 0;
   private lastGuess: string | undefined;
   private patrolOn = false;
   private paused = false;
@@ -349,6 +355,7 @@ export class FillLoop {
           this.stream.reset();
           this.cancel();
           this.offers.clear();
+          this.placed = [];
           this.ended = [];
           this.tags.clear();
           this.lastGuess = undefined;
@@ -525,6 +532,10 @@ export class FillLoop {
 
   private onPlacement(e: PlacementEvent): void {
     this.o.log({ ...e, type: e.tool === "erase" ? "erase" : "place" });
+    // Where the person is drawing, for "stale: area left" (only the latest one
+    // after a request matters; a few hundred cover any answer's lifetime).
+    this.placed.push({ n: this.placedCount++, x: e.x, y: e.y });
+    if (this.placed.length > 256) this.placed.splice(0, this.placed.length - 256);
     if (!this.enabled || this.halted) return;
     // Speculative: every placement asks again; a drag is coalesced. Older calls
     // keep running and their answers are reconciled when they arrive.
@@ -579,7 +590,7 @@ export class FillLoop {
   }
 
   /** The reconciliation context of a trip, read now (config is live). */
-  private answerContext(seq: number, requestedAt: number): AnswerContext {
+  private answerContext(seq: number, requestedAt: number, placedBefore: number): AnswerContext {
     const cfg = this.cfg();
     return {
       seq,
@@ -588,6 +599,8 @@ export class FillLoop {
       ledger: this.offers,
       maxAgeMs: cfg.maxAnswerAgeMs,
       margin: cfg.cooldownMarginTiles,
+      placementsSince: this.placed.filter((p) => p.n >= placedBefore),
+      localityTiles: cfg.newStructureTiles,
     };
   }
 
@@ -608,6 +621,8 @@ export class FillLoop {
 
     const seq = ++this.seq;
     const requestedAt = this.clock();
+    /** Placements numbered from here on came after this request. */
+    const placedBefore = this.placedCount;
     let request: FillRequest;
     /** The level the request describes (what the answer is reconciled against). */
     let then: LevelSnapshot;
@@ -626,6 +641,8 @@ export class FillLoop {
     const finish = (o: Omit<FillOutcome, "events" | "mode" | "request" | "result" | "seq">): FillOutcome => {
       this.trips.delete(ctrl);
       const out: FillOutcome = { mode, request, seq, result, events, ...o };
+      // After dispose() the session is over: a trip settling late reports nothing.
+      if (this.disposed) return out;
       if (out.superseded) this.stats.superseded++;
       this.last = out;
       try {
@@ -639,7 +656,7 @@ export class FillLoop {
       const ev = { ...fillCallEvent(r, req, this.clock()), ...extra } as FillCallEvent;
       for (const k of Object.keys(ev) as (keyof FillCallEvent)[]) if (ev[k] === undefined) delete ev[k];
       events.push(ev);
-      this.o.log(ev);
+      if (!this.disposed) this.o.log(ev);
     };
     /** The same result, marked as dropped before showing (fill.call superseded + reason). */
     const dropped = (r: FillResult, reason: string): FillResult => ({ ...r, superseded: true, supersededReason: reason });
@@ -662,7 +679,7 @@ export class FillLoop {
     let trimmed = 0;
     if (answer) {
       this.offers.prune(this.clock() - this.cfg().maxAnswerAgeMs);
-      const rc = reconcileAnswer(answer, thenCells, this.o.model, this.answerContext(seq, requestedAt));
+      const rc = reconcileAnswer(answer, thenCells, this.o.model, this.answerContext(seq, requestedAt, placedBefore));
       if (!rc.suggestion) {
         const reason = rc.reason ?? "stale";
         this.stats.stale++;
@@ -676,6 +693,12 @@ export class FillLoop {
     }
 
     if (!answer) {
+      // A plain decline (act:false, no error) settles this request's window:
+      // an older answer for the same area arriving later is stale.
+      if (mode !== "patrol" && result.answer?.act === false && !result.error && !result.timedOut) {
+        const { origin: o, size: z } = request;
+        this.offers.recordDecline(seq, { x0: o.x, y0: o.y, x1: o.x + z.w - 1, y1: o.y + z.h - 1 }, this.clock());
+      }
       writeCall(result, request);
       this.report(mode, filler, result, undefined);
       // Patrol with no model answer still gets the local repair.
@@ -738,7 +761,7 @@ export class FillLoop {
     // Verification takes time (the agent, maybe a send-back): a newer answer
     // may have been offered meanwhile, or this one may have grown too old.
     let late: string | null = null;
-    if (v) late = ctrl.signal.aborted ? CANCELLED : freshness(v, this.answerContext(seq, requestedAt));
+    if (v) late = ctrl.signal.aborted ? CANCELLED : freshness(v, this.answerContext(seq, requestedAt, placedBefore));
     /** Mark the call whose answer was verified when that answer is dropped late. */
     const lateFor = (attempt: number, r: FillResult): FillResult =>
       late && final?.attempt === attempt ? dropped(r, late) : r;
