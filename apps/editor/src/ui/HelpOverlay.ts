@@ -35,9 +35,9 @@ export const HELP_SECTIONS: readonly [string, readonly [string, string][]][] = [
     "Editing",
     [
       [MODES.map((m) => MODE_KEY[m]).join(" / "), `${MODES.map((m) => MODE_LABEL[m]).join(" / ")} mode`],
+      ["Ctrl + Z / Ctrl + Shift + Z", "Undo / redo (one ghost = one step)"],
       ["Space + drag", "Pan (any mode); two-finger drag on a trackpad"],
       ["WASD / arrows", "Move camera (Press Shift to move faster)"],
-      ["Ctrl + Z / Ctrl + Shift + Z", "Undo / redo (one ghost = one step)"],
       ["Ctrl + S", "Save task"],
       ["U", "Toggle UI"],
     ],
