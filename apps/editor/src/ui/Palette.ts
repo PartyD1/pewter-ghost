@@ -9,7 +9,7 @@
  * - each button has data-item (the palette id the tests click);
  * - choosing an item sets the brush (or Erase mode) on ModeState, and the
  *   "selected" class follows the mode and brush (so keys 1-4 update it);
- * - items the old palette did not have (Block, Start, Goal flag, Sign) use
+ * - items the old palette did not have (Start, Goal flag, Sign) use
  *   the same icon span, cut from the composite pg-tiles texture
  *   (.pg-block-icon-tiles, style.css);
  * - the Sign item shows the sign-text field while the sign brush is on.
@@ -18,11 +18,11 @@ import type { Brush, ModeState } from "../editor/modes";
 import type { Chrome } from "./Chrome";
 import { activeItemId, PALETTE_ITEMS, type PaletteItem } from "./paletteItems";
 
-/** Old group lists and their order (old UIScene.ts:32-40), plus Block and the Markers group. */
+/** Old group lists and their order (old UIScene.ts:32-40), plus the Markers group. "Empty" (a selection-box tool) is dropped (plan: "Selection boxes, Z-levels, Empty markers ... drop"). */
 const GROUPS: readonly { list: string; items: readonly string[] }[] = [
   { list: "blocks-list-eraser", items: ["eraser"] },
   { list: "blocks-list-collectables", items: ["coin", "fruit"] },
-  { list: "blocks-list-terrain", items: ["grass_half", "dirt", "grass", "question", "block"] },
+  { list: "blocks-list-terrain", items: ["grass_half", "dirt", "grass", "question"] },
   { list: "blocks-list-enemies", items: ["slime", "ultraslime"] },
   { list: "blocks-list-markers", items: ["start", "flag", "sign"] },
 ];

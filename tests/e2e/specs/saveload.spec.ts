@@ -36,7 +36,7 @@ async function levelView(ed: Editor): Promise<LevelView> {
 async function drawSomething(ed: Editor): Promise<void> {
   await ed.pick("grass");
   await ed.drag([14, 15, 16, 17].map((x) => [x, 12]));
-  await ed.pick("block");
+  await ed.pick("question");
   await ed.drag([20, 21].map((x) => [x, 10]));
   await ed.pick("coin");
   await ed.clickTile(15, 10);

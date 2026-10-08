@@ -63,11 +63,11 @@ test.describe("painting", () => {
   });
 
   test("painting over the UI does nothing; a stroke that crosses the palette stops", async ({ page }) => {
-    await ed.pick("block");
+    await ed.pick("question");
     const before = await ed.snapshotJson();
     // Clicks on DOM chrome (palette, toolbar) never reach the canvas.
     await page.click('[data-item="dirt"]');
-    await page.click('[data-item="block"]');
+    await page.click('[data-item="question"]');
     await page.click('[data-cmd="help"]');
     await expect(page.locator("#pg-help")).toBeVisible();
     await page.keyboard.press("Escape");
@@ -83,7 +83,7 @@ test.describe("painting", () => {
     await page.mouse.move(pal.x + pal.width / 2, pal.y + pal.height / 2, { steps: 4 });
     await page.mouse.move(back.x, back.y, { steps: 4 });
     await page.mouse.up();
-    expect(await ed.tileAt(x0, row - 3)).toBe(T.BLOCK);
+    expect(await ed.tileAt(x0, row - 3)).toBe(T.QUESTION);
     expect(await ed.tileAt(x0 + 3, row - 3)).toBe(T.EMPTY);
   });
 

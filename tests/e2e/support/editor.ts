@@ -241,7 +241,7 @@ export class Editor {
   }
 
   /** Pick a palette item (switches to Paint). */
-  async pick(item: "block" | "grass" | "grass_half" | "dirt" | "question" | "coin" | "fruit" | "slime" | "ultraslime" | string): Promise<void> {
+  async pick(item: "grass" | "grass_half" | "dirt" | "question" | "coin" | "fruit" | "slime" | "ultraslime" | string): Promise<void> {
     await this.page.click(`[data-item="${item}"]`);
   }
 
