@@ -4,6 +4,12 @@
  * It subscribes to LevelModel change diffs and updates the tilemap layer,
  * the entity sprites, the start/goal markers and the enemy patrol marks.
  * A full redraw happens only on load; everything else is diff-driven.
+ *
+ * Under the level it draws the old Pewter Platformer backdrop: the
+ * Background_Layer of pewterPlatformerDefaultMap.json (white sky, cloud edge,
+ * light blue, wave edge, dark blue, underground), created with the old
+ * editor's own map-loading code. It is decoration only: never part of the
+ * LevelModel, saves or collisions.
  * Per decisions.md, entitiesRemoved is processed before entitiesAdded, and
  * LevelChangeEx.entitiesUpdated carries enemies whose patrol span changed.
  */
@@ -22,7 +28,9 @@ export interface RendererStats {
 export class Renderer {
   readonly map: Phaser.Tilemaps.Tilemap;
   private readonly layer: Phaser.Tilemaps.TilemapLayer;
-  private readonly grid: Phaser.GameObjects.TileSprite;
+  /** The old default map (Tiled JSON), used only for its Background_Layer. */
+  readonly defaultMap: Phaser.Tilemaps.Tilemap;
+  private readonly backgroundLayer: Phaser.Tilemaps.TilemapLayer;
   private readonly entitySprites = new Map<string, Phaser.GameObjects.Image>();
   private readonly entityData = new Map<string, Entity>();
   private readonly entityLayer: Phaser.GameObjects.Container;
@@ -37,19 +45,46 @@ export class Renderer {
     private readonly scene: Phaser.Scene,
     private readonly model: LevelModel,
   ) {
+    // --- old editorScene.ts create() (lines 487-512), verbatim apart from
+    // this -> scene and this.map -> this.defaultMap; the old Ground_Layer and
+    // Collectables_Layer are the level model now (newLevel.ts starterSnapshot).
+    this.defaultMap = scene.make.tilemap({ key: "defaultMap" });
+
+    const tileset = this.defaultMap.addTilesetImage(
+      "pewterPlatformerTilesetExtended",
+      "tileset",
+      16,
+      16,
+      0,
+      0,
+    )!;
+
+    const extrasTileset = this.defaultMap.addTilesetImage(
+      "Extras",
+      "extras-tileset",
+      16,
+      16,
+      0,
+      0,
+    );
+
+    this.backgroundLayer = this.defaultMap.createLayer(
+      "Background_Layer",
+      extrasTileset ? [tileset, extrasTileset] : tileset,
+      0,
+      0,
+    )!;
+    // --- end of the old code ---
+    this.backgroundLayer.setDepth(DEPTH.background);
+
     this.map = scene.make.tilemap({ tileWidth: TILE_PX, tileHeight: TILE_PX, width: model.w, height: model.h });
-    const tileset = this.map.addTilesetImage(ASSET.tiles, ASSET.tiles, TILE_PX, TILE_PX, 0, 0, 0);
-    if (!tileset) throw new Error("renderer: tileset texture missing");
-    const layer = this.map.createBlankLayer("level", tileset, 0, 0, model.w, model.h);
+    const levelTiles = this.map.addTilesetImage(ASSET.tiles, ASSET.tiles, TILE_PX, TILE_PX, 0, 0, 0);
+    if (!levelTiles) throw new Error("renderer: tileset texture missing");
+    const layer = this.map.createBlankLayer("level", levelTiles, 0, 0, model.w, model.h);
     if (!layer) throw new Error("renderer: could not create the tile layer");
     this.layer = layer;
     this.layer.setDepth(DEPTH.tiles);
     this.layer.setCollision([...TERRAIN_IDS]);
-
-    this.grid = scene.add
-      .tileSprite(0, 0, model.w * TILE_PX, model.h * TILE_PX, ASSET.grid)
-      .setOrigin(0, 0)
-      .setDepth(DEPTH.grid);
 
     this.entityLayer = scene.add.container(0, 0).setDepth(DEPTH.entities);
     this.patrolGfx = scene.add.graphics().setDepth(DEPTH.entities - 1);
@@ -78,10 +113,12 @@ export class Renderer {
     return this.model.h * TILE_PX;
   }
 
-  /** Edit view shows the grid, entity sprites, markers and patrols; Play hides them (Play draws live objects). */
+  /**
+   * Edit view shows entity sprites, markers and patrols; Play hides them (Play
+   * draws live objects). The grid is EditorScene's (drawn per frame, cleared in Play).
+   */
   setEditView(on: boolean): void {
     this.editView = on;
-    this.grid.setVisible(on);
     this.entityLayer.setVisible(on);
     this.patrolGfx.setVisible(on);
     this.startMarker.setVisible(on);
@@ -97,8 +134,9 @@ export class Renderer {
     this.patrolGfx.destroy();
     this.startMarker.destroy();
     this.goalMarker.destroy();
-    this.grid.destroy();
     this.map.destroy();
+    this.backgroundLayer.destroy();
+    this.defaultMap.destroy();
   }
 
   /** Redraw everything from the model (boot and load only). */

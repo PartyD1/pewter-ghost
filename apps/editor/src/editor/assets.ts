@@ -1,21 +1,42 @@
 /**
  * Asset loading and the composite 16 px texture.
  *
- * The old editor drew terrain, collectables, enemies and the knight from the
- * 15-frame Brackeys strip (pewterPlatformerTilesetExtended.png, 16 px). Its
- * frame for tile id 1 ("Block 1") is blank, and it has no flag or sign, so
- * those come from the Kenney sheet already in public/ (18 px frames,
- * resampled to 16). Everything is copied once into one canvas texture whose
- * frame index equals the model's TileId for terrain.
+ * preloadAssets() is the old Pewter Platformer LoadingScene.preload
+ * (pewter-platfomer src/phaser/loadingScene.ts:8-28), copied verbatim, plus
+ * one line for the Kenney sheet. The old editor drew terrain, collectables,
+ * enemies and the knight from the 15-frame Brackeys strip
+ * (pewterPlatformerTilesetExtended.png, 16 px). Its frame for tile id 1
+ * ("Block 1") is blank, and it has no flag or sign, so those come from the
+ * Kenney sheet already in public/ (18 px frames, resampled to 16). Everything
+ * is copied once into one canvas texture whose frame index equals the
+ * model's TileId for terrain. The old keys ("tileset", "extras-tileset",
+ * "defaultMap", "spritesheet", "pellets") are the ASSET constants.
  */
 import Phaser from "phaser";
 import { ASSET, FRAME_COUNT, FRAME_SOURCES, KENNEY_PX, TILE_PX } from "./constants";
 
 export function preloadAssets(scene: Phaser.Scene): void {
+  // --- old loadingScene.ts preload(), verbatim (this -> scene) ---
   scene.load.setPath("phaserAssets/");
-  scene.load.image(ASSET.brackeys, "pewterPlatformerTilesetExtended.png");
+  scene.load.image("tileset", "pewterPlatformerTilesetExtended.png");
+  scene.load.image("extras-tileset", "pewterPlatformerTilesetBackgroundExtras.png");
+  scene.load.tilemapTiledJSON("defaultMap", "pewterPlatformerDefaultMap.json");
+  //this.load.image("pellets", "pellets.png");
+
+  scene.load.spritesheet("spritesheet", "pewterPlatformerTilesetExtended.png", {
+    frameWidth: 16,
+    frameHeight: 16,
+  });
+
+  scene.load.spritesheet("pellets", "pellets.png", {
+    frameWidth: 16,
+    frameHeight: 16,
+  });
+  // --- end of the old preload ---
+
+  // New: the Kenney sheet for the Block, Flag and Sign frames (the old
+  // EditorScene.preload loaded the same file as "tilemap_tiles").
   scene.load.image(ASSET.kenney, "tilemap_packed.png");
-  scene.load.spritesheet(ASSET.pellets, "pellets.png", { frameWidth: 16, frameHeight: 16 });
   scene.load.setPath("");
 }
 
@@ -34,7 +55,7 @@ function drawStartMarker(ctx: CanvasRenderingContext2D, x: number): void {
   ctx.fillRect(x + 2, 14, 6, 2);
 }
 
-/** Build `pg-tiles` (composite) and `pg-grid`. Safe to call twice. */
+/** Build `pg-tiles` (the composite). Safe to call twice. */
 export function buildTextures(scene: Phaser.Scene): void {
   const textures = scene.textures;
   if (!textures.exists(ASSET.tiles)) {
@@ -55,14 +76,5 @@ export function buildTextures(scene: Phaser.Scene): void {
     }
     canvas.refresh();
     for (let f = 0; f < FRAME_COUNT; f++) canvas.add(f, 0, f * TILE_PX, 0, TILE_PX, TILE_PX);
-  }
-  if (!textures.exists(ASSET.grid)) {
-    const g = textures.createCanvas(ASSET.grid, TILE_PX, TILE_PX);
-    if (!g) throw new Error("could not create the grid texture");
-    const ctx = g.context;
-    ctx.fillStyle = "rgba(20, 40, 70, 0.11)";
-    ctx.fillRect(0, 0, TILE_PX, 1);
-    ctx.fillRect(0, 1, 1, TILE_PX - 1);
-    g.refresh();
   }
 }
