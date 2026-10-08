@@ -109,14 +109,14 @@ export interface GhostConfig {
 }
 
 export const DEFAULT_CONFIG: GhostConfig = {
-  showNowAbove: 0.75,
-  showAtPauseAbove: 0.4,
-  pauseMs: 800,
+  showNowAbove: 0.6,
+  showAtPauseAbove: 0,
+  pauseMs: 500,
   longPauseMs: 2500,
   callTimeoutMs: 6000,
   agentCapMs: 300,
   patrolCapMs: 1000,
-  patrolIdleMs: 3000,
+  patrolIdleMs: 2000,
   sendBackIfUnderMs: 500,
   cooldownAfterDismissMs: 4000,
   maxDismissStreak: 3,
@@ -158,3 +158,10 @@ export function resetConfig(): GhostConfig {
   Object.assign(config, structuredClone(DEFAULT_CONFIG));
   return config;
 }
+
+/**
+ * Fixed confidence bands for reports and calibration (low / medium / high).
+ * They are an analysis scale, kept apart from the live timing thresholds so
+ * tuning when ghosts appear does not move the bins results are compared in.
+ */
+export const CONFIDENCE_BANDS = { showAtPauseAbove: 0.4, showNowAbove: 0.75 } as const;

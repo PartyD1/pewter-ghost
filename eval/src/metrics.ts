@@ -13,7 +13,7 @@
  *    distance), difficulty, and the linearity x leniency expressive range
  */
 import type { LevelSnapshot, LogEvent, SuggestionKind } from "../../apps/editor/src/contracts";
-import { DEFAULT_CONFIG } from "../../apps/editor/src/suggest/config";
+import { CONFIDENCE_BANDS, DEFAULT_CONFIG } from "../../apps/editor/src/suggest/config";
 import { expressiveFeatures, expressiveHistogram, measureLevel, meanPairwiseDistance, type ExpressiveFeatures } from "@measure";
 import { VALIDATION_BANDS } from "../../apps/editor/src/verify/validate";
 import { ACCEPTED, ghostsOf, type GhostRecord, type SessionLog } from "./logs";
@@ -149,8 +149,8 @@ export function computeMetrics(
   levelGroups: readonly { group: string; levels: { name: string; level: LevelSnapshot }[] }[] = [],
   o: MetricsOptions & { survey?: SurveyAnswer[] } = {},
 ): DashboardMetrics {
-  const pauseEdge = o.showAtPauseAbove ?? DEFAULT_CONFIG.showAtPauseAbove;
-  const nowEdge = o.showNowAbove ?? DEFAULT_CONFIG.showNowAbove;
+  const pauseEdge = o.showAtPauseAbove ?? CONFIDENCE_BANDS.showAtPauseAbove;
+  const nowEdge = o.showNowAbove ?? CONFIDENCE_BANDS.showNowAbove;
   const budget = o.callTimeoutMs ?? DEFAULT_CONFIG.callTimeoutMs;
 
   const perSession = sessions.map((s) => ({ s, ghosts: ghostsOf(s) }));

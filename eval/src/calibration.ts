@@ -11,7 +11,7 @@
  * per app band) and a steepness (AUC - 0.5); the steepest wins and sets
  * showNowAbove / showAtPauseAbove from its curve.
  */
-import { DEFAULT_CONFIG } from "../../apps/editor/src/suggest/config";
+import { CONFIDENCE_BANDS } from "../../apps/editor/src/suggest/config";
 import { calibrationStats, suggestThresholds, type CalibrationStats, type CalPoint } from "./score/calibration";
 import { pct } from "./report";
 import type { CaseResult, ConfidenceSource, RunResult } from "./types";
@@ -46,7 +46,7 @@ const SOURCES: ConfidenceSource[] = ["stated", "logprob", "twoSample"];
 
 export function calibrate(results: readonly CaseResult[], o: CalibrateOptions = {}): CalibrationReport {
   const minN = o.minN ?? 5;
-  const edges = { showAtPauseAbove: DEFAULT_CONFIG.showAtPauseAbove, showNowAbove: DEFAULT_CONFIG.showNowAbove };
+  const edges = { ...CONFIDENCE_BANDS };
   let fromLogs = 0;
   let fromVerify = 0;
   const labelled: { r: CaseResult; label: boolean }[] = [];

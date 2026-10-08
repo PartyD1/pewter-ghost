@@ -70,6 +70,10 @@ export function placeEntity(
   return { t, x, y, tile: `entity:${kind}`, author: AUTHOR.PERSON, stroke, tool: "paint" };
 }
 
+export const TIMING_BANDS: Partial<GhostConfig> = { showNowAbove: 0.75, showAtPauseAbove: 0.4, pauseMs: 800, patrolIdleMs: 3000 };
+
 export function testConfig(over: Partial<GhostConfig> = {}): GhostConfig {
-  return { ...structuredClone(DEFAULT_CONFIG), ...over };
+  // The timing tests exercise all three bands (now / pause / long pause), so
+  // they pin thresholds that keep each band non-empty whatever the defaults.
+  return { ...structuredClone(DEFAULT_CONFIG), ...TIMING_BANDS, ...over };
 }
