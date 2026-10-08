@@ -362,7 +362,7 @@ Each of these must survive the restyle. "Old home" suggests where it fits in the
 | **Autosave** and the "Restored your level…" toast with "Start a new level" | `main.ts:334-347` | Same |
 | **Route on R in Play**, and on accept | Canvas | Same. Note that old `R` meant "deselect" and old `P` meant "Z-level up". The new key meanings win. |
 
-The old look has things the new one lacks. They are listed here as context for whoever restyles. The old-app inventory itself is in `docs/look/reference/`.
+The old look has things the new one lacks. They are listed here as context for whoever restyles. The old-app inventory itself is in `docs/look/OLD_LOOK.md`, with screenshots in `docs/look/reference/`.
 - The dark page `#08080f` and Space Grotesk.
 - The "PEWTER PLATFORMER" label above the canvas.
 - The fixed 1280x720 centred canvas.
