@@ -10,17 +10,22 @@ import type { CameraApi } from "./api";
 import {
   clampCenter,
   easeOutCubic,
-  fitZoom,
   nudgeTarget,
   screenToWorld,
   wheelIntent,
   zoomAround,
-  zoomLimits,
   type Size,
   type Vec,
   type WheelLike,
 } from "./cameraMath";
-import { TILE_PX } from "./constants";
+import { OLD_ZOOM, TILE_PX } from "./constants";
+
+/**
+ * The old editor's camera bounds were exactly the map (editorScene.ts:551-561:
+ * setBounds(0, 0, map.widthInPixels, map.heightInPixels)): no room past the edge.
+ */
+const BOUNDS_PAD_PX = 0;
+
 
 interface Tween {
   from: Vec;
@@ -47,7 +52,7 @@ const reducedMotion = (): boolean => {
 
 export class CameraController implements CameraApi {
   private center: Vec;
-  private _zoom = 2;
+  private _zoom: number = OLD_ZOOM.start;
   private tween: Tween | null = null;
   private pending: PendingNudge | null = null;
   private following = false;
@@ -86,17 +91,24 @@ export class CameraController implements CameraApi {
     return this.pending !== null;
   }
 
-  /** Fit the level height and look at tile (x, y) near the left third of the screen. */
+  /**
+   * The old editor's opening view (editorScene.ts:551-561): zoom 2.25 and
+   * centerOn(0, 0) clamped by the map bounds, i.e. the level's top-left. The
+   * focus tile (the start) only moves the view when it would be off screen.
+   */
   home(focus: Point): void {
     this._zoom = this.homeZoom();
     const vw = this.viewport.w / this._zoom;
-    this.center = { x: focus.x * TILE_PX + vw * 0.3, y: this.levelPx.h / 2 };
+    const vh = this.viewport.h / this._zoom;
+    this.center = { x: vw / 2, y: vh / 2 };
+    const fx = (focus.x + 0.5) * TILE_PX;
+    if (fx > vw - TILE_PX) this.center.x = fx - vw * 0.3 + vw / 2;
     this.apply();
   }
 
   /** Re-clamp after the canvas was resized. */
   onResize(): void {
-    const lim = zoomLimits(this.viewport, this.levelPx);
+    const lim = this.limits();
     this._zoom = Phaser.Math.Clamp(this._zoom, lim.min, lim.max);
     this.apply();
   }
@@ -112,7 +124,7 @@ export class CameraController implements CameraApi {
   /** Multiply the zoom, keeping the world point under `anchor` (canvas px) still. */
   zoomBy(factor: number, anchor?: Vec): void {
     if (this.following) return;
-    const lim = zoomLimits(this.viewport, this.levelPx);
+    const lim = this.limits();
     const next = Phaser.Math.Clamp(this._zoom * factor, lim.min, lim.max);
     if (next === this._zoom) return;
     this.tween = null;
@@ -127,9 +139,23 @@ export class CameraController implements CameraApi {
     this.zoomBy(this.homeZoom() / this._zoom);
   }
 
-  /** The whole level height in view (at least 1x, at most 4x). */
+  /**
+   * The old editor's zoom, 2.25 (editorScene.ts:78; 720 / 320, so the 20-row
+   * level exactly fills the 720 px canvas). On a canvas that is not 720 px
+   * tall it keeps the same "level height fills the view" rule.
+   */
   private homeZoom(): number {
-    return Phaser.Math.Clamp(fitZoom(this.viewport, this.levelPx), 1, 4);
+    if (this.levelPx.h <= 0 || this.viewport.h <= 0) return OLD_ZOOM.start;
+    return this.viewport.h / this.levelPx.h;
+  }
+
+  /**
+   * Old wheel range (editorScene.ts:76-77): from the opening zoom (2.25, the
+   * level's full height) up to 10. No zooming out past the level's height.
+   */
+  private limits(): { min: number; max: number } {
+    const home = this.homeZoom();
+    return { min: home, max: Math.max(OLD_ZOOM.max, home) };
   }
 
   /** Native wheel event (trackpad two-finger pan, pinch zoom, mouse wheel). */
@@ -155,7 +181,7 @@ export class CameraController implements CameraApi {
     const margin = Math.min(3 * TILE_PX, (this.viewport.w / this._zoom) * 0.15);
     const target = nudgeTarget(this.center, this._zoom, this.viewport, rect, margin);
     if (!target) return;
-    const to = clampCenter(target, this._zoom, this.viewport, this.levelPx);
+    const to = clampCenter(target, this._zoom, this.viewport, this.levelPx, BOUNDS_PAD_PX);
     const duration = reducedMotion() ? 0 : req.durationMs;
     if (duration <= 0) {
       this.center = to;
@@ -185,17 +211,20 @@ export class CameraController implements CameraApi {
     }
   }
 
-  /** Play mode: follow a target. */
+  /**
+   * Play mode: follow a target, as the old startGame did (editorScene.ts:
+   * 349-353): the zoom stays where it was (2.25 by default), the bounds are
+   * the map, startFollow(player, false, 0.1, 0.1).
+   */
   follow(target: Phaser.GameObjects.GameObject & { x: number; y: number }): void {
     this.savedView = { center: { ...this.center }, zoom: this._zoom };
     this.tween = null;
     this.pending = null;
     this.following = true;
     const cam = this.cam;
-    const playZoom = Phaser.Math.Clamp(this.viewport.h / (12 * TILE_PX), 1, 5);
-    cam.setZoom(playZoom);
-    cam.setBounds(0, -4 * TILE_PX, this.levelPx.w, this.levelPx.h + 4 * TILE_PX);
-    cam.startFollow(target, true, 0.12, 0.12);
+    cam.setZoom(this._zoom);
+    cam.setBounds(0, 0, this.levelPx.w, this.levelPx.h);
+    cam.startFollow(target, false, 0.1, 0.1);
   }
 
   stopFollow(): void {
@@ -214,7 +243,7 @@ export class CameraController implements CameraApi {
 
   private apply(): void {
     if (this.following) return;
-    this.center = clampCenter(this.center, this._zoom, this.viewport, this.levelPx);
+    this.center = clampCenter(this.center, this._zoom, this.viewport, this.levelPx, BOUNDS_PAD_PX);
     const cam = this.cam;
     cam.setZoom(this._zoom);
     cam.centerOn(this.center.x, this.center.y);

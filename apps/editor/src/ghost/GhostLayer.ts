@@ -24,6 +24,16 @@ import type { StageOverlay } from "./overlay";
 import { GHOST_STYLE, dashSegments, edgePx, fadeProgress, planGhost, planSize, type GhostPlan } from "./plan";
 import { prefersReducedMotion } from "./styles";
 
+/** Ghost tiles are drawn grey (assets.ts pg-tiles-ghost) when that texture exists. */
+const ghostTexture = (scene: Phaser.Scene): string => (scene.textures.exists(ASSET.ghostTiles) ? ASSET.ghostTiles : ASSET.tiles);
+/**
+ * Contrast on the old Pewter Platformer backdrop (white, light-blue and
+ * dark-blue bands under a black dotted grid): the grey ghost tiles are drawn
+ * at this multiple of GHOST_STYLE.alpha so they read on every band while
+ * staying clearly fainter than real tiles. No old source (the old app had no ghost).
+ */
+const GHOST_ALPHA_ON_BACKDROP = 1.6;
+
 export type LayerEnd = "accepted" | "dismissed";
 
 export interface GhostLayerOptions {
@@ -270,14 +280,14 @@ export class GhostLayer {
     a.images.length = 0;
     const scene = this.o.scene;
     for (const add of a.plan.adds) {
-      const im = scene.add.image(add.x * TILE_PX, add.y * TILE_PX, ASSET.tiles, add.tile).setOrigin(0, 0).setAlpha(GHOST_STYLE.alpha);
+      const im = scene.add.image(add.x * TILE_PX, add.y * TILE_PX, ghostTexture(scene), add.tile).setOrigin(0, 0).setAlpha(GHOST_STYLE.alpha * GHOST_ALPHA_ON_BACKDROP);
       a.images.push(im);
     }
     for (const en of a.plan.entities) {
       const im = scene.add
-        .image(en.x * TILE_PX, en.y * TILE_PX, ASSET.tiles, ENTITY_FRAME[en.kind])
+        .image(en.x * TILE_PX, en.y * TILE_PX, ghostTexture(scene), ENTITY_FRAME[en.kind])
         .setOrigin(0, 0)
-        .setAlpha(GHOST_STYLE.alpha + 0.1);
+        .setAlpha((GHOST_STYLE.alpha + 0.1) * GHOST_ALPHA_ON_BACKDROP);
       a.images.push(im);
     }
     // Images under the line graphics.

@@ -24,6 +24,8 @@ export const ASSET = {
   kenney: "kenney-tiles",
   /** Composite 16 px texture built at boot; frame index == TileId for terrain. */
   tiles: "pg-tiles",
+  /** The composite in light grey (same frames), for ghost suggestions. */
+  ghostTiles: "pg-tiles-ghost",
 } as const;
 
 /**

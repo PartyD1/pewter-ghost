@@ -55,7 +55,7 @@ function drawStartMarker(ctx: CanvasRenderingContext2D, x: number): void {
   ctx.fillRect(x + 2, 14, 6, 2);
 }
 
-/** Build `pg-tiles` (the composite). Safe to call twice. */
+/** Build `pg-tiles` (the composite) and `pg-tiles-ghost`. Safe to call twice. */
 export function buildTextures(scene: Phaser.Scene): void {
   const textures = scene.textures;
   if (!textures.exists(ASSET.tiles)) {
@@ -77,4 +77,34 @@ export function buildTextures(scene: Phaser.Scene): void {
     canvas.refresh();
     for (let f = 0; f < FRAME_COUNT; f++) canvas.add(f, 0, f * TILE_PX, 0, TILE_PX, TILE_PX);
   }
+  if (!textures.exists(ASSET.ghostTiles)) buildGhostTiles(textures);
 }
+
+/**
+ * `pg-tiles-ghost`: the composite in light grey, for ghost suggestions. Each
+ * pixel's luminance is mapped to the upper half of the grey range, so a
+ * ghost reads as a faint grey copy of the real tile on the old backdrop's
+ * white, light-blue and dark-blue bands alike (the old app had no ghost; the
+ * mapping has no old source).
+ */
+function buildGhostTiles(textures: Phaser.Textures.TextureManager): void {
+  const src = textures.get(ASSET.tiles).getSourceImage() as HTMLCanvasElement;
+  const grey = textures.createCanvas(ASSET.ghostTiles, FRAME_COUNT * TILE_PX, TILE_PX);
+  if (!grey) return;
+  const ctx = grey.context;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(src, 0, 0);
+  const img = ctx.getImageData(0, 0, FRAME_COUNT * TILE_PX, TILE_PX);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const l = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    const v = Math.round(GHOST_GREY.lo + (l / 255) * (GHOST_GREY.hi - GHOST_GREY.lo));
+    d[i] = d[i + 1] = d[i + 2] = v;
+  }
+  ctx.putImageData(img, 0, 0);
+  grey.refresh();
+  for (let f = 0; f < FRAME_COUNT; f++) grey.add(f, 0, f * TILE_PX, 0, TILE_PX, TILE_PX);
+}
+
+/** Grey range of the ghost texture (dark outline pixels -> lo, white -> hi). */
+const GHOST_GREY = { lo: 110, hi: 245 } as const;

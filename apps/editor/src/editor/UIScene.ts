@@ -1,87 +1,170 @@
 /**
- * In-canvas overlay, unaffected by the editor camera's zoom: the mode
- * indicator, the hovered cell, the Select-mode inspector line and the Play HUD.
- * Toolbar, palette and dialogs are DOM (ui/); the status strip mounts in
- * #ghost-status (another module).
+ * Overlay on the canvas, unaffected by the editor camera's zoom: the Play HUD,
+ * the sign bubble in Play, and the Select-mode inspector line.
+ *
+ * The Play HUD is the old Pewter Platformer one (pewter-platfomer
+ * src/phaser/editorScene.ts startGame, lines 395-432, its update at
+ * 1220-1229 and its removal at 2252-2273), copied verbatim: a
+ * `.pt-play-stats` pill (hearts and coins) at the top-left and
+ * `.pt-play-hint-q` key pills at the top-right, styled by legacy/chatbox.css.
+ * The old app appended them to Phaser's DOM container; here they go there
+ * when the game has one, else to the canvas's parent (the stage).
+ *
+ * Changes for Pewter Ghost:
+ * - The old "B 👁️ OFF" pill (selection-box visibility; Ghost has no boxes) is
+ *   the "R Route" pill: hold R to see the checked route. Same markup and
+ *   inline `right: 140px`.
+ * - "Q Exit" stops Play through EditorScene.stopPlay (old: startEditor).
+ * - New elements with no old source, built from the old `.pt-play-stats`
+ *   class and the old HUD text colours (#e8e4ff kbd, rgba(210,200,240,.8)
+ *   label): the sign bubble (top-centre, in Play) and the inspector line (a
+ *   Select-mode click, top-left under the minimap, 2.5 s).
+ * The old editor had no in-canvas mode pill or hover coordinates (the active
+ * mode is the highlighted toolbar button), so there are none.
  */
 import Phaser from "phaser";
-import type { Point } from "../contracts";
 import { SCENE } from "./constants";
-import { UI_EVENT } from "./EditorScene";
-import { describeMode, type ModeSnapshot } from "./modes";
+import { UI_EVENT, type EditorScene } from "./EditorScene";
 import type { PlayHud } from "./play";
-import { brushLabel } from "../ui/paletteItems";
 
-const FONT = "system-ui, -apple-system, Segoe UI, sans-serif";
+/** Under the old minimap (top 10, height 48: editorScene.ts:2342-2363), 8 px gap. */
+const BELOW_MINIMAP_PX = 10 + 48 + 8;
 
 export class UIScene extends Phaser.Scene {
-  private modeText!: Phaser.GameObjects.Text;
-  private hoverText!: Phaser.GameObjects.Text;
-  private hudText!: Phaser.GameObjects.Text;
-  private signText!: Phaser.GameObjects.Text;
-  private playing = false;
+  private playStatsEl: HTMLElement | null = null;
+  private playHudEl: HTMLElement | null = null;
+  private playRouteEl: HTMLElement | null = null;
+  private signEl: HTMLElement | null = null;
+  private inspectEl: HTMLElement | null = null;
   private inspectTimer: Phaser.Time.TimerEvent | null = null;
 
   constructor() {
     super({ key: SCENE.ui });
   }
 
-  create(): void {
-    const pill = { fontFamily: FONT, fontSize: "13px", color: "#f4f7fb", backgroundColor: "#1d2738d9", padding: { x: 8, y: 4 } };
-    this.modeText = this.add.text(10, 10, "", { ...pill, fontStyle: "600" }).setName("mode-indicator");
-    this.hoverText = this.add.text(10, 0, "", { ...pill, fontSize: "12px" });
-    this.hudText = this.add.text(10, 10, "", { ...pill, fontSize: "14px" }).setVisible(false);
-    this.signText = this.add.text(0, 0, "", { ...pill, fontSize: "14px", color: "#1d2738", backgroundColor: "#fff7dcf0", padding: { x: 10, y: 6 } }).setOrigin(0.5, 0).setVisible(false);
-    this.layout();
+  /** The old HUD's parent: Phaser's DOM container, else the canvas's parent. */
+  private get overlayParent(): HTMLElement | null {
+    return (this.game.domContainer as HTMLElement | null | undefined) ?? this.game.canvas?.parentElement ?? null;
+  }
 
+  create(): void {
     const ev = this.game.events;
-    const onMode = (s: ModeSnapshot) => this.modeText.setText(describeMode(s, brushLabel));
-    const onHover = (p: Point | undefined) => {
-      if (this.inspectTimer) return;
-      this.hoverText.setText(p ? `x ${p.x} · y ${p.y}` : "").setVisible(!!p && !this.playing);
-    };
-    const onInspect = (d: { cell: Point; text: string }) => {
-      this.hoverText.setText(d.text).setVisible(true);
-      this.inspectTimer?.remove();
-      this.inspectTimer = this.time.delayedCall(2500, () => {
-        this.inspectTimer = null;
-        this.hoverText.setVisible(false);
-      });
-    };
+    const onInspect = (d: { text: string }) => this.showInspect(d.text);
     const onPlay = (on: boolean) => {
-      this.playing = on;
-      this.modeText.setVisible(!on);
-      this.hoverText.setVisible(false);
-      this.hudText.setVisible(on);
-      this.signText.setVisible(false);
+      this.hideInspect();
+      if (on) this.createPlayHud();
+      else this.removePlayHud();
     };
-    const onHud = (h: PlayHud) => {
-      const hearts = "♥".repeat(h.health) + "♡".repeat(Math.max(0, h.maxHealth - h.health));
-      const secs = (h.timeMs / 1000).toFixed(1);
-      const goal = h.hasGoal ? "" : "   no goal flag yet";
-      this.hudText.setText(`${hearts}   coins ${h.coins}/${h.coinsTotal}   deaths ${h.deaths}   ${secs}s${goal}   Esc / Q to stop`);
-      if (h.sign) this.signText.setText(h.sign).setVisible(true);
-      else this.signText.setVisible(false);
-    };
-    ev.on(UI_EVENT.mode, onMode);
-    ev.on(UI_EVENT.hover, onHover);
+    const onHud = (h: PlayHud) => this.updatePlayHud(h);
     ev.on(UI_EVENT.inspect, onInspect);
     ev.on(UI_EVENT.play, onPlay);
     ev.on(UI_EVENT.hud, onHud);
-    this.scale.on(Phaser.Scale.Events.RESIZE, this.layout, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      ev.off(UI_EVENT.mode, onMode);
-      ev.off(UI_EVENT.hover, onHover);
       ev.off(UI_EVENT.inspect, onInspect);
       ev.off(UI_EVENT.play, onPlay);
       ev.off(UI_EVENT.hud, onHud);
-      this.scale.off(Phaser.Scale.Events.RESIZE, this.layout, this);
+      this.removePlayHud();
+      this.hideInspect();
     });
   }
 
-  private layout(): void {
-    const { width, height } = this.scale;
-    this.hoverText?.setPosition(10, height - 34);
-    this.signText?.setPosition(width / 2, 48);
+  // --- Play HUD (old editorScene.ts:395-432) ----------------------------------
+
+  private createPlayHud(): void {
+    this.removePlayHud();
+    const parent = this.overlayParent;
+    if (!parent) return;
+
+    // Boxes toggle button in play HUD — same style as the Q hint
+    // (Pewter Ghost: the R route hint in the old B pill's place.)
+    const routeEl = document.createElement("div");
+    routeEl.className = "pt-play-hint-q";
+    routeEl.style.right = "140px";
+    routeEl.innerHTML = `<kbd>R</kbd><span>Route</span>`;
+    routeEl.title = "Hold R to see the checked route";
+    parent.appendChild(routeEl);
+    this.playRouteEl = routeEl;
+
+    // Floating DOM stats pill — matches the new UI style
+    const statsEl = document.createElement("div");
+    statsEl.className = "pt-play-stats";
+    statsEl.innerHTML = `
+      <span class="pt-stat-hearts" id="play-stat-hearts"></span>
+      <span class="pt-stat-sep"></span>
+      <span class="pt-stat-coins">⬡ <span id="play-stat-coins">0</span></span>
+    `;
+    parent.appendChild(statsEl);
+    this.playStatsEl = statsEl;
+
+    // "Q — exit" key hint in the overlay
+    const hintEl = document.createElement("div");
+    hintEl.className = "pt-play-hint-q";
+    hintEl.innerHTML = `<kbd>Q</kbd><span>Exit</span>`;
+    hintEl.addEventListener("click", () => (this.scene.get(SCENE.editor) as EditorScene).stopPlay());
+    parent.appendChild(hintEl);
+    this.playHudEl = hintEl;
+
+    // New (no old source): the sign bubble, built from the stats pill's class.
+    const signEl = document.createElement("div");
+    signEl.className = "pt-play-stats pg-play-sign";
+    signEl.style.left = "50%";
+    signEl.style.transform = "translateX(-50%)";
+    signEl.style.top = "60px";
+    signEl.style.color = "#e8e4ff";
+    signEl.style.fontSize = "14px";
+    signEl.style.display = "none";
+    parent.appendChild(signEl);
+    this.signEl = signEl;
+  }
+
+  /** Old editorScene.ts:1220-1229: hearts and the coin count. */
+  private updatePlayHud(h: PlayHud): void {
+    // Update floating DOM stats pill
+    if (this.playStatsEl) {
+      const hearts = "♥".repeat(Math.max(0, h.health)) + "♡".repeat(Math.max(0, h.maxHealth - h.health));
+      const heartsEl = this.playStatsEl.querySelector("#play-stat-hearts");
+      const coinsEl = this.playStatsEl.querySelector("#play-stat-coins");
+      if (heartsEl) heartsEl.textContent = hearts;
+      if (coinsEl) coinsEl.textContent = String(h.coins);
+    }
+    if (this.signEl) {
+      if (h.sign) {
+        this.signEl.textContent = h.sign;
+        this.signEl.style.display = "";
+      } else this.signEl.style.display = "none";
+    }
+  }
+
+  /** Old startEditor (editorScene.ts:2252-2273): the HUD elements go away. */
+  private removePlayHud(): void {
+    for (const el of [this.playStatsEl, this.playHudEl, this.playRouteEl, this.signEl]) el?.remove();
+    this.playStatsEl = this.playHudEl = this.playRouteEl = this.signEl = null;
+  }
+
+  // --- Select-mode inspector (new; no old source) -----------------------------
+
+  private showInspect(text: string): void {
+    const parent = this.overlayParent;
+    if (!parent) return;
+    if (!this.inspectEl) {
+      const el = document.createElement("div");
+      el.className = "pt-play-stats pg-inspect";
+      el.style.top = `${BELOW_MINIMAP_PX}px`;
+      el.style.left = "10px";
+      el.style.fontSize = "13px";
+      el.style.color = "rgba(210,200,240,.8)";
+      parent.appendChild(el);
+      this.inspectEl = el;
+    }
+    this.inspectEl.textContent = text;
+    this.inspectTimer?.remove();
+    this.inspectTimer = this.time.delayedCall(2500, () => this.hideInspect());
+  }
+
+  private hideInspect(): void {
+    this.inspectTimer?.remove();
+    this.inspectTimer = null;
+    this.inspectEl?.remove();
+    this.inspectEl = null;
   }
 }
