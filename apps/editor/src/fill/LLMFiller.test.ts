@@ -378,17 +378,18 @@ describe("FillScheduler", () => {
     }
   });
 
-  it("defaults to config.maxInFlight (3)", async () => {
+  it("defaults to config.maxInFlight (4)", async () => {
     vi.useFakeTimers();
     try {
       const { fetch, calls } = fakeFetch(response(), { delayMs: 500 });
       const sched = new FillScheduler(filler(fetch));
-      const ps = [0, 1, 2, 3].map(() => sched.schedule(request));
+      const ps = [0, 1, 2, 3, 4].map(() => sched.schedule(request));
+      expect(DEFAULT_CONFIG.maxInFlight).toBe(4);
       expect(sched.inFlightCount).toBe(DEFAULT_CONFIG.maxInFlight);
       await vi.advanceTimersByTimeAsync(500);
       const rs = await Promise.all(ps);
-      expect(rs.map((r) => r.superseded)).toEqual([true, false, false, false]);
-      expect(calls.map((c) => (c.init.signal as AbortSignal).aborted)).toEqual([true, false, false, false]);
+      expect(rs.map((r) => r.superseded)).toEqual([true, false, false, false, false]);
+      expect(calls.map((c) => (c.init.signal as AbortSignal).aborted)).toEqual([true, false, false, false, false]);
     } finally {
       vi.useRealTimers();
     }

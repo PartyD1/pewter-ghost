@@ -25,6 +25,9 @@ import {
 const cfgWith = (over: Partial<GhostConfig> = {}): GhostConfig => ({
   ...structuredClone(DEFAULT_CONFIG),
   fillDebounceMs: 0,
+  // drawStairs paints in one tick; most tests are about one coalesced call.
+  // The leading-edge timing has its own tests below.
+  fillLeadingEdge: false,
   ...over,
 });
 
@@ -279,6 +282,76 @@ describe("FillLoop", () => {
     expect(o?.mode).toBe("requested");
     expect(o?.request.mode).toBe("requested");
     expect(offers.at(-1)?.mode).toBe("requested");
+  });
+
+  describe("leading-edge calls (fillLeadingEdge)", () => {
+    /** A filler that records how many recent placements each request saw and answers nothing. */
+    function counting(): { filler: Filler; seen: number[] } {
+      const seen: number[] = [];
+      return {
+        seen,
+        filler: {
+          name: "stub",
+          fill: async (req: FillRequest) => {
+            seen.push(req.recent.length);
+            return null;
+          },
+        },
+      };
+    }
+    function paintOne(x: number, y: number): void {
+      model.beginStroke();
+      model.paintTile(x, y, TILE.GRASS);
+      model.endStroke();
+    }
+
+    it("the first placement after a quiet spell calls at once, before the coalescing window closes", async () => {
+      cfg.fillLeadingEdge = true;
+      cfg.fillDebounceMs = 5000; // a window that never closes during the test
+      const { filler, seen } = counting();
+      makeLoop(filler);
+      paintOne(12, 14);
+      await waitFor(() => seen.length > 0, 1000);
+      expect(seen).toHaveLength(1);
+    });
+
+    it("a burst gives one leading call with the first tile and one trailing call with the whole burst", async () => {
+      cfg.fillLeadingEdge = true;
+      cfg.fillDebounceMs = 40;
+      const { filler, seen } = counting();
+      makeLoop(filler);
+      drawStairs(model); // three placements in one tick
+      await waitFor(() => seen.length >= 2, 2000);
+      await sleep(120);
+      expect(seen).toHaveLength(2);
+      expect(seen[1]).toBeGreaterThan(seen[0]);
+    });
+
+    it("switched off, a burst is one coalesced call after the window", async () => {
+      cfg.fillLeadingEdge = false;
+      cfg.fillDebounceMs = 40;
+      const { filler, seen } = counting();
+      makeLoop(filler);
+      drawStairs(model);
+      await sleep(10);
+      expect(seen).toHaveLength(0);
+      await waitFor(() => seen.length >= 1, 2000);
+      await sleep(120);
+      expect(seen).toHaveLength(1);
+    });
+
+    it("a placement after the window closes starts a new leading call", async () => {
+      cfg.fillLeadingEdge = true;
+      cfg.fillDebounceMs = 30;
+      const { filler, seen } = counting();
+      makeLoop(filler);
+      paintOne(12, 14);
+      await waitFor(() => seen.length === 1, 1000);
+      await sleep(80); // window closed, no trailing call (nothing else arrived)
+      expect(seen).toHaveLength(1);
+      paintOne(13, 13);
+      await waitFor(() => seen.length === 2, 1000);
+    });
   });
 
   it("requests carry the real brief, measured numbers and past ghosts with pattern tags", async () => {

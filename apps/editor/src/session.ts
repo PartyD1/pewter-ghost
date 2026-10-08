@@ -303,6 +303,8 @@ export class FillLoop {
   private ended: EndedGhost[] = [];
   private ghost: GhostSink | null = null;
   private debounce: unknown = null;
+  /** A placement arrived inside the coalescing window after the leading call. */
+  private trailing = false;
   /** Trips in flight (call, reconciliation, verification); cancel() aborts them all. */
   private readonly trips = new Set<AbortController>();
   /** Request sequence numbers: answers arrive out of order, this says which request is newer. */
@@ -537,19 +539,32 @@ export class FillLoop {
     this.placed.push({ n: this.placedCount++, x: e.x, y: e.y });
     if (this.placed.length > 256) this.placed.splice(0, this.placed.length - 256);
     if (!this.enabled || this.halted) return;
-    // Speculative: every placement asks again; a drag is coalesced. Older calls
-    // keep running and their answers are reconciled when they arrive.
-    this.clearDebounce();
+    // Speculative: every placement asks again. Older calls keep running and
+    // their answers are reconciled when they arrive. The first placement after
+    // a quiet spell calls at once (leading edge, no wait); placements that
+    // follow inside fillDebounceMs (a drag) are coalesced into one trailing
+    // call when the window closes.
     const ms = Math.max(0, this.cfg().fillDebounceMs);
+    if (this.debounce === null && this.cfg().fillLeadingEdge !== false) {
+      this.trailing = false;
+      void this.run("auto");
+    } else {
+      if (this.debounce !== null) this.timers.clear(this.debounce);
+      this.trailing = true;
+    }
     this.debounce = this.timers.set(() => {
       this.debounce = null;
-      void this.run("auto");
+      if (this.trailing) {
+        this.trailing = false;
+        void this.run("auto");
+      }
     }, ms);
   }
 
   private clearDebounce(): void {
     if (this.debounce !== null) this.timers.clear(this.debounce);
     this.debounce = null;
+    this.trailing = false;
   }
 
   private syncPatrol(): void {

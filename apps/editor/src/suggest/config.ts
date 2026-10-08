@@ -88,6 +88,13 @@ export interface GhostConfig {
    */
   fillDebounceMs: number;
   /**
+   * Call on the FIRST placement after a quiet spell instead of waiting out
+   * fillDebounceMs. Only later placements inside the window (a drag) are
+   * coalesced into one trailing call. Saves the debounce wait on every new
+   * stroke; costs one extra call per drag.
+   */
+  fillLeadingEdge: boolean;
+  /**
    * Speculative calls allowed in flight at once per filler. A new placement
    * starts a new call and leaves the older ones running (their answers are
    * reconciled when they arrive). Only when a new call would exceed this is
@@ -135,7 +142,8 @@ export const DEFAULT_CONFIG: GhostConfig = {
   adaptMax: 0.95,
   adaptRun: 2,
   fillDebounceMs: 40,
-  maxInFlight: 3,
+  fillLeadingEdge: true,
+  maxInFlight: 4,
   maxAnswerAgeMs: 8000,
 };
 
