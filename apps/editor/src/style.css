@@ -129,11 +129,12 @@
   justify-content: center;
   z-index: 20;
 }
-/* The old panel (.pt-chatbox) look; width NEW (the panel was 340 px). */
+/* The old panel (.pt-chatbox) look; width and max-height NEW (the panel was
+   340x700). */
 .pg-dialog {
-  width: 440px;
+  width: 460px;
   max-width: calc(100vw - 32px);
-  max-height: 700px;
+  max-height: calc(100vh - 32px);
   background: rgba(6, 6, 16, 0.78);
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 14px;

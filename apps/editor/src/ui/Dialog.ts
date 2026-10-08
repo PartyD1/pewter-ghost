@@ -52,7 +52,7 @@ export function openDialog(title: string, build: (body: HTMLElement, close: () =
   document.addEventListener("keydown", onKey, true);
   build(body, close);
   const first = dialog.querySelector<HTMLElement>("textarea, input, button.pg-btn-primary");
-  first?.focus();
+  first?.focus({ preventScroll: true });
   return { el: dialog, body, close };
 }
 
