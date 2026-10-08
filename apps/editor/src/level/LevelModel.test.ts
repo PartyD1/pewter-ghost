@@ -199,6 +199,22 @@ describe("entities", () => {
 });
 
 describe("undo / redo", () => {
+  it("subscribers see the new canUndo / canRedo when an undo or redo notifies them", () => {
+    const { m } = model();
+    m.paintTile(1, 1, TILE.BLOCK);
+    m.paintTile(2, 1, TILE.BLOCK);
+    const seen: [boolean, boolean][] = [];
+    m.subscribe(() => seen.push([m.canUndo, m.canRedo]));
+    m.undo();
+    expect(seen.at(-1)).toEqual([true, true]);
+    m.undo();
+    expect(seen.at(-1)).toEqual([false, true]);
+    m.redo();
+    expect(seen.at(-1)).toEqual([true, true]);
+    m.redo();
+    expect(seen.at(-1)).toEqual([true, false]);
+  });
+
   it("undo and redo restore exact snapshots and emit undo/redo sources", () => {
     const { m, changes } = model();
     const s0 = m.snapshot();

@@ -417,8 +417,10 @@ export class LevelModel {
     this.closeStroke();
     const cmd = this.undoStack.pop();
     if (!cmd) return undefined;
-    const change = this.applyDelta(cmd.delta, "undo");
+    // Move the command first: applyDelta notifies subscribers, and they must
+    // see the new canUndo / canRedo (the toolbar's Redo button read it stale).
     this.redoStack.push(cmd);
+    const change = this.applyDelta(cmd.delta, "undo");
     return { kind: cmd.kind, what: commandWhat(cmd), suggestionId: cmd.suggestionId, change };
   }
 
@@ -426,8 +428,8 @@ export class LevelModel {
     this.closeStroke();
     const cmd = this.redoStack.pop();
     if (!cmd) return undefined;
+    this.undoStack.push(cmd); // before applyDelta, see undo()
     const change = this.applyDelta(cmd.delta, "redo");
-    this.undoStack.push(cmd);
     return { kind: cmd.kind, what: commandWhat(cmd), suggestionId: cmd.suggestionId, change };
   }
 
