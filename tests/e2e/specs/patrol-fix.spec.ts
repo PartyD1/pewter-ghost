@@ -19,7 +19,7 @@ const patrolReply =
 
 test.describe("patrol and fix", () => {
   test("an unbeatable level gets a Fix ghost after idle", async ({ page }) => {
-    const ed = await Editor.open(page, { proxy: { condition: "llm", fill: patrolReply("patrol-bridge-fix") } });
+    const ed = await Editor.open(page, { proxy: { condition: "llm", fill: patrolReply("patrol-bridge-fix") }, starter: "platforms" });
     await ed.pick("grass");
     // A platform across a 14-wide pit from the start platform: the knight cannot get there.
     await ed.drag([26, 27, 28, 29, 30, 31].map((x) => [x, 15]));
@@ -61,7 +61,7 @@ test.describe("patrol and fix", () => {
   });
 
   test("Fix with removals: Tab applies both, one undo restores the level exactly", async ({ page }) => {
-    const ed = await Editor.open(page, { proxy: { condition: "llm", fill: patrolReply("patrol-lower-ledge-fix") } });
+    const ed = await Editor.open(page, { proxy: { condition: "llm", fill: patrolReply("patrol-lower-ledge-fix") }, starter: "platforms" });
     await ed.pick("grass");
     // A ledge 7 tiles above the ground: too high to reach.
     await ed.drag([16, 17, 18, 19, 20, 21, 22].map((x) => [x, 8]));

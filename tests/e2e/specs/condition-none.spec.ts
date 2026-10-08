@@ -9,6 +9,7 @@ import { Editor } from "../support/editor";
 test("condition none shows nothing and makes no /fill calls", async ({ page }) => {
   const ed = await Editor.open(page, {
     proxy: { condition: "none", fill: () => ({ fixture: "finish-staircase" }) },
+    starter: "platforms",
   });
   expect(await page.evaluate(() => (window as any).__pewter.app.loop.activeFiller)).toBe("none");
 

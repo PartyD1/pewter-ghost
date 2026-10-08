@@ -40,6 +40,14 @@ export interface OpenOptions {
   loop?: boolean;
   /** Clear localStorage before boot (default true). */
   clearStorage?: boolean;
+  /**
+   * The level the test starts on. "default" (the default) is the editor's own
+   * starter, the old Pewter Platformer map with a full ground floor.
+   * "platforms" keeps only a 12-tile start platform and a 12-tile goal
+   * platform (with the goal flag) and empties everything between, for specs
+   * that need open air and pits: the starter these specs were written for.
+   */
+  starter?: "default" | "platforms";
 }
 
 /** Console errors and page errors that are not expected noise. */
@@ -86,8 +94,35 @@ export class Editor {
     for (const [k, v] of Object.entries(o.params ?? {})) params.set(k, v);
     await page.goto(`./?${params.toString()}`, { waitUntil: "load" });
     await ed.waitReady();
+    if (o.starter === "platforms") await ed.useTwoPlatformStarter();
     if (o.loop === false) await page.evaluate(() => (window as any).__pewter.app.loop.setSuspended(true));
     return ed;
+  }
+
+  /**
+   * Replace the level with the two-platform starter: the editor's starter
+   * with every column between the two 12-tile platforms emptied, all template
+   * (author NONE), history cleared (model.load).
+   */
+  async useTwoPlatformStarter(platform = 12): Promise<void> {
+    await this.page.evaluate((platform) => {
+      const m = (window as any).__pewter.model;
+      const s = m.snapshot();
+      for (let y = 0; y < s.h; y++)
+        for (let x = 0; x < s.w; x++) {
+          const i = y * s.w + x;
+          if (x >= platform && x < s.w - platform) s.cells[i] = 0;
+          s.authors[i] = 0;
+        }
+      s.provenance = {};
+      s.entities = s.entities.filter((e: { x: number }) => x0(e.x));
+      for (const id of Object.keys(s.entityAuthors)) if (!s.entities.some((e: { id: string }) => e.id === id)) delete s.entityAuthors[id];
+      m.load(s);
+      function x0(x: number): boolean {
+        return x < platform || x >= s.w - platform;
+      }
+    }, platform);
+    await this.home();
   }
 
   async waitReady(): Promise<void> {
