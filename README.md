@@ -50,14 +50,16 @@ Node 22. From this directory:
 ```bash
 cp .env.example .env            # then put your Gemini key in .env (GEMINI_API_KEY=...); never commit it
 npm install
-npm run dev:ai                  # starts the key-holding proxy and the editor together
+npm run dev                     # starts the key-holding proxy and the editor together
 ```
 
 Open http://localhost:5173. The editor looks like Pewter Platformer (panel on the
 right, toolbar at the bottom) but has no chat: ghosts appear on the canvas as you
-draw. Without a key the editor still runs, just without suggestions.
+draw. `npm run dev` refuses to start without a model key, because Pewter Ghost
+without the AI is not the product.
 
-`npm run dev` starts the editor alone. To force a filler, open it with:
+`npm run dev:editor` starts the editor alone, without AI, for debugging the editor.
+To force a filler, open it with:
 
 | URL | What you get |
 |---|---|
@@ -107,7 +109,7 @@ Each script starts its own Vite server on a fixed port and kills it when it fini
 ```bash
 node apps/editor/src/__e2e__/loopCheck.cjs     # whole loop with the stub: draw 3 steps → verified ghost → Tab → undo
 node apps/editor/src/ghost/__e2e__/ghostCheck.cjs   # ghost layer, captions, keys, Fix, Extend, Play route
-node apps/editor/src/editor/__e2e__/bootCheck.cjs http://localhost:5173/   # editor boot / paint / save (needs `npm run dev`)
+node apps/editor/src/editor/__e2e__/bootCheck.cjs http://localhost:5173/   # editor boot / paint / save (needs `npm run dev:editor` or `npm run dev`)
 # live model (proxy running as above):
 node apps/editor/src/__e2e__/loopCheck.cjs --llm --token dev --timeout 6000
 ```

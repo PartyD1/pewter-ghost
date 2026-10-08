@@ -985,7 +985,7 @@ export class PewterApp {
       fallbackCondition: liveConfig.filler === "none" ? "none" : (liveConfig.filler as SessionInfo["condition"]),
     });
     if (token && !info.fromProxy) {
-      if (autoDev) console.info("Pewter Ghost: no local proxy, so no AI suggestions. Run `npm run dev:ai` (see .env.example).");
+      if (autoDev) console.info("Pewter Ghost: no local proxy, so no AI suggestions. Run `npm run dev` (it starts the proxy too; see .env.example).");
       else console.warn(`session: proxy unavailable (${info.error ?? "unknown"}); running locally`);
     }
     const cfg = resolveConfig(url, info);
