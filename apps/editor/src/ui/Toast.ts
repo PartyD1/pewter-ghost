@@ -1,26 +1,18 @@
 /**
- * Short messages (load warnings, save confirmations, play results), shown in
- * the panel between the palette and the ghost status, as the old app's chat
- * log showed its messages: an info message is an old AI bubble
- * (.pt-msg-ai), a warning is the old amber temporary note
- * (.pt-temp-message), an error is a bubble in the old eraser group's red
- * (style.css). Action and close buttons are the old .pt-tab buttons.
- * The pg-toast* classes are kept for the tests.
+ * Short notices (load results, save confirmations, warnings): the old app's
+ * temporary message, not a chat bubble. Copied from pewter-platfomer
+ * src/phaser/UIScene.ts:313-327 (showTempMessage): one <p class=
+ * "pt-temp-message"> at a time (a new one replaces the old), at the foot of
+ * the panel where the old chat log showed it, faded over 0.5 s and removed
+ * after `ms` (old default 3000). Styled by the old .pt-temp-message rule
+ * (legacy/chatbox.css: amber, italic 12px). An error uses the old eraser
+ * group's red (style.css .pg-toast-error) and stays a little longer.
+ *
+ * No buttons: actions that used to sit on notices (Reload from save, Start a
+ * new level) are in Help. Warning details go in the text's tooltip.
+ * The pg-toast / pg-toast-<kind> classes are kept for the tests.
  */
-import { h } from "./dom";
-
 export type ToastKind = "info" | "warn" | "error";
-
-export interface ToastAction {
-  label: string;
-  run: () => void;
-}
-
-const KIND_CLASS: Record<ToastKind, string> = {
-  info: "pt-msg-ai",
-  warn: "pt-msg-ai pt-temp-message",
-  error: "pt-msg-ai",
-};
 
 export class Toasts {
   readonly el: HTMLElement;
@@ -30,41 +22,22 @@ export class Toasts {
     this.el = slot;
   }
 
-  show(text: string, opts: { kind?: ToastKind; ms?: number; actions?: ToastAction[]; details?: string[] } = {}): HTMLElement {
+  show(text: string, opts: { kind?: ToastKind; ms?: number; details?: string[] } = {}): HTMLElement {
     const kind = opts.kind ?? "info";
-    const close = () => {
-      // Old temp message fade (old UIScene.ts:322-326): opacity over 0.5 s, then removed.
-      t.style.transition = "opacity 0.5s";
-      t.style.opacity = "0";
-      setTimeout(() => t.remove(), 500);
-    };
-    const t = h(
-      "div",
-      { class: `pg-toast pg-toast-${kind} ${KIND_CLASS[kind]}`, "data-kind": kind },
-      h("div", { class: "pg-toast-text", text }),
-      opts.details && opts.details.length
-        ? h("ul", { class: "pg-toast-details" }, ...opts.details.slice(0, 6).map((d) => h("li", { text: d })))
-        : null,
-      h(
-        "div",
-        { class: "pg-toast-actions" },
-        ...(opts.actions ?? []).map((a) =>
-          h("button", {
-            class: "pt-tab active",
-            type: "button",
-            text: a.label,
-            onclick: () => {
-              close();
-              a.run();
-            },
-          }),
-        ),
-        h("button", { class: "pt-tab pg-toast-close", type: "button", "aria-label": "Close", text: "×", onclick: close }),
-      ),
-    );
-    this.el.append(t);
-    const ms = opts.ms ?? (kind === "error" ? 0 : 3500);
-    if (ms > 0) setTimeout(close, ms);
-    return t;
+    // Old showTempMessage: remove the existing message first.
+    for (const old of this.el.querySelectorAll(".pt-temp-message")) old.remove();
+    const msg = document.createElement("p");
+    msg.className = `pt-temp-message pg-toast pg-toast-${kind}`;
+    msg.dataset.kind = kind;
+    msg.textContent = text;
+    if (opts.details?.length) msg.title = opts.details.slice(0, 6).join("\n");
+    this.el.appendChild(msg);
+    const duration = opts.ms ?? (kind === "error" ? 8000 : 3000);
+    setTimeout(() => {
+      msg.style.transition = "opacity 0.5s";
+      msg.style.opacity = "0";
+      setTimeout(() => msg.remove(), 500);
+    }, duration);
+    return msg;
   }
 }

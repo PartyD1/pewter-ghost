@@ -216,10 +216,7 @@ function doSaveTask(): void {
   downloadText(r.fileName, r.text);
   log({ type: "save", t: performance.now(), snapshotId: r.snapshotId });
   void app.flushLog();
-  toasts.show(r.storedLocally ? `Saved ${r.fileName}. A copy is kept in this browser.` : `Saved ${r.fileName}.`, {
-    ms: 6000,
-    actions: r.storedLocally ? [{ label: "Reload from save", run: confirmReload }] : [],
-  });
+  toasts.show(`Saved ${r.fileName}.`);
 }
 
 /**
@@ -254,6 +251,31 @@ function confirmReload(): void {
           onclick: () => {
             close();
             if (reportLoad(reloadTask(model, storage), "Reloaded the saved task")) editorScene.events2.emit("level:loaded", { source: "reload", warnings: [] });
+          },
+        }),
+      ),
+    );
+  });
+}
+
+/** "New level" (Help): the starter level, after a confirm; the autosave is cleared. */
+function confirmNewLevel(): void {
+  openDialog("Start a new level?", (body, close) => {
+    body.append(
+      h("p", { class: "pg-help-lead", text: "The level goes back to the starter map. Use Save first to keep this one." }),
+      h(
+        "div",
+        { class: "pg-dialog-actions" },
+        h("button", { class: BTN, type: "button", text: "Cancel", onclick: close }),
+        h("button", {
+          class: BTN_PRIMARY,
+          type: "button",
+          text: "New level",
+          onclick: () => {
+            close();
+            loadStarter();
+            safeRemove(storage, AUTOSAVE_KEY);
+            editorScene.events2.emit("level:loaded", { source: "new", warnings: [] });
           },
         }),
       ),
@@ -322,7 +344,12 @@ function command(c: ToolbarCommand): void {
   }
 }
 
-const helpLinks = { share: () => command("share"), settings: () => command("settings") };
+const helpLinks = {
+  share: () => command("share"),
+  settings: () => command("settings"),
+  reloadSave: () => confirmReload(),
+  newLevel: () => confirmNewLevel(),
+};
 
 const toolbar = new Toolbar(chrome, (m) => modes.setMode(m), command);
 const palette = new Palette(chrome, modes);
@@ -395,20 +422,7 @@ void whenEditorReady().then((api) => {
   } catch (err) {
     console.error("palette swatches unavailable", err);
   }
-  if (restored)
-    toasts.show("Restored your level from the last session.", {
-      ms: 6000,
-      actions: [
-        {
-          label: "Start a new level",
-          run: () => {
-            loadStarter();
-            safeRemove(storage, AUTOSAVE_KEY);
-            editorScene.events2.emit("level:loaded", { source: "new", warnings: [] });
-          },
-        },
-      ],
-    });
+  if (restored) toasts.show("Restored your level from the last session.");
 });
 
 if (import.meta.hot) {
