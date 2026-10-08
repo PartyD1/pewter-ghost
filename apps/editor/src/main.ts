@@ -6,17 +6,25 @@
  * research log, the session token / condition, the fillers, the agent and the
  * patrol, and starts the ghost session (ghost/session.ts) once the editor is ready.
  *
+ * The page is the old Pewter Platformer's (index.html, legacy/style.css,
+ * legacy/chatbox.css): the "PEWTER GHOST" label over a fixed 1280x720
+ * Phaser CANVAS game (old src/main.ts:63-91), with the old floating panel and
+ * bottom toolbar mounted over it by ui/ChromeScene.ts.
+ *
  * e2e tests read window.__pewter = { model, scene, game, config, api, modes, settings, app, ghost }.
- * URL flags: ?fresh=1 ignores the autosave (new starter level); ?renderer=canvas forces Canvas;
+ * URL flags: ?fresh=1 ignores the autosave (new starter level); ?renderer=webgl forces WebGL
+ * (the default is the old app's Canvas renderer; ?renderer=canvas is accepted too);
  * ?filler=llm|stub|none, ?token=, ?proxy=, ?callTimeoutMs= (session.ts); ?dev=1 dev overlay.
  */
+import "./legacy/style.css";
+import "./legacy/chatbox.css";
 import "./style.css";
 import Phaser from "phaser";
 import type { LogEvent } from "./contracts";
 import { LevelModel } from "./level/LevelModel";
 import { loadSaveInto, type LoadResult } from "./level/save";
 import { decodeShareCode } from "./level/share";
-import { config } from "./suggest/config";
+import { applyOverrides, config } from "./suggest/config";
 import { registerGhostStarter, whenEditorReady, type EditorApi, type EditorLogger } from "./editor/api";
 import { ASSET } from "./editor/constants";
 import { EditorScene } from "./editor/EditorScene";
@@ -29,10 +37,11 @@ import { bindShortcuts } from "./editor/shortcuts";
 import { UIScene } from "./editor/UIScene";
 import { startGhost } from "./ghost/session";
 import { PewterApp } from "./session";
-import { isDialogOpen, openDialog } from "./ui/Dialog";
+import { Chrome, suggestLevelOf, SUGGEST_KINDS } from "./ui/Chrome";
+import { ChromeScene } from "./ui/ChromeScene";
+import { BTN, BTN_PRIMARY, isDialogOpen, openDialog } from "./ui/Dialog";
 import { h } from "./ui/dom";
 import { toggleHelp } from "./ui/HelpOverlay";
-import { buildLayout } from "./ui/layout";
 import { Palette } from "./ui/Palette";
 import { openPlaySettings } from "./ui/PlaySettingsPanel";
 import {
@@ -71,9 +80,10 @@ declare global {
 }
 
 const params = new URLSearchParams(location.search);
-const root = document.getElementById("app") ?? document.body.appendChild(h("div", { id: "app" }));
-const layout = buildLayout(root);
-const toasts = new Toasts(layout.stage);
+/** The Phaser parent inside the old #phaser (index.html). */
+const stage = document.getElementById("pg-stage") ?? document.body.appendChild(h("div", { id: "pg-stage" }));
+const chrome = new Chrome();
+const toasts = new Toasts(chrome.toastSlot);
 const notify: EditorApi["notify"] = (text, opts) => {
   toasts.show(text, { kind: opts?.kind, ms: opts?.ms });
 };
@@ -136,21 +146,44 @@ const editorScene = new EditorScene({
   settings,
   config,
   log,
-  statusSlot: layout.statusSlot,
-  stage: layout.stage,
+  statusSlot: chrome.statusSlot,
+  stage,
   heldKeys,
   notify,
 });
 
-const gameConfig: Phaser.Types.Core.GameConfig = {
-  type: params.get("renderer") === "canvas" ? Phaser.CANVAS : Phaser.AUTO,
-  parent: layout.stage,
-  backgroundColor: "#8fd3ff",
-  pixelArt: true,
-  scale: { mode: Phaser.Scale.RESIZE, width: layout.stage.clientWidth || 1280, height: layout.stage.clientHeight || 640 },
-  physics: { default: "arcade", arcade: { gravity: { x: 0, y: 0 }, debug: false } },
+const chromeScene = new ChromeScene(chrome);
+
+// The old game config (pewter-platfomer src/main.ts:61-89): Canvas renderer,
+// fixed 1280x720 (no scale mode: the canvas never grows or shrinks), pixel
+// art, arcade physics without gravity, and Phaser's DOM container for the
+// panel and toolbar. Pewter Ghost adds its own scenes and input options.
+const renderResolution = Math.min(window.devicePixelRatio || 1, 2);
+
+const gameConfig: Phaser.Types.Core.GameConfig & { resolution?: number } = {
+  type: params.get("renderer") === "webgl" ? Phaser.WEBGL : Phaser.CANVAS,
+  resolution: renderResolution,
+  render: {
+    pixelArt: true,
+  },
+  physics: {
+    default: "arcade",
+    arcade: {
+      debug: false,
+      gravity: {
+        x: 0,
+        y: 0,
+      },
+    },
+  },
+  width: 1280,
+  height: 720,
+  parent: stage,
+  scene: [LoadingScene, editorScene, UIScene, chromeScene],
+  dom: {
+    createContainer: true, //This line enables DOM support for chatbox
+  },
   input: { keyboard: true, mouse: { preventDefaultWheel: false } },
-  scene: [LoadingScene, editorScene, UIScene],
   banner: false,
 };
 const game = new Phaser.Game(gameConfig);
@@ -189,6 +222,23 @@ function doSaveTask(): void {
   });
 }
 
+/**
+ * "↺ Save task" (the old "↺ Save & Reload", old UIScene.ts:549-552: save,
+ * then window.location.reload() after 150 ms). The level comes back from the
+ * autosave, so ?fresh=1 is dropped from the address first.
+ */
+function doSaveTaskAndReload(): void {
+  if (editorScene.isPlaying) return;
+  doSaveTask();
+  autosaver.flush();
+  setTimeout(() => {
+    const url = new URL(location.href);
+    url.searchParams.delete("fresh");
+    if (url.href === location.href) location.reload();
+    else location.replace(url.href);
+  }, 150);
+}
+
 function confirmReload(): void {
   openDialog("Reload from the last Save task?", (body, close) => {
     body.append(
@@ -196,9 +246,9 @@ function confirmReload(): void {
       h(
         "div",
         { class: "pg-dialog-actions" },
-        h("button", { class: "pg-btn", type: "button", text: "Cancel", onclick: close }),
+        h("button", { class: BTN, type: "button", text: "Cancel", onclick: close }),
         h("button", {
-          class: "pg-btn pg-btn-primary",
+          class: BTN_PRIMARY,
           type: "button",
           text: "Reload",
           onclick: () => {
@@ -255,7 +305,7 @@ function command(c: ToolbarCommand): void {
       doSaveTask();
       break;
     case "reload":
-      confirmReload();
+      doSaveTaskAndReload();
       break;
     case "load":
       void doLoad();
@@ -267,13 +317,25 @@ function command(c: ToolbarCommand): void {
       openPlaySettings(settings);
       break;
     case "help":
-      toggleHelp();
+      toggleHelp(helpLinks);
       break;
   }
 }
 
-const toolbar = new Toolbar(layout.toolbarSlot, (m) => modes.setMode(m), command);
-const palette = new Palette(layout.paletteSlot, modes);
+const helpLinks = { share: () => command("share"), settings: () => command("settings") };
+
+const toolbar = new Toolbar(chrome, (m) => modes.setMode(m), command);
+const palette = new Palette(chrome, modes);
+
+// Suggestions switch (plan: off / Finish only / Finish + Extend / all): the
+// enabled suggestion kinds, read live by the fill loop and the manager.
+chrome.setSuggestLevel(suggestLevelOf(config.kinds));
+void app.ready.then(() => chrome.setSuggestLevel(suggestLevelOf(config.kinds)));
+chrome.onSuggest((lvl) => {
+  applyOverrides({ kinds: { ...SUGGEST_KINDS[lvl] } });
+  chrome.setSuggestLevel(lvl);
+  app.loop.refresh();
+});
 let playing = false;
 const refreshToolbar = () =>
   toolbar.update({ mode: modes.mode, effective: modes.effective, canUndo: model.canUndo, canRedo: model.canRedo, playing });
@@ -302,7 +364,7 @@ function runAction(a: EditorAction): void {
       doSaveTask();
       break;
     case "help":
-      toggleHelp();
+      toggleHelp(helpLinks);
       break;
     case "zoom":
       editorScene.zoomBy(a.dir);
@@ -320,10 +382,12 @@ void whenEditorReady().then((api) => {
   api.on("play:start", () => {
     playing = true;
     refreshToolbar();
+    chromeScene.setPlaying(true);
   });
   api.on("play:end", () => {
     playing = false;
     refreshToolbar();
+    chromeScene.setPlaying(false);
   });
   try {
     const src = game.textures.get(ASSET.tiles).getSourceImage() as HTMLCanvasElement;
@@ -345,21 +409,7 @@ void whenEditorReady().then((api) => {
         },
       ],
     });
-  else if (!localStorageHintShown()) {
-    toasts.show("Draw a level. Grey tiles are suggestions; Tab keeps them. Pick a block on the left and drag on the canvas.", { ms: 8000 });
-  }
 });
-
-function localStorageHintShown(): boolean {
-  try {
-    if (!storage) return false;
-    const seen = storage.getItem("pewter-ghost:hint") === "1";
-    storage.setItem("pewter-ghost:hint", "1");
-    return seen;
-  } catch {
-    return false;
-  }
-}
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {

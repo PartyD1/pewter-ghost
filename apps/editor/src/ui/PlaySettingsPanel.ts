@@ -2,7 +2,7 @@
 import { JUMP_VELOCITY_PX, GRAVITY_PX } from "../player/playerPhysics";
 import { apexTiles, DEFAULT_PLAY_SETTINGS, SETTING_SPECS, type PlaySettingsStore } from "../editor/playSettings";
 import { h } from "./dom";
-import { openDialog } from "./Dialog";
+import { BTN, BTN_PRIMARY, openDialog } from "./Dialog";
 
 export function openPlaySettings(store: PlaySettingsStore): void {
   openDialog(
@@ -47,8 +47,8 @@ export function openPlaySettings(store: PlaySettingsStore): void {
         h(
           "div",
           { class: "pg-dialog-actions" },
-          h("button", { class: "pg-btn", type: "button", text: "Reset", onclick: () => (store.reset(), refresh()) }),
-          h("button", { class: "pg-btn pg-btn-primary", type: "button", text: "Done", onclick: close }),
+          h("button", { class: BTN, type: "button", text: "Reset", onclick: () => (store.reset(), refresh()) }),
+          h("button", { class: BTN_PRIMARY, type: "button", text: "Done", onclick: close }),
         ),
       );
       refresh();

@@ -1,182 +1,210 @@
-/* Pewter Ghost editor chrome. Works at 1366x768 and on a trackpad. */
-:root {
-  --pg-bg: #eef2f7;
-  --pg-panel: #ffffff;
-  --pg-ink: #1d2738;
-  --pg-muted: #5b6678;
-  --pg-line: #d5dce6;
-  --pg-accent: #3b6ef5;
-  --pg-accent-ink: #ffffff;
-  --pg-play: #1f9d55;
-  --pg-warn: #b7791f;
-  --pg-error: #c53030;
-  --pg-radius: 8px;
-  --pg-swatch: 32px;
-  --pg-toolbar-h: 48px;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  color: var(--pg-ink);
-  background: var(--pg-bg);
+/* ============================================================
+   Pewter Ghost: styles for the few chrome elements the old Pewter Platformer
+   did not have. Everything else is legacy/style.css and legacy/chatbox.css,
+   verbatim copies of the old app's CSS (imported before this file).
+
+   Every value here is taken from an old rule (named in the comment) unless
+   it is marked NEW (no old source).
+   ============================================================ */
+
+/* The stage: the Phaser parent inside the old #phaser. Positioned so the
+   ghost caption / arrow layer can sit over the canvas. */
+#pg-stage {
+  position: relative;
+}
+#pg-stage canvas {
+  touch-action: none;
 }
 
-* { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; overflow: hidden; }
-
-.pg-app {
+/* --- Toolbar: mode pills, Undo / Redo, Help ------------------------------ */
+/* A group pill: the old neutral pill (.pt-tbtn, Deselect's style) holding
+   old tab buttons (.pt-tab, 2px apart as in .pt-tabs-inline); the active
+   mode is the old active tab (.pt-tab.active). The group itself is not a
+   button, so it keeps the rest look on hover. Padding NEW: 3px, which makes
+   the group as tall as the other pills (36px around the 28px tabs). */
+.pt-tbtn.pg-tbtn-group {
   display: flex;
-  flex-direction: column;
-  height: 100vh;
-  min-height: 0;
-}
-
-/* Toolbar ---------------------------------------------------------------- */
-.pg-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: var(--pg-toolbar-h);
-  padding: 6px 10px;
-  background: var(--pg-panel);
-  border-bottom: 1px solid var(--pg-line);
-  flex-wrap: nowrap;
-  overflow-x: auto;
-}
-.pg-brand { font-weight: 700; letter-spacing: 0.01em; margin-right: 6px; white-space: nowrap; }
-.pg-group { display: flex; gap: 4px; align-items: center; }
-.pg-group + .pg-group { padding-left: 8px; border-left: 1px solid var(--pg-line); }
-.pg-spacer { flex: 1; }
-
-.pg-btn {
-  font: inherit;
-  font-size: 13px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 9px;
-  border: 1px solid var(--pg-line);
-  border-radius: var(--pg-radius);
-  background: #f7f9fc;
-  color: var(--pg-ink);
-  cursor: pointer;
-  white-space: nowrap;
-}
-.pg-btn:hover:not(:disabled) { background: #e9eef6; }
-.pg-btn:focus-visible { outline: 2px solid var(--pg-accent); outline-offset: 1px; }
-.pg-btn:disabled { opacity: 0.45; cursor: default; }
-.pg-btn kbd { font: 11px ui-monospace, monospace; color: var(--pg-muted); border: 1px solid var(--pg-line); border-radius: 4px; padding: 0 4px; background: #fff; }
-.pg-btn.pg-active { background: var(--pg-accent); border-color: var(--pg-accent); color: var(--pg-accent-ink); }
-.pg-btn.pg-active kbd { color: var(--pg-accent-ink); background: transparent; border-color: rgba(255, 255, 255, 0.5); }
-.pg-btn.pg-temp { box-shadow: inset 0 0 0 2px var(--pg-accent); }
-.pg-btn-primary { background: var(--pg-ink); border-color: var(--pg-ink); color: #fff; }
-.pg-btn-primary:hover:not(:disabled) { background: #2c3a52; }
-.pg-btn-play { font-weight: 600; color: var(--pg-play); }
-.pg-btn-play.pg-active { background: var(--pg-error); border-color: var(--pg-error); color: #fff; }
-.pg-btn-quiet { border-color: transparent; background: transparent; }
-.pg-btn-small { height: 26px; padding: 0 8px; font-size: 12px; }
-.pg-icon { font-size: 14px; line-height: 1; }
-
-/* Ghost status slot (filled by the status strip module) -------------------- */
-.pg-status-slot { min-height: 0; background: var(--pg-panel); border-bottom: 1px solid var(--pg-line); }
-.pg-status-slot:empty { display: none; }
-
-/* Main area --------------------------------------------------------------- */
-.pg-main { flex: 1; display: flex; min-height: 0; }
-.pg-palette-slot { flex: 0 0 auto; overflow-y: auto; background: var(--pg-panel); border-right: 1px solid var(--pg-line); }
-.pg-stage { position: relative; flex: 1; min-width: 0; min-height: 0; overflow: hidden; background: #8fd3ff; }
-.pg-stage canvas { display: block; touch-action: none; }
-
-/* Palette ----------------------------------------------------------------- */
-.pg-palette { width: 172px; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
-.pg-palette-group h4 { margin: 2px 2px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--pg-muted); }
-.pg-palette-list { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
-.pg-palette-item {
-  font: inherit;
-  font-size: 11px;
-  display: flex;
-  flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 4px 2px;
-  border: 1px solid transparent;
-  border-radius: var(--pg-radius);
+  padding: 3px;
+  cursor: default;
+}
+.pt-tbtn.pg-tbtn-group:hover {
+  background: rgba(22, 22, 38, 0.95);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #c8c8e8;
+  transform: none;
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.7),
+    0 1px 4px rgba(0, 0, 0, 0.5);
+}
+/* Space held: the mode in effect for now (Pan) gets the active tab's border,
+   dashed (NEW: dashed). */
+.pg-tbtn-group .pt-tab.pg-temp {
+  border-color: rgba(124, 92, 250, 0.4);
+  border-style: dashed;
+}
+/* Disabled (Undo / Redo with nothing to undo). NEW: the old app had no
+   disabled buttons. */
+.pg-tbtn-group .pt-tab:disabled {
+  opacity: 0.45;
+  cursor: default;
   background: transparent;
-  color: var(--pg-ink);
-  cursor: pointer;
+  border-color: transparent;
 }
-.pg-palette-item:hover { background: #eef2f8; }
-.pg-palette-item.pg-active { border-color: var(--pg-accent); background: #e8efff; }
-.pg-palette-item:focus-visible { outline: 2px solid var(--pg-accent); }
-.pg-swatch {
-  width: var(--pg-swatch);
-  height: var(--pg-swatch);
-  border-radius: 4px;
-  background-color: #cfe9ff;
-  background-image: var(--pg-tiles-url, none);
-  background-repeat: no-repeat;
-  background-size: calc(var(--pg-swatch) * 16) var(--pg-swatch);
-  background-position: calc(var(--frame, 0) * var(--pg-swatch) * -1) 0;
-  image-rendering: pixelated;
-}
-.pg-swatch-eraser { background: repeating-linear-gradient(45deg, #fff, #fff 4px, #f3d5d5 4px, #f3d5d5 8px); border: 1px dashed var(--pg-error); }
-.pg-sign-text { font: inherit; font-size: 12px; width: 100%; padding: 4px 6px; border: 1px solid var(--pg-line); border-radius: 6px; }
 
-/* Toasts ------------------------------------------------------------------ */
-.pg-toasts { position: absolute; right: 12px; bottom: 12px; display: flex; flex-direction: column; gap: 6px; align-items: flex-end; max-width: min(460px, 70%); pointer-events: none; z-index: 5; }
-.pg-toast {
-  pointer-events: auto;
-  background: #1d2738f2;
-  color: #f4f7fb;
-  border-radius: var(--pg-radius);
-  padding: 8px 10px;
-  font-size: 13px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+/* --- Panel: palette icons for the items the old palette lacked ----------- */
+/* Block, Start, Goal flag, Sign: the old .pt-block-icon (16x16, pixelated,
+   scale 2 like the old terrain icons) cut from the composite pg-tiles
+   texture (16 frames of 16 px) instead of the old tileset strip. */
+.pt-block-icon.pg-block-icon-tiles {
+  background-image: var(--pg-tiles-url);
+  background-size: 256px 16px;
+  background-position: calc(var(--frame, 0) * -16px) 0;
+  transform: scale(2);
+  transform-origin: center;
+}
+/* Sign text: the old chat input (.pt-chat-input), under the Markers list. */
+.pt-chat-input.pg-sign-text {
+  margin-top: 8px;
+}
+.pt-chat-input.pg-sign-text[hidden] {
+  display: none;
+}
+
+/* --- Panel: messages (old chat log: gap 10px, padding 14px sides) -------- */
+.pg-toasts {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  transition: opacity 0.18s;
+  gap: 10px;
+  padding: 0 14px 10px;
+  flex-shrink: 0;
 }
-.pg-toast-warn { border-left: 4px solid #f6c453; }
-.pg-toast-error { border-left: 4px solid #ff6b6b; }
-.pg-toast-out { opacity: 0; }
-.pg-toast-details { margin: 0; padding-left: 18px; font-size: 12px; color: #cdd6e3; }
-.pg-toast-actions { display: flex; gap: 6px; justify-content: flex-end; }
-.pg-toast .pg-btn { background: #2f3d55; color: #fff; border-color: #44546f; }
-.pg-toast .pg-btn-quiet { background: transparent; border-color: transparent; }
-
-/* Dialogs ----------------------------------------------------------------- */
-.pg-backdrop { position: fixed; inset: 0; background: rgba(16, 24, 36, 0.35); display: flex; align-items: center; justify-content: center; z-index: 20; }
-.pg-dialog { background: var(--pg-panel); border-radius: 12px; width: min(440px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow: auto; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.25); }
-.pg-dialog-wide { width: min(620px, calc(100vw - 32px)); }
-.pg-dialog-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px 0; }
-.pg-dialog-head h2 { font-size: 16px; margin: 0; }
-.pg-dialog-body { padding: 8px 16px 16px; font-size: 14px; }
-.pg-dialog-body h3 { font-size: 13px; margin: 14px 0 6px; }
-.pg-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
-.pg-help-lead { color: var(--pg-muted); margin: 4px 0 10px; }
-.pg-help-foot { color: var(--pg-muted); font-size: 12px; }
-.pg-keys { border-collapse: collapse; width: 100%; }
-.pg-keys th { text-align: left; padding: 4px 12px 4px 0; white-space: nowrap; font-weight: normal; }
-.pg-keys td { padding: 4px 0; }
-.pg-keys kbd { font: 12px ui-monospace, monospace; border: 1px solid var(--pg-line); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; background: #f7f9fc; }
-.pg-code { width: 100%; font: 12px ui-monospace, monospace; padding: 8px; border: 1px solid var(--pg-line); border-radius: 6px; resize: vertical; word-break: break-all; }
-.pg-share-status { font-size: 12px; color: var(--pg-muted); margin: 4px 0; }
-.pg-error { color: var(--pg-error); }
-
-/* Play settings ------------------------------------------------------------ */
-.pg-settings-row { display: grid; grid-template-columns: 130px 1fr 64px; gap: 4px 10px; align-items: center; margin: 8px 0; }
-.pg-settings-row small { grid-column: 2 / 4; color: var(--pg-muted); font-size: 11px; margin-top: -4px; }
-.pg-settings-row input[type="range"] { width: 100%; }
-.pg-settings-value { font-variant-numeric: tabular-nums; text-align: right; font-size: 13px; }
-.pg-settings-apex { font-size: 12px; color: var(--pg-muted); }
-
-@media (max-width: 1440px) {
-  .pg-brand { display: none; }
+.pg-toasts:empty {
+  display: none;
 }
-@media (max-width: 1100px) {
-  .pg-btn .pg-icon + span { display: none; }
-  .pg-palette { width: 140px; }
+.pg-toast.pt-msg-ai {
+  max-width: 100%;
+  align-self: stretch;
+}
+/* Error: the old eraser group's red (#blocks-list-eraser button). */
+.pg-toast.pg-toast-error {
+  background: rgba(220, 38, 38, 0.1);
+  border-color: rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+}
+.pg-toast-details {
+  margin: 5px 0 2px;
+  padding-left: 18px;
+  font-size: 12px;
+}
+.pg-toast-actions {
+  display: flex;
+  gap: 2px;
+  justify-content: flex-end;
+  margin-top: 4px;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .pg-toast { transition: none; }
+/* --- Panel: ghost status and suggestions switch -------------------------- */
+/* The area is the old chat input area (.pt-chat-input-area). Human-only
+   sessions have no status line (empty #ghost-status) and no switch. */
+.pg-ghost-area:has(#ghost-status:empty) {
+  display: none;
+}
+.pg-ghost-area .pt-blocks-heading {
+  margin: 10px 2px 6px;
+}
+.pg-suggest-switch {
+  margin-left: 0;
+}
+
+/* --- Dialogs: the old panel's glass ------------------------------------- */
+/* NEW: the backdrop (the old app had no dialogs): the page colour #08080f at 45%. */
+.pg-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 8, 15, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+/* The old panel (.pt-chatbox) look; width NEW (the panel was 340 px). */
+.pg-dialog {
+  width: 440px;
+  max-width: calc(100vw - 32px);
+  max-height: 700px;
+  background: rgba(6, 6, 16, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 14px;
+  box-shadow:
+    0 8px 48px rgba(0, 0, 0, 0.7),
+    0 2px 8px rgba(0, 0, 0, 0.4);
+  color: #e8e8ff;
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.pg-dialog-wide {
+  width: 560px;
+}
+.pg-dialog-head h2.pt-brand {
+  margin: 0;
+}
+.pg-dialog-close {
+  margin-left: auto;
+}
+.pg-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+/* Body text: the old .control-desc grey. */
+.pg-help-lead,
+.pg-share-status,
+.pg-settings-apex {
+  color: #b0b0d8;
+  font-size: 12px;
+  margin: 4px 0 8px;
+}
+.pg-share-status.pg-error {
+  color: #fca5a5;
+}
+.pt-chat-input.pg-code {
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+  font-size: 12px;
+  resize: vertical;
+  word-break: break-all;
+}
+.pg-settings-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+.pg-settings-row label {
+  color: #b0b0d8;
+  font-size: 13px;
+}
+.pg-settings-row input[type="range"] {
+  grid-column: 1 / -1;
+  accent-color: #7c5cfa;
+}
+.pg-settings-row .pg-settings-value {
+  grid-row: 1;
+  grid-column: 2;
+  color: #a0a0cc;
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+  font-size: 11px;
+}
+.pg-settings-row small {
+  grid-column: 1 / -1;
+  color: #5e5e8a;
+  font-size: 11px;
 }

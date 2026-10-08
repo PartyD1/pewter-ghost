@@ -1,65 +1,88 @@
 /**
- * Block palette: terrain, collectables, enemies, markers, eraser. Choosing
- * an item selects Paint (or Erase for the eraser). The sign item has a text
- * field for the sign's message.
+ * The block palette, rendered exactly as the old Blocks tab: icon buttons in
+ * the #blocks-list-* lists of the panel (ui/Chrome.ts PANEL_HTML).
+ *
+ * populateBlockGroup is copied from pewter-platfomer src/phaser/UIScene.ts
+ * (lines 630-670): the same button markup (a .pt-block-icon span, title and
+ * aria-label set to the block's name; the eraser is the text "Eraser 🗑️")
+ * and the same "selected" class. Changes for Pewter Ghost:
+ * - each button has data-item (the palette id the tests click);
+ * - choosing an item sets the brush (or Erase mode) on ModeState, and the
+ *   "selected" class follows the mode and brush (so keys 1-4 update it);
+ * - items the old palette did not have (Block, Start, Goal flag, Sign) use
+ *   the same icon span, cut from the composite pg-tiles texture
+ *   (.pg-block-icon-tiles, style.css);
+ * - the Sign item shows the sign-text field while the sign brush is on.
  */
-import type { ModeState } from "../editor/modes";
-import { h } from "./dom";
-import { activeItemId, GROUP_LABEL, GROUP_ORDER, itemsInGroup, type PaletteItem } from "./paletteItems";
+import type { Brush, ModeState } from "../editor/modes";
+import type { Chrome } from "./Chrome";
+import { activeItemId, PALETTE_ITEMS, type PaletteItem } from "./paletteItems";
 
-const SWATCH = 32;
+/** Old group lists and their order (old UIScene.ts:32-40), plus Block and the Markers group. */
+const GROUPS: readonly { list: string; items: readonly string[] }[] = [
+  { list: "blocks-list-eraser", items: ["eraser"] },
+  { list: "blocks-list-collectables", items: ["coin", "fruit"] },
+  { list: "blocks-list-terrain", items: ["grass_half", "dirt", "grass", "question", "block"] },
+  { list: "blocks-list-enemies", items: ["slime", "ultraslime"] },
+  { list: "blocks-list-markers", items: ["start", "flag", "sign"] },
+];
+
+/** The old block names (title / aria-label) and icon classes (old UIScene.ts:632-641). */
+const OLD_BLOCK: Record<string, { name: string; icon: string }> = {
+  coin: { name: "Coin", icon: "pt-block-icon-coin" },
+  fruit: { name: "Fruit", icon: "pt-block-icon-fruit" },
+  grass_half: { name: "Grass-Half Block", icon: "pt-block-icon-grass-half" },
+  dirt: { name: "Dirt Block", icon: "pt-block-icon-dirt" },
+  grass: { name: "Grass Block", icon: "pt-block-icon-grass" },
+  question: { name: "Question Block", icon: "pt-block-icon-question" },
+  ultraslime: { name: "Ultra Slime", icon: "pt-block-icon-ultra-slime" },
+  slime: { name: "Slime Enemy", icon: "pt-block-icon-slime" },
+};
 
 export class Palette {
-  readonly el: HTMLElement;
   private buttons = new Map<string, HTMLButtonElement>();
-  private signText: HTMLInputElement;
+  private readonly root: HTMLElement;
+  private readonly signText: HTMLInputElement;
 
   constructor(
-    parent: HTMLElement,
+    chrome: Chrome,
     private readonly modes: ModeState,
   ) {
-    this.signText = h("input", {
-      class: "pg-sign-text",
-      type: "text",
-      maxlength: 120,
-      placeholder: "Sign text",
-      "aria-label": "Text for new signs",
-      value: "Hello!",
-    });
+    this.root = chrome.panelNode;
+    this.signText = chrome.signText;
     this.signText.addEventListener("input", () => {
       const b = this.modes.brush;
       if (b.kind === "entity" && b.entity === "sign") this.modes.setBrush({ kind: "entity", entity: "sign", text: this.signText.value });
     });
-    this.el = h("aside", { class: "pg-palette", "aria-label": "Palette" });
-    for (const g of GROUP_ORDER) {
-      const list = h("div", { class: "pg-palette-list" });
-      for (const item of itemsInGroup(g)) list.append(this.button(item));
-      this.el.append(h("section", { class: "pg-palette-group" }, h("h4", { text: GROUP_LABEL[g] }), list));
-      if (g === "markers") this.el.append(this.signText);
-    }
-    parent.append(this.el);
+    for (const g of GROUPS) this.populateBlockGroup(chrome.panel<HTMLDivElement>(`#${g.list}`), g.items);
     modes.subscribe((s) => this.update(s.mode, s.brush));
     this.update(modes.mode, modes.brush);
   }
 
-  private button(item: PaletteItem): HTMLButtonElement {
-    const swatch = h("span", { class: "pg-swatch", "aria-hidden": "true" });
-    if (item.frame >= 0) swatch.style.setProperty("--frame", String(item.frame));
-    else swatch.classList.add("pg-swatch-eraser");
-    const b = h(
-      "button",
-      {
-        class: "pg-palette-item",
-        type: "button",
-        "data-item": item.id,
-        title: item.hint ? `${item.label} — ${item.hint}` : item.label,
-        onclick: () => this.choose(item),
-      },
-      swatch,
-      h("span", { class: "pg-palette-label", text: item.label }),
-    );
-    this.buttons.set(item.id, b);
-    return b;
+  private populateBlockGroup(container: HTMLDivElement, ids: readonly string[]) {
+    container.innerHTML = "";
+    for (const id of ids) {
+      const item = PALETTE_ITEMS.find((i) => i.id === id);
+      if (!item) continue;
+      const b = document.createElement("button");
+      b.dataset.item = item.id;
+      const old = OLD_BLOCK[item.id];
+      if (item.action === "erase") {
+        b.textContent = "Eraser 🗑️";
+      } else if (old) {
+        b.innerHTML = `<span class="pt-block-icon ${old.icon}" aria-hidden="true"></span>`;
+        b.setAttribute("aria-label", old.name);
+        b.title = old.name;
+      } else {
+        b.innerHTML = `<span class="pt-block-icon pg-block-icon-tiles" aria-hidden="true" style="--frame: ${item.frame}"></span>`;
+        b.setAttribute("aria-label", item.label);
+        b.title = item.label;
+      }
+
+      b.addEventListener("click", () => this.choose(item));
+      container.appendChild(b);
+      this.buttons.set(item.id, b);
+    }
   }
 
   private choose(item: PaletteItem): void {
@@ -72,18 +95,17 @@ export class Palette {
     else this.modes.setBrush(item.action);
   }
 
-  private update(mode: string, brush: Parameters<typeof activeItemId>[1]): void {
+  private update(mode: string, brush: Brush): void {
     const active = activeItemId(mode, brush);
     for (const [id, b] of this.buttons) {
-      b.classList.toggle("pg-active", id === active);
+      b.classList.toggle("selected", id === active);
       b.setAttribute("aria-pressed", String(id === active));
     }
-    this.signText.hidden = !(brush.kind === "entity" && brush.entity === "sign");
+    this.signText.hidden = !(mode === "paint" && brush.kind === "entity" && brush.entity === "sign");
   }
 
-  /** Point the swatches at the composite tile texture once Phaser has built it. */
+  /** Point the new items' icons at the composite tile texture once Phaser has built it. */
   setTileImage(dataUrl: string): void {
-    this.el.style.setProperty("--pg-tiles-url", `url("${dataUrl}")`);
-    this.el.style.setProperty("--pg-swatch", `${SWATCH}px`);
+    this.root.style.setProperty("--pg-tiles-url", `url("${dataUrl}")`);
   }
 }

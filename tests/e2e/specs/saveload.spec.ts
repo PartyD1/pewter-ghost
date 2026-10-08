@@ -42,6 +42,12 @@ async function drawSomething(ed: Editor): Promise<void> {
   await ed.clickTile(15, 10);
 }
 
+/** Share code is a link in the Help dialog (the old-style toolbar has no room for it). */
+async function openShare(page: import("@playwright/test").Page): Promise<void> {
+  await page.click('[data-cmd="help"]');
+  await page.click('#pg-help [data-cmd="share"]');
+}
+
 test.describe("save and load", () => {
   let ed: Editor;
   test.beforeEach(async ({ page }) => {
@@ -111,7 +117,7 @@ test.describe("save and load", () => {
     await drawSomething(ed);
     const original = await levelView(ed);
 
-    await page.click('[data-cmd="share"]');
+    await openShare(page);
     await page.waitForFunction(() => ((document.querySelector("#pg-share-out") as HTMLTextAreaElement | null)?.value ?? "").startsWith("pg1."));
     const code = await page.locator("#pg-share-out").inputValue();
     expect(code.length).toBeGreaterThan(10);
@@ -122,7 +128,7 @@ test.describe("save and load", () => {
     await ed.drag([24, 25, 26].map((x) => [x, 6]));
     expect((await levelView(ed)).cells).not.toEqual(original.cells);
 
-    await page.click('[data-cmd="share"]');
+    await openShare(page);
     await page.locator("#pg-share-in").fill(code);
     await page.getByRole("button", { name: "Open this level" }).click();
     await expect(page.locator(".pg-toast").filter({ hasText: "Opened the shared level" })).toBeVisible();
@@ -133,7 +139,7 @@ test.describe("save and load", () => {
 
     // A damaged code is refused and changes nothing.
     const before = await ed.snapshotJson();
-    await page.click('[data-cmd="share"]');
+    await openShare(page);
     await page.locator("#pg-share-in").fill("pg1.this-is-not-a-level");
     await page.getByRole("button", { name: "Open this level" }).click();
     await expect(page.locator("#pg-share .pg-share-status.pg-error")).toBeVisible();

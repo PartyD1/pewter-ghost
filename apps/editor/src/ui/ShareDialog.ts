@@ -1,9 +1,9 @@
-/** Share code dialog (G-37): copy this level as a compact code, or open one. */
+/** Share code dialog (G-37): copy this level as a compact code, or open one. Old glass style (ui/Dialog.ts); the code fields are the old chat input (.pt-chat-input). */
 import type { LevelModel } from "../level/LevelModel";
 import { encodeShareCode } from "../level/share";
 import type { PlaySettings } from "../level/save";
 import { h } from "./dom";
-import { openDialog } from "./Dialog";
+import { BTN, BTN_PRIMARY, openDialog } from "./Dialog";
 
 export interface ShareDeps {
   model: LevelModel;
@@ -16,9 +16,9 @@ export function openShareDialog(deps: ShareDeps): void {
   openDialog(
     "Share code",
     (body, close) => {
-      const out = h("textarea", { class: "pg-code", readonly: true, rows: 4, "aria-label": "Share code for this level", id: "pg-share-out" });
+      const out = h("textarea", { class: "pt-chat-input pg-code", readonly: true, rows: 4, "aria-label": "Share code for this level", id: "pg-share-out" });
       const status = h("p", { class: "pg-share-status", text: "Making the code…" });
-      const copyBtn = h("button", { class: "pg-btn pg-btn-primary", type: "button", text: "Copy", disabled: true });
+      const copyBtn = h("button", { class: BTN_PRIMARY, type: "button", text: "Copy", disabled: true });
       copyBtn.addEventListener("click", async () => {
         try {
           await navigator.clipboard.writeText(out.value);
@@ -39,9 +39,9 @@ export function openShareDialog(deps: ShareDeps): void {
         },
       );
 
-      const input = h("textarea", { class: "pg-code", rows: 3, placeholder: "Paste a code (pg1.…)", "aria-label": "Paste a share code", id: "pg-share-in" });
+      const input = h("textarea", { class: "pt-chat-input pg-code", rows: 3, placeholder: "Paste a code (pg1.…)", "aria-label": "Paste a share code", id: "pg-share-in" });
       const openStatus = h("p", { class: "pg-share-status" });
-      const openBtn = h("button", { class: "pg-btn", type: "button", text: "Open this level" });
+      const openBtn = h("button", { class: BTN, type: "button", text: "Open this level" });
       openBtn.addEventListener("click", async () => {
         const code = input.value.trim();
         if (!code) {

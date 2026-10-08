@@ -1,11 +1,14 @@
 /**
- * Ghost status strip (G-19): one line under the toolbar, mounted in
- * #ghost-status.
+ * Ghost status strip (G-19): the status line in the panel, mounted in
+ * #ghost-status (ui/Chrome.ts), in the old panel's text style: the main line
+ * is the old AI bubble's text (.pt-msg-ai: 13.5px / 1.6, --pt-text, bold
+ * 600 as old markdown), the guess and the quiet line the old
+ * .control-desc grey (#b0b0d8, 12px), Play in --pt-green.
  *
- *  - left: what Tab does right now ("ghost: staircase · Tab to accept · Esc to
+ *  - first line: what Tab does right now ("ghost: staircase · Tab to accept · Esc to
  *    dismiss"), a longer teaching line for the first three ghosts of a
  *    session, "quiet · Ctrl+Space to ask" otherwise, and the route key in Play;
- *  - right: what Ghost thinks the level is (the model's levelGuess).
+ *  - second line: what Ghost thinks the level is (the model's levelGuess).
  *
  * Everything the ghost says on the canvas is also here as text
  * (accessibility). It never names the study condition or the filler: the
@@ -15,12 +18,13 @@ import { stripText, type StripText, type StripView } from "../ghost/caption";
 
 const STYLE_ID = "pg-status-strip-style";
 const CSS = `
-.pg-ghost-strip { display: flex; align-items: center; gap: 12px; min-height: 26px; padding: 3px 12px; font: 13px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--pg-muted, #5b6678); }
-.pg-ghost-strip-main { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pg-ghost-strip-guess { flex: 0 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40%; font-style: italic; }
-.pg-ghost-strip[data-tone="ghost"] .pg-ghost-strip-main { color: var(--pg-ink, #1d2738); font-weight: 600; }
+.pg-ghost-strip { display: flex; flex-direction: column; gap: 2px; margin: 0 2px; font-family: var(--pt-font); }
+.pg-ghost-strip-main { font-size: 13.5px; line-height: 1.6; color: var(--pt-text); word-break: break-word; }
+.pg-ghost-strip-guess { font-size: 12px; color: #b0b0d8; }
+.pg-ghost-strip[data-tone="quiet"] .pg-ghost-strip-main { color: #b0b0d8; }
+.pg-ghost-strip[data-tone="ghost"] .pg-ghost-strip-main { font-weight: 600; }
 .pg-ghost-strip[data-tone="ghost"] .pg-ghost-strip-main::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px; border: 1px dashed currentColor; border-radius: 2px; opacity: 0.8; }
-.pg-ghost-strip[data-tone="play"] .pg-ghost-strip-main { color: var(--pg-play, #1f9d55); }
+.pg-ghost-strip[data-tone="play"] .pg-ghost-strip-main { color: var(--pt-green); }
 `;
 
 function injectStyle(doc: Document): void {

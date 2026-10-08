@@ -232,7 +232,8 @@ function assert(cond, msg) {
     assert(!(await page.evaluate(() => window.__pewter.api.isPlaying())), "editor is back after the goal");
 
     // Play settings dialog changes a stored setting.
-    await page.click('[data-cmd="settings"]');
+    await page.click('[data-cmd="help"]'); // Play settings is a link in Help
+    await page.click('#pg-help [data-cmd="settings"]');
     await page.locator('input[data-setting="gravityScale"]').fill("1.25");
     await page.keyboard.press("Escape");
     assert((await page.evaluate(() => window.__pewter.settings.get().gravityScale)) === 1.25, "gravity setting stored");
@@ -243,7 +244,8 @@ function assert(cond, msg) {
     assert(file.version === 2 && file.playSettings && file.playSettings.gravityScale === 1.25, `Save task file ${dl.suggestedFilename()}`);
 
     // Share code dialog produces a code.
-    await page.click('[data-cmd="share"]');
+    await page.click('[data-cmd="help"]'); // Share code is a link in Help
+    await page.click('#pg-help [data-cmd="share"]');
     await page.waitForFunction(() => (document.querySelector("#pg-share-out") || {}).value?.startsWith("pg1."), null, { timeout: 5000 });
     await page.keyboard.press("Escape");
     assert(true, "share code generated");
