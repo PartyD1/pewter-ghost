@@ -27,6 +27,7 @@ import type {
   ProxyFillResponse,
   ProxyLogBody,
   ProxySessionResponse,
+  Recording,
 } from "../../../apps/editor/src/contracts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -43,6 +44,24 @@ export interface FillFixture {
   recordedOrigin: Point;
   /** The proxy's response, verbatim (answer coordinates are window-relative to recordedOrigin). */
   response: ProxyFillResponse;
+}
+
+/**
+ * A fixture from one line of a proxy recording (proxy/.data/recordings/<session>.jsonl):
+ * how new fixtures are made from real model answers.
+ */
+export function fixtureFromRecording(rec: Recording, note: string): FillFixture {
+  const response: ProxyFillResponse = {
+    answer: rec.answer,
+    latencyMs: rec.latencyMs,
+    model: rec.model,
+    promptVersion: rec.promptVersion,
+    requestHash: rec.requestHash,
+  };
+  if (rec.answers) response.answers = rec.answers;
+  if (rec.logprob !== undefined) response.logprob = rec.logprob;
+  if (rec.error) response.error = rec.error;
+  return { note, recordedOrigin: { ...rec.request.origin }, response };
 }
 
 export function loadFixture(name: string): FillFixture {

@@ -11,7 +11,7 @@
       "adds": [],
       "removes": [],
       "entities": [],
-      "confidence": 0.1,
+      "confidence": 0,
       "label": ""
     },
     "latencyMs": 388,

@@ -25,11 +25,11 @@
  *     more call carrying the failure reason) is logged.
  */
 import { expect, test } from "@playwright/test";
-import type { LogEvent, ProxyFillBody } from "../../../apps/editor/src/contracts";
+import type { LogEvent, PlacementEvent, ProxyFillBody } from "../../../apps/editor/src/contracts";
 import { Editor, type FillCallEvent } from "../support/editor";
 import { requestHasPlaced, type FillReply } from "../support/proxyMock";
 
-type Place = Extract<LogEvent, { type: "place" }>;
+type Place = PlacementEvent & { type: "place" };
 type Show = Extract<LogEvent, { type: "ghost.show" }>;
 
 const STEPS: [number, number][] = [
