@@ -5,10 +5,12 @@ import { StubFiller } from "./Filler";
 import { requestHash } from "./hash";
 import {
   answerCells,
+  CANCELLED,
   FillScheduler,
   fillCallEvent,
   LLMFiller,
   logprobConfidence,
+  OVER_MAX_IN_FLIGHT,
   pickForVariety,
   sampleAgreement,
   type FillResult,
@@ -302,34 +304,93 @@ describe("fillCallEvent", () => {
 });
 
 describe("FillScheduler", () => {
-  it("keeps one call in flight: a newer request aborts and supersedes the older", async () => {
+  it("runs speculative calls side by side: a newer request does not abort the older", async () => {
     vi.useFakeTimers();
     try {
       const { fetch, calls } = fakeFetch(response(), { delayMs: 300 });
       const results: FillResult[] = [];
-      const sched = new FillScheduler(filler(fetch), { onResult: (r) => results.push(r) });
+      const sched = new FillScheduler(filler(fetch), { maxInFlight: 3, onResult: (r) => results.push(r) });
       const p1 = sched.schedule(request);
       await vi.advanceTimersByTimeAsync(100);
       expect(sched.inFlight).toBe(true);
       const p2 = sched.schedule({ ...request, mode: "requested" });
-      const r1 = await p1;
-      expect(r1.superseded).toBe(true);
-      expect(r1.suggestion).toBeNull();
-      expect((calls[0].init.signal as AbortSignal).aborted).toBe(true);
+      expect(sched.inFlightCount).toBe(2);
+      expect((calls[0].init.signal as AbortSignal).aborted).toBe(false);
       await vi.advanceTimersByTimeAsync(300);
-      const r2 = await p2;
+      const [r1, r2] = await Promise.all([p1, p2]);
+      // The older answer arrived and is kept: the caller reconciles it.
+      expect(r1.superseded).toBe(false);
+      expect(r1.suggestion).not.toBeNull();
       expect(r2.superseded).toBe(false);
       expect(r2.suggestion).not.toBeNull();
       expect(sched.inFlight).toBe(false);
-      expect(sched.stats).toMatchObject({ scheduled: 2, superseded: 1, completed: 1, suggestions: 1 });
-      expect(results.map((r) => r.superseded)).toEqual([true, false]);
-      expect(fillCallEvent(r1, request, 0).error).toBe("superseded");
+      expect(sched.stats).toMatchObject({ scheduled: 2, superseded: 0, completed: 2, suggestions: 2, maxConcurrent: 2 });
+      expect(results.map((r) => r.superseded)).toEqual([false, false]);
+      expect(fillCallEvent(r1, request, 0).error).toBeUndefined();
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("drops a suggestion that resolves after being superseded", async () => {
+  it("over maxInFlight: only the OLDEST call is aborted, logged superseded with a reason", async () => {
+    vi.useFakeTimers();
+    try {
+      const { fetch, calls } = fakeFetch(response(), { delayMs: 500 });
+      let limit = 2;
+      const sched = new FillScheduler(filler(fetch), { maxInFlight: () => limit });
+      const p1 = sched.schedule(request);
+      await vi.advanceTimersByTimeAsync(50);
+      const p2 = sched.schedule(request);
+      await vi.advanceTimersByTimeAsync(50);
+      expect(sched.inFlightCount).toBe(2);
+      const p3 = sched.schedule(request);
+      expect(sched.inFlightCount).toBe(2);
+      const r1 = await p1;
+      expect((calls[0].init.signal as AbortSignal).aborted).toBe(true);
+      expect((calls[1].init.signal as AbortSignal).aborted).toBe(false);
+      expect(r1.superseded).toBe(true);
+      expect(r1.supersededReason).toBe(OVER_MAX_IN_FLIGHT);
+      expect(r1.suggestion).toBeNull();
+      const ev = fillCallEvent(r1, request, 0);
+      expect(ev.superseded).toBe(true);
+      expect(ev.error).toBe("superseded");
+      expect(ev.reason).toBe("aborted: over maxInFlight");
+      await vi.advanceTimersByTimeAsync(500);
+      const [r2, r3] = await Promise.all([p2, p3]);
+      expect(r2.superseded).toBe(false);
+      expect(r2.suggestion).not.toBeNull();
+      expect(r3.superseded).toBe(false);
+      expect(sched.stats).toMatchObject({ scheduled: 3, superseded: 1, completed: 2, maxConcurrent: 2 });
+
+      // The limit is read live: lowering it to 1 makes the next call abort the one in flight.
+      limit = 1;
+      const p4 = sched.schedule(request);
+      const p5 = sched.schedule(request);
+      expect((await p4).supersededReason).toBe(OVER_MAX_IN_FLIGHT);
+      await vi.advanceTimersByTimeAsync(500);
+      expect((await p5).superseded).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("defaults to config.maxInFlight (3)", async () => {
+    vi.useFakeTimers();
+    try {
+      const { fetch, calls } = fakeFetch(response(), { delayMs: 500 });
+      const sched = new FillScheduler(filler(fetch));
+      const ps = [0, 1, 2, 3].map(() => sched.schedule(request));
+      expect(sched.inFlightCount).toBe(DEFAULT_CONFIG.maxInFlight);
+      await vi.advanceTimersByTimeAsync(500);
+      const rs = await Promise.all(ps);
+      expect(rs.map((r) => r.superseded)).toEqual([true, false, false, false]);
+      expect(calls.map((c) => (c.init.signal as AbortSignal).aborted)).toEqual([true, false, false, false]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("drops a suggestion that resolves after being aborted", async () => {
     // A filler that ignores the signal and resolves late.
     let release!: () => void;
     const slow = {
@@ -343,7 +404,7 @@ describe("FillScheduler", () => {
     let first = true;
     const mixed = {
       name: "stub" as const,
-      fill: (req: FillRequest, signal?: AbortSignal) => {
+      fill: (req: FillRequest) => {
         if (first) {
           first = false;
           return stub.fill(req).then(async (s) => {
@@ -354,7 +415,7 @@ describe("FillScheduler", () => {
         return slow.fill();
       },
     };
-    const sched = new FillScheduler(mixed);
+    const sched = new FillScheduler(mixed, { maxInFlight: 1 });
     const p1 = sched.schedule(request);
     const p2 = sched.schedule(request);
     const r1 = await p1;
@@ -365,8 +426,8 @@ describe("FillScheduler", () => {
     expect(r2.superseded).toBe(false);
   });
 
-  it("adapts plain fillers and their abort errors", async () => {
-    const sched = new FillScheduler(new StubFiller({ delayMs: 50 }));
+  it("adapts plain fillers and their abort errors; cancel() aborts every call in flight", async () => {
+    const sched = new FillScheduler(new StubFiller({ delayMs: 50 }), { maxInFlight: 1 });
     const p1 = sched.schedule(request);
     const p2 = sched.schedule(request);
     const r1 = await p1;
@@ -376,8 +437,17 @@ describe("FillScheduler", () => {
     expect(r2.suggestion?.filler).toBe("stub");
     expect(r2.requestHash).toBe(await requestHash(request));
     sched.cancel(); // nothing in flight: no-op
-    const p3 = sched.schedule(request);
-    sched.cancel();
-    expect((await p3).superseded).toBe(true);
+
+    const wide = new FillScheduler(new StubFiller({ delayMs: 50 }), { maxInFlight: 3 });
+    const p3 = wide.schedule(request);
+    const p4 = wide.schedule(request);
+    expect(wide.inFlightCount).toBe(2);
+    wide.cancel();
+    expect(wide.inFlight).toBe(false);
+    for (const r of await Promise.all([p3, p4])) {
+      expect(r.superseded).toBe(true);
+      expect(r.supersededReason).toBe(CANCELLED);
+      expect(fillCallEvent(r, request, 0)).toMatchObject({ error: "superseded", reason: "cancelled" });
+    }
   });
 });

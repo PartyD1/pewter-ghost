@@ -18,8 +18,10 @@
  *  - Never throws: fill() resolves null on any failure, and fillDetailed()
  *    returns a FillResult carrying the error for the fill.call log event.
  *
- * FillScheduler keeps one call in flight, newest wins: schedule(request)
- * aborts the previous call and marks its result superseded.
+ * FillScheduler runs speculative calls side by side: a new request does not
+ * cancel the calls in flight (their answers are reconciled by the fill loop
+ * when they arrive). Only when more than config.maxInFlight would be running
+ * is the OLDEST aborted and marked superseded.
  */
 import type {
   FillRequest,
@@ -72,8 +74,17 @@ export interface FillResult {
   aborted: boolean;
   /** config.callTimeoutMs elapsed first. */
   timedOut: boolean;
-  /** Set by FillScheduler when a newer request replaced this one. */
+  /**
+   * The call was aborted (FillScheduler: too many in flight, or cancelled) or
+   * its answer was dropped before showing (the fill loop's reconciliation).
+   */
   superseded: boolean;
+  /**
+   * Why, when superseded: "aborted: over maxInFlight", "cancelled", or a
+   * reconciliation reason ("stale: cells drawn", "stale: newer shown", ...).
+   * Logged as fill.call `reason`.
+   */
+  supersededReason?: string;
   /** HTTP status when the proxy answered. */
   status?: number;
   /** Retry-After on 429, ms. */
@@ -388,40 +399,70 @@ export function fillCallEvent(r: FillResult, request: Pick<FillRequest, "mode">,
   }
   const err = r.superseded ? "superseded" : r.error;
   if (err) e.error = err;
+  if (r.superseded && r.supersededReason) e.reason = r.supersededReason;
   return e;
 }
 
 // ---------------------------------------------------------------------------
-// FillScheduler: one in flight, newest wins
+// FillScheduler: speculative calls side by side, at most maxInFlight
 // ---------------------------------------------------------------------------
+
+/** supersededReason of a call aborted because a newer one would exceed maxInFlight. */
+export const OVER_MAX_IN_FLIGHT = "aborted: over maxInFlight";
+/** supersededReason of a call aborted by FillScheduler.cancel() (Play, load, filler switch). */
+export const CANCELLED = "cancelled";
 
 export interface FillSchedulerOptions {
   /** Every settled call (superseded ones included), for logging. */
   onResult?: (r: FillResult, request: FillRequest) => void;
   clock?: () => number;
+  /** Calls allowed in flight at once (default: live config.maxInFlight, read at every schedule). */
+  maxInFlight?: number | (() => number);
 }
 
 export interface FillSchedulerStats {
   scheduled: number;
+  /** Calls aborted (over maxInFlight, or cancelled). */
   superseded: number;
   completed: number;
   timedOut: number;
   errors: number;
-  /** Calls that produced a suggestion and were still the newest. */
+  /** Completed calls that produced a suggestion. */
   suggestions: number;
+  /** Most calls in flight at once so far. */
+  maxConcurrent: number;
+}
+
+interface InFlight {
+  ctrl: AbortController;
+  superseded: boolean;
+  reason?: string;
 }
 
 /**
- * Wraps a filler so at most one call is in flight. schedule(request) aborts
- * the previous call (its result has superseded = true and no suggestion) and
- * resolves with this call's result. Never rejects.
+ * Wraps a filler for speculative calls. schedule(request) starts a call and
+ * resolves with its result; calls already in flight keep running, so an
+ * older request's answer can still arrive (the caller reconciles it with the
+ * level). When a new call would make more than `maxInFlight` run at once,
+ * the OLDEST is aborted: its result has superseded = true, supersededReason
+ * OVER_MAX_IN_FLIGHT and no suggestion (even if the filler ignored the
+ * signal). Never rejects.
  */
 export class FillScheduler {
-  private current: { ctrl: AbortController; superseded: boolean } | undefined;
+  /** Calls in flight, oldest first. */
+  private readonly running: InFlight[] = [];
   private readonly filler: Filler;
   private readonly opts: FillSchedulerOptions;
   private readonly clock: () => number;
-  readonly stats: FillSchedulerStats = { scheduled: 0, superseded: 0, completed: 0, timedOut: 0, errors: 0, suggestions: 0 };
+  readonly stats: FillSchedulerStats = {
+    scheduled: 0,
+    superseded: 0,
+    completed: 0,
+    timedOut: 0,
+    errors: 0,
+    suggestions: 0,
+    maxConcurrent: 0,
+  };
 
   constructor(filler: Filler, opts: FillSchedulerOptions = {}) {
     this.filler = filler;
@@ -430,22 +471,33 @@ export class FillScheduler {
   }
 
   get inFlight(): boolean {
-    return this.current !== undefined;
+    return this.running.length > 0;
+  }
+
+  /** Number of calls in flight now. */
+  get inFlightCount(): number {
+    return this.running.length;
+  }
+
+  private get limit(): number {
+    const m = this.opts.maxInFlight;
+    const n = typeof m === "function" ? m() : m ?? liveConfig.maxInFlight;
+    return Number.isFinite(n) ? Math.max(1, Math.floor(n)) : 1;
   }
 
   async schedule(request: FillRequest): Promise<FillResult> {
-    const prev = this.current;
-    if (prev) {
-      prev.superseded = true;
-      prev.ctrl.abort("superseded");
-    }
-    const entry = { ctrl: new AbortController(), superseded: false };
-    this.current = entry;
+    const entry: InFlight = { ctrl: new AbortController(), superseded: false };
+    this.running.push(entry);
+    const limit = this.limit;
+    while (this.running.length > limit) this.abort(this.running[0], OVER_MAX_IN_FLIGHT);
     this.stats.scheduled++;
+    this.stats.maxConcurrent = Math.max(this.stats.maxConcurrent, this.running.length);
     const r = await this.run(request, entry.ctrl.signal);
-    if (this.current === entry) this.current = undefined;
+    const i = this.running.indexOf(entry);
+    if (i >= 0) this.running.splice(i, 1);
     if (entry.superseded) {
       r.superseded = true;
+      r.supersededReason = entry.reason;
       r.suggestion = null;
       this.stats.superseded++;
     } else {
@@ -462,12 +514,17 @@ export class FillScheduler {
     return r;
   }
 
-  /** Abort the call in flight (counted as superseded). */
+  /** Abort every call in flight (counted as superseded, reason CANCELLED). */
   cancel(): void {
-    const cur = this.current;
-    if (!cur) return;
-    cur.superseded = true;
-    cur.ctrl.abort("cancelled");
+    for (const e of [...this.running]) this.abort(e, CANCELLED);
+  }
+
+  private abort(e: InFlight, reason: string): void {
+    const i = this.running.indexOf(e);
+    if (i >= 0) this.running.splice(i, 1);
+    e.superseded = true;
+    e.reason = reason;
+    e.ctrl.abort("superseded");
   }
 
   private async run(request: FillRequest, signal: AbortSignal): Promise<FillResult> {
