@@ -368,7 +368,7 @@ function stripFence(text: string): string {
   return m ? m[1] : t;
 }
 
-const MODES = new Set(["auto", "requested", "patrol"]);
+const MODES = new Set(["auto", "requested", "patrol", "tidy"]);
 const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 const isPt = (v: unknown) => !!v && typeof v === "object" && isNum((v as { x?: unknown }).x) && isNum((v as { y?: unknown }).y);
 

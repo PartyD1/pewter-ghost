@@ -285,6 +285,7 @@ const MODE_TEXT: Record<FillRequest["mode"], string> = {
   auto: "auto (fired by the person's last placement; they may still be drawing)",
   requested: "requested (the person pressed Ctrl+Space and wants an idea now)",
   patrol: "patrol (the physics agent playing from the start is stuck at blockedAt; answer with a fix there)",
+  tidy: "tidy (the person paused; look over what they drew for something to move, remove or repair; answer only a fix, or act false)",
 };
 
 const OUTCOME_SHORT: Record<string, string> = {

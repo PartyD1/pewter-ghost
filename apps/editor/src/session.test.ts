@@ -28,6 +28,8 @@ const cfgWith = (over: Partial<GhostConfig> = {}): GhostConfig => ({
   // drawStairs paints in one tick; most tests are about one coalesced call.
   // The leading-edge timing has its own tests below.
   fillLeadingEdge: false,
+  // Tidy calls have their own tests below.
+  tidyIdleMs: 0,
   ...over,
 });
 
@@ -351,6 +353,96 @@ describe("FillLoop", () => {
       expect(seen).toHaveLength(1);
       paintOne(13, 13);
       await waitFor(() => seen.length === 2, 1000);
+    });
+  });
+
+  describe("tidy calls (tidyIdleMs)", () => {
+    /** A filler that records each request and answers with `answer(req)`. */
+    function recording(answer: (req: FillRequest) => Suggestion | null = () => null) {
+      const reqs: FillRequest[] = [];
+      const filler: Filler = {
+        name: "stub",
+        fill: async (req: FillRequest) => {
+          reqs.push(req);
+          return answer(req);
+        },
+      };
+      return { filler, reqs, tidy: () => reqs.filter((r) => r.mode === "tidy") };
+    }
+    const sug = (kind: Suggestion["kind"], mode: Suggestion["mode"]): Suggestion => ({
+      id: `t-${kind}`,
+      kind,
+      adds: [{ x: 20, y: 10, tile: TILE.BLOCK }],
+      removes: [],
+      entities: [],
+      confidence: 0.7,
+      label: kind,
+      anchor: { x: 20, y: 10 },
+      requestHash: "h",
+      filler: "stub",
+      latencyMs: 1,
+      mode,
+      verified: false,
+      attempts: 1,
+    });
+
+    it("one tidy call after the person stops placing, with the wider window centred on their work", async () => {
+      cfg.tidyIdleMs = 60;
+      const { filler, tidy } = recording();
+      makeLoop(filler);
+      drawStairs(model);
+      await waitFor(() => tidy().length === 1, 2000);
+      await sleep(150);
+      expect(tidy()).toHaveLength(1);
+      expect(tidy()[0].size).toEqual({ w: cfg.tidyCols, h: cfg.tidyRows });
+    });
+
+    it("a placement before the timer fires restarts it", async () => {
+      cfg.tidyIdleMs = 120;
+      const { filler, tidy } = recording();
+      makeLoop(filler);
+      model.beginStroke();
+      model.paintTile(12, 14, TILE.GRASS);
+      model.endStroke();
+      await sleep(70);
+      model.beginStroke();
+      model.paintTile(13, 13, TILE.GRASS);
+      model.endStroke();
+      await sleep(70);
+      expect(tidy()).toHaveLength(0);
+      await waitFor(() => tidy().length === 1, 2000);
+    });
+
+    it("keeps only fixes: a tidy answer that continues the drawing is dropped", async () => {
+      cfg.tidyIdleMs = 40;
+      const { filler, tidy } = recording((req) => (req.mode === "tidy" ? sug("finish", "tidy") : null));
+      const l = makeLoop(filler);
+      const { sink, offers } = managerSink(() => cfg);
+      l.setGhost(sink);
+      drawStairs(model);
+      await waitFor(() => tidy().length === 1, 2000);
+      await waitFor(() => outcomes.some((o) => o.mode === "tidy"), 2000);
+      expect(offers.filter((o) => o.mode === "tidy")).toHaveLength(0);
+    });
+
+    it("no tidy call while a ghost is showing", async () => {
+      cfg.tidyIdleMs = 40;
+      const { filler, tidy } = recording();
+      const l = makeLoop(filler);
+      l.managerListeners.onShow?.({ ...sug("finish", "auto"), verified: true } as VerifiedSuggestion, "now", 0);
+      drawStairs(model);
+      await sleep(200);
+      expect(tidy()).toHaveLength(0);
+    });
+
+    it("off when tidyIdleMs is 0 or fixes are switched off", async () => {
+      cfg.tidyIdleMs = 40;
+      cfg.kinds.fix = false;
+      const { filler, tidy } = recording();
+      makeLoop(filler);
+      drawStairs(model);
+      await sleep(200);
+      expect(tidy()).toHaveLength(0);
     });
   });
 

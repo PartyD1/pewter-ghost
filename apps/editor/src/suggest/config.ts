@@ -106,6 +106,16 @@ export interface GhostConfig {
    * as "stale: too old" (checked when it arrives and again before it is offered).
    */
   maxAnswerAgeMs: number;
+  /**
+   * Idle ms after the person's last placement before one "tidy" call looks
+   * over what they drew for something to move, remove or repair (0 = off).
+   * Auto calls see the window ahead of the cursor and nearly always continue
+   * the stroke; tidy is the call that can only answer with a fix.
+   */
+  tidyIdleMs: number;
+  /** Window of the tidy call, centred on the recent placements. */
+  tidyCols: number;
+  tidyRows: number;
 }
 
 export const DEFAULT_CONFIG: GhostConfig = {
@@ -145,6 +155,9 @@ export const DEFAULT_CONFIG: GhostConfig = {
   fillLeadingEdge: true,
   maxInFlight: 6,
   maxAnswerAgeMs: 8000,
+  tidyIdleMs: 1200,
+  tidyCols: 32,
+  tidyRows: 14,
 };
 
 export const config: GhostConfig = structuredClone(DEFAULT_CONFIG);

@@ -141,7 +141,7 @@ export interface LevelChange {
 // ---------------------------------------------------------------------------
 
 export type SuggestionKind = "finish" | "extend" | "fix";
-export type FillMode = "auto" | "requested" | "patrol";
+export type FillMode = "auto" | "requested" | "patrol" | "tidy";
 
 export interface KnightLimits {
   /** Widest gap (empty tiles between surfaces) clearable from standing. */

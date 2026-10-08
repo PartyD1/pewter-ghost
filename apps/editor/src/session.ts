@@ -303,6 +303,10 @@ export class FillLoop {
   private ended: EndedGhost[] = [];
   private ghost: GhostSink | null = null;
   private debounce: unknown = null;
+  /** One tidy call after the person stops placing (config.tidyIdleMs). */
+  private tidyTimer: unknown = null;
+  /** Ghosts on screen now (a tidy call waits while one is showing). */
+  private readonly showing = new Set<string>();
   /** A placement arrived inside the coalescing window after the leading call. */
   private trailing = false;
   /** Trips in flight (call, reconciliation, verification); cancel() aborts them all. */
@@ -399,10 +403,12 @@ export class FillLoop {
 
   /** Listeners to pass to the ghost session (startGhost(api, { listeners })). */
   readonly managerListeners: ManagerListeners = {
-    onShow: () => {
+    onShow: (s) => {
       this.stats.shown++;
+      this.showing.add(s.id);
     },
     onEnd: (s, outcome) => {
+      this.showing.delete(s.id);
       this.ended.push({ s, outcome, patterns: this.tags.get(s.id) });
       if (this.ended.length > HISTORY_KEEP) {
         const gone = this.ended.shift();
@@ -498,6 +504,7 @@ export class FillLoop {
 
   /** Build the request the filler would get now (exported for tests and dev tools). */
   buildRequest(mode: FillMode, blocked?: PatrolBlocked): FillRequest {
+    const tidy = mode === "tidy";
     const model = this.o.model;
     const cfg = this.cfg();
     const lastGhosts = this.lastGhosts(cfg.historyCount);
@@ -524,8 +531,9 @@ export class FillLoop {
       blockedAt: blocked?.blockedAt,
       historyCount: cfg.historyCount,
       recentCount: cfg.recentCount,
-      cols: cfg.windowCols,
-      rows: cfg.windowRows,
+      cols: tidy ? cfg.tidyCols : cfg.windowCols,
+      rows: tidy ? cfg.tidyRows : cfg.windowRows,
+      focus: tidy ? this.recentCentre() : undefined,
     });
     return blocked ? patrolRequest(base, blocked) : base;
   }
@@ -559,12 +567,48 @@ export class FillLoop {
         void this.run("auto");
       }
     }, ms);
+    this.armTidy();
   }
 
   private clearDebounce(): void {
     if (this.debounce !== null) this.timers.clear(this.debounce);
     this.debounce = null;
     this.trailing = false;
+    this.clearTidy();
+  }
+
+  /**
+   * (Re)start the tidy timer: once the person has stopped placing for
+   * tidyIdleMs, one call looks over what they drew for a fix (move, remove,
+   * repair). Auto calls nearly always continue the stroke, so without this the
+   * model is never asked about what is already there.
+   */
+  private armTidy(): void {
+    this.clearTidy();
+    const cfg = this.cfg();
+    if (!(cfg.tidyIdleMs > 0) || !cfg.kinds.fix) return;
+    this.tidyTimer = this.timers.set(() => {
+      this.tidyTimer = null;
+      if (!this.enabled || this.halted || this.showing.size > 0) return;
+      void this.run("tidy");
+    }, cfg.tidyIdleMs);
+  }
+
+  private clearTidy(): void {
+    if (this.tidyTimer !== null) this.timers.clear(this.tidyTimer);
+    this.tidyTimer = null;
+  }
+
+  /** The middle of the person's recent placements (tidy window focus). */
+  private recentCentre(): { x: number; y: number } | undefined {
+    const last = this.placed.slice(-24);
+    if (last.length === 0) return undefined;
+    const xs = last.map((p) => p.x);
+    const ys = last.map((p) => p.y);
+    return {
+      x: Math.round((Math.min(...xs) + Math.max(...xs)) / 2),
+      y: Math.round((Math.min(...ys) + Math.max(...ys)) / 2),
+    };
   }
 
   private syncPatrol(): void {
@@ -689,7 +733,9 @@ export class FillLoop {
     // Reconcile with the level as it is now: drop a stale answer, trim cells
     // the person has drawn exactly as proposed (fill/reconcile.ts).
     const thenCells = snapshotReader(then);
-    const asFix = (s: Suggestion | null): Suggestion | null => (s && mode === "patrol" ? { ...s, kind: "fix" } : s);
+    const asFix = (s: Suggestion | null): Suggestion | null =>
+      // Patrol answers are fixes whatever they say; tidy keeps only fixes.
+      !s ? s : mode === "patrol" ? { ...s, kind: "fix" } : mode === "tidy" && s.kind !== "fix" ? null : s;
     let answer = asFix(result.suggestion);
     let trimmed = 0;
     if (answer) {
@@ -710,7 +756,7 @@ export class FillLoop {
     if (!answer) {
       // A plain decline (act:false, no error) settles this request's window:
       // an older answer for the same area arriving later is stale.
-      if (mode !== "patrol" && result.answer?.act === false && !result.error && !result.timedOut) {
+      if (mode !== "patrol" && mode !== "tidy" && result.answer?.act === false && !result.error && !result.timedOut) {
         const { origin: o, size: z } = request;
         this.offers.recordDecline(seq, { x0: o.x, y0: o.y, x1: o.x + z.w - 1, y1: o.y + z.h - 1 }, this.clock());
       }

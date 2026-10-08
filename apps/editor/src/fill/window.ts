@@ -400,6 +400,8 @@ export interface BuildFillRequestOptions {
   knight?: KnightLimits;
   /** Include the one-line summary of the level outside the window (default true). */
   summary?: boolean;
+  /** Centre the window here (tidy: the middle of the recent placements). blockedAt wins. */
+  focus?: Point;
 }
 
 /**
@@ -424,7 +426,7 @@ export function buildFillRequest(
     rows,
     stroke,
     frontier,
-    focus: opts.blockedAt,
+    focus: opts.blockedAt ?? opts.focus,
     fallback: model.start,
   });
   const origin = { x: rect.x, y: rect.y };

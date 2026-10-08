@@ -16,7 +16,7 @@ const nonNeg = () => z.number().finite().min(0);
 const int = () => z.number().int();
 
 const fillerName = z.enum(["llm", "algo", "stub", "jev"]);
-const fillMode = z.enum(["auto", "requested", "patrol"]);
+const fillMode = z.enum(["auto", "requested", "patrol", "tidy"]);
 const suggestionKind = z.enum(["finish", "extend", "fix"]);
 const verdictStage = z.enum(["shape", "measure", "repeat", "rules", "agent"]);
 const shownBecause = z.enum(["now", "pause", "longPause", "requested", "patrol"]);
