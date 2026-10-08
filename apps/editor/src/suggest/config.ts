@@ -13,10 +13,15 @@ export interface GhostConfig {
   longPauseMs: number;
   /**
    * Give up on a model call after this many ms. The plan's target is 900 ms,
-   * but live gemini-3.7-flash answers take about 2.0 s (p50) to 2.9 s (p90)
-   * with thinking off (eval/reports/baseline.md), so 900 would drop every
-   * answer. 3500 lets the model work today; lower it once a faster model passes
-   * the offline suite (G-28).
+   * but live gemini-3.7-flash answers (thinking off) take 2.0 s p50, 2.9 s
+   * p90, 3.6 s p98 and up to 11.4 s (eval/runs/baseline.json, 52 calls), and a
+   * live staircase call took 5.2 s. 900 drops every answer and 3500 dropped
+   * the slow-but-right ones. 6000 keeps every measured answer except the 11 s
+   * outlier. Freshness is no longer the timeout's job: reconciliation drops
+   * an answer that no longer fits (cells drawn, newer shown, older than
+   * maxAnswerAgeMs). Keep it below maxAnswerAgeMs, so an answer that beats the
+   * timeout is still young enough to show. Lower it once a faster model
+   * passes the offline suite (G-28).
    */
   callTimeoutMs: number;
   /** Playtest agent time cap per suggestion. */
@@ -78,10 +83,22 @@ export interface GhostConfig {
   // --- Fill loop (session.ts) ------------------------------------------------
   /**
    * Speculative fills: placements arriving within this many ms are coalesced
-   * into one request (a brush drag emits one placement per cell). The newest
-   * request always wins; this only avoids a call per cell.
+   * into one request (a brush drag emits one placement per cell). This only
+   * avoids a call per cell; it does not cancel calls already in flight.
    */
   fillDebounceMs: number;
+  /**
+   * Speculative calls allowed in flight at once per filler. A new placement
+   * starts a new call and leaves the older ones running (their answers are
+   * reconciled when they arrive). Only when a new call would exceed this is
+   * the OLDEST call aborted (fill.call superseded, error "superseded").
+   */
+  maxInFlight: number;
+  /**
+   * An answer whose request was built more than this many ms ago is dropped
+   * as "stale: too old" (checked when it arrives and again before it is offered).
+   */
+  maxAnswerAgeMs: number;
 }
 
 export const DEFAULT_CONFIG: GhostConfig = {
@@ -89,7 +106,7 @@ export const DEFAULT_CONFIG: GhostConfig = {
   showAtPauseAbove: 0.4,
   pauseMs: 800,
   longPauseMs: 2500,
-  callTimeoutMs: 3500,
+  callTimeoutMs: 6000,
   agentCapMs: 300,
   patrolCapMs: 1000,
   patrolIdleMs: 3000,
@@ -118,6 +135,8 @@ export const DEFAULT_CONFIG: GhostConfig = {
   adaptMax: 0.95,
   adaptRun: 2,
   fillDebounceMs: 40,
+  maxInFlight: 3,
+  maxAnswerAgeMs: 8000,
 };
 
 export const config: GhostConfig = structuredClone(DEFAULT_CONFIG);
