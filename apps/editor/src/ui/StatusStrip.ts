@@ -1,29 +1,30 @@
 /**
- * Ghost status strip (G-19): the status line in the panel, mounted in
- * #ghost-status (ui/Chrome.ts), in the old panel's text style: the main line
- * is the old AI bubble's text (.pt-msg-ai: 13.5px / 1.6, --pt-text, bold
- * 600 as old markdown), the guess and the quiet line the old
- * .control-desc grey (#b0b0d8, 12px), Play in --pt-green.
+ * Ghost status line (G-19), mounted in #ghost-status (ui/Chrome.ts): one
+ * short line in the old panel's secondary text style (old chatbox.css
+ * .control-desc: 12px, #b0b0d8), never wrapping:
  *
- *  - first line: what Tab does right now ("ghost: staircase · Tab to accept · Esc to
- *    dismiss"), a longer teaching line for the first three ghosts of a
- *    session, "quiet · Ctrl+Space to ask" otherwise, and the route key in Play;
- *  - second line: what Ghost thinks the level is (the model's levelGuess).
+ *  - "staircase · 2 tiles · Tab to keep" while a ghost shows, "quiet ·
+ *    Ctrl+Space to ask" otherwise, "playing · R route · Esc to edit" in Play
+ *    (plan: "Ghost status · 'staircase · 2 steps · Tab to keep' · or
+ *    'quiet' · Ctrl+Space to ask");
+ *  - under it, in the same style, what Ghost thinks the level is.
  *
- * Everything the ghost says on the canvas is also here as text
- * (accessibility). It never names the study condition or the filler: the
- * text comes only from ghost/caption.ts, which drops such words.
+ * What faint and crossed-out tiles mean is in Help. The text comes only
+ * from ghost/caption.ts, which never names the study condition or filler.
  */
 import { stripText, type StripText, type StripView } from "../ghost/caption";
 
 const STYLE_ID = "pg-status-strip-style";
+// Values: old .control-desc (12px, #b0b0d8) and --pt-green for Play. NEW: the
+// dashed 10px square before a ghost's line (it echoes the dashed ghost tiles).
 const CSS = `
-.pg-ghost-strip { display: flex; flex-direction: column; gap: 2px; margin: 0 2px; font-family: var(--pt-font); }
-.pg-ghost-strip-main { font-size: 13.5px; line-height: 1.6; color: var(--pt-text); word-break: break-word; }
-.pg-ghost-strip-guess { font-size: 12px; color: #b0b0d8; }
-.pg-ghost-strip[data-tone="quiet"] .pg-ghost-strip-main { color: #b0b0d8; }
-.pg-ghost-strip[data-tone="ghost"] .pg-ghost-strip-main { font-weight: 600; }
-.pg-ghost-strip[data-tone="ghost"] .pg-ghost-strip-main::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px; border: 1px dashed currentColor; border-radius: 2px; opacity: 0.8; }
+.pg-ghost-strip { display: flex; flex-direction: column; gap: 2px; margin: 0 2px; font-family: var(--pt-font); font-size: 12px; color: #b0b0d8; min-width: 0; }
+.pg-ghost-strip > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pg-ghost-strip-main.pg-split { display: flex; align-items: baseline; }
+.pg-ghost-strip-main.pg-split > span:first-child { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.pg-ghost-strip-main.pg-split > span:last-child { flex-shrink: 0; white-space: pre; }
+.pg-ghost-strip[data-tone="ghost"] .pg-ghost-strip-main { color: var(--pt-text); }
+.pg-ghost-strip[data-tone="ghost"] .pg-ghost-strip-main::before { content: ""; display: inline-block; flex-shrink: 0; align-self: center; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px; border: 1px dashed currentColor; border-radius: 2px; opacity: 0.8; }
 .pg-ghost-strip[data-tone="play"] .pg-ghost-strip-main { color: var(--pt-green); }
 `;
 
@@ -73,11 +74,23 @@ export class StatusStrip {
       this.slot.appendChild(this.el);
       this.mounted = true;
     }
-    const same = this.last && this.last.main === t.main && this.last.guess === t.guess && this.last.tone === t.tone;
+    const same = this.last && this.last.main === t.main && this.last.guess === t.guess && this.last.tone === t.tone && this.last.tail === t.tail;
     this.last = t;
     if (same) return;
     this.el.dataset.tone = t.tone;
-    this.main.textContent = t.main;
+    if (t.tail && t.main.endsWith(t.tail)) {
+      // Label (cut with an ellipsis when long) and the key hint, kept whole.
+      const doc = this.el.ownerDocument;
+      const label = doc.createElement("span");
+      label.textContent = t.main.slice(0, t.main.length - t.tail.length);
+      const tail = doc.createElement("span");
+      tail.textContent = t.tail;
+      this.main.replaceChildren(label, tail);
+      this.main.classList.add("pg-split");
+    } else {
+      this.main.textContent = t.main;
+      this.main.classList.remove("pg-split");
+    }
     this.main.title = t.main;
     this.guess.textContent = t.guess ?? "";
     this.guess.hidden = !t.guess;

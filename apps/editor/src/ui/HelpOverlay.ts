@@ -17,6 +17,8 @@ export const HELP_SECTIONS: readonly [string, readonly [string, string][]][] = [
       ["Tab", "Keep the ghost suggestion"],
       ["Esc", "Dismiss the ghost suggestion"],
       ["Ctrl + Space", "Ask Pewter for a suggestion now"],
+      ["Faint tiles", "A suggestion; paint one to keep just that tile, keep drawing to dismiss"],
+      ["Crossed out", "Would go: Tab applies the fix (one undo)"],
     ],
   ],
   [

@@ -74,43 +74,37 @@ export interface StripText {
   main: string;
   /** Visual emphasis for the line. */
   tone: "ghost" | "quiet" | "play";
+  /** While a ghost shows: the end of `main` after the label (" · 2 tiles · Tab to keep"), kept whole when the label is cut. */
+  tail?: string;
 }
 
-/** The status strip's text for a state. Everything the ghost says on canvas is here too. */
+/**
+ * The status line's text for a state: one short line (plan, "Ghost status ·
+ * 'staircase · 2 steps · Tab to keep' · or 'quiet' · Ctrl+Space to ask").
+ * What the faint and crossed-out tiles mean is taught in Help, not here.
+ */
 export function stripText(v: StripView): StripText {
   const guess = v.guess ? `Ghost thinks: ${v.guess}` : null;
   switch (v.mode) {
     case "off":
       return { guess: null, main: "", tone: "quiet" };
     case "playing":
-      return {
-        guess,
-        main: v.routeKey ? `playing · ${v.routeKey} shows the checked route here · Esc to edit` : "playing · Esc to edit",
-        tone: "play",
-      };
+      return { guess, main: v.routeKey ? `playing · ${v.routeKey} route · Esc to edit` : "playing · Esc to edit", tone: "play" };
     case "asking":
-      return { guess, main: "asked · the next suggestion shows as soon as it is checked · Esc to cancel", tone: "quiet" };
+      return { guess, main: "asked · Esc to cancel", tone: "quiet" };
     case "showing": {
       const g = v.ghost ?? { label: "", kind: "finish" as const };
       const label = shortLabel(g);
-      const left =
-        v.remaining !== undefined && v.total !== undefined && v.remaining < v.total ? ` · ${v.remaining} of ${v.total} left` : "";
-      const ordinal = v.ordinal ?? TEACHING_GHOSTS + 1;
-      if (ordinal <= TEACHING_GHOSTS) return { guess, main: `ghost: ${label}${left} · ${teaching(g.kind)}`, tone: "ghost" };
-      return { guess, main: `ghost: ${label}${left} · Tab to accept · Esc to dismiss`, tone: "ghost" };
+      const count =
+        v.remaining !== undefined && v.total !== undefined && v.remaining < v.total
+          ? ` · ${v.remaining} of ${v.total} left`
+          : v.total !== undefined
+            ? ` · ${v.total} tile${v.total === 1 ? "" : "s"}`
+            : "";
+      const tail = `${count} · ${g.kind === "fix" ? "Tab to fix" : "Tab to keep"}`;
+      return { guess, main: `${label}${tail}`, tone: "ghost", tail };
     }
     default:
       return { guess, main: "quiet · Ctrl+Space to ask", tone: "quiet" };
-  }
-}
-
-function teaching(kind: SuggestionKind): string {
-  switch (kind) {
-    case "fix":
-      return "crossed-out tiles would go, faint ones would come · Tab applies both (one undo) · Esc to dismiss";
-    case "extend":
-      return "a faint next stretch · Tab keeps it · Esc or keep drawing to dismiss · paint a faint tile to keep just that one";
-    default:
-      return "faint tiles are a suggestion · Tab keeps them · Esc or keep drawing to dismiss · paint a faint tile to keep just that one";
   }
 }

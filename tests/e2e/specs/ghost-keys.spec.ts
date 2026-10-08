@@ -68,7 +68,7 @@ test.describe("ghost keys", () => {
     const g = await finishGhost(ed);
     expect(g.shownBecause).toBe("now");
     const strip = await ed.strip();
-    expect(strip?.main).toMatch(/^ghost: staircase up to a ledge/);
+    expect(strip?.main).toMatch(/^staircase up to a ledge · \d+ tiles? · Tab to keep$/);
     expect(strip?.guess).toBe("Ghost thinks: climbing");
 
     answerModes.clear();

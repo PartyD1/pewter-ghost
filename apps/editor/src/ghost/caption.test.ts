@@ -33,34 +33,32 @@ describe("sanitizeGuess", () => {
 });
 
 describe("stripText", () => {
-  it("says what Tab does while a ghost is shown (after the teaching ghosts)", () => {
-    const t = stripText({ mode: "showing", ghost: { label: "staircase", kind: "finish" }, ordinal: 4, guess: "parkour" });
-    expect(t.main).toBe("ghost: staircase · Tab to accept · Esc to dismiss");
+  it("is one short line while a ghost is shown: label · tiles · Tab to keep", () => {
+    const t = stripText({ mode: "showing", ghost: { label: "staircase", kind: "finish" }, ordinal: 4, total: 2, remaining: 2, guess: "parkour" });
+    expect(t.main).toBe("staircase · 2 tiles · Tab to keep");
     expect(t.guess).toBe("Ghost thinks: parkour");
     expect(t.tone).toBe("ghost");
   });
 
-  it("is longer for the first three ghosts, by kind", () => {
-    const f = stripText({ mode: "showing", ghost: { label: "staircase", kind: "finish" }, ordinal: 1 });
-    expect(f.main.startsWith("ghost: staircase · ")).toBe(true);
-    expect(f.main).toMatch(/Tab keeps them/);
-    expect(f.main.length).toBeGreaterThan(60);
+  it("is as short for the first ghosts and names the fix key for fixes", () => {
+    const f = stripText({ mode: "showing", ghost: { label: "staircase", kind: "finish" }, ordinal: 1, total: 1 });
+    expect(f.main).toBe("staircase · 1 tile · Tab to keep");
     const fix = stripText({ mode: "showing", ghost: { label: "gap 9 · knight clears 6", kind: "fix" }, ordinal: 2 });
-    expect(fix.main).toMatch(/crossed-out/);
-    expect(fix.main).toMatch(/one undo/);
-    const ext = stripText({ mode: "showing", ghost: { label: "pit and landing", kind: "extend" }, ordinal: 3 });
-    expect(ext.main).toMatch(/next stretch/);
+    expect(fix.main).toBe("gap 9 · knight clears 6 · Tab to fix");
+    const ext = stripText({ mode: "showing", ghost: { label: "", kind: "extend" }, ordinal: 3 });
+    expect(ext.main).toBe("next stretch · Tab to keep");
+    for (const t of [f, fix, ext]) expect(t.main.length).toBeLessThan(60);
   });
 
   it("counts cells left after partial accepts", () => {
     const t = stripText({ mode: "showing", ghost: { label: "steps", kind: "finish" }, ordinal: 9, remaining: 2, total: 5 });
-    expect(t.main).toBe("ghost: steps · 2 of 5 left · Tab to accept · Esc to dismiss");
+    expect(t.main).toBe("steps · 2 of 5 left · Tab to keep");
   });
 
   it("has quiet, asking, playing and off lines", () => {
     expect(stripText({ mode: "quiet" }).main).toBe("quiet · Ctrl+Space to ask");
-    expect(stripText({ mode: "asking" }).main).toMatch(/^asked/);
-    expect(stripText({ mode: "playing", routeKey: "R" }).main).toMatch(/R shows the checked route/);
+    expect(stripText({ mode: "asking" }).main).toBe("asked · Esc to cancel");
+    expect(stripText({ mode: "playing", routeKey: "R" }).main).toBe("playing · R route · Esc to edit");
     expect(stripText({ mode: "playing" }).main).toBe("playing · Esc to edit");
     expect(stripText({ mode: "off", guess: "parkour" })).toEqual({ guess: null, main: "", tone: "quiet" });
   });
