@@ -151,6 +151,26 @@ function sugg(id, over) {
     assert(true, started ? "ghost started by main.ts" : "ghost started via src/ghost/boot.ts");
     await page.waitForTimeout(200);
 
+    // The editor starts on the old Pewter default map (full ground floor).
+    // This check needs open air between two 12-tile platforms, as in
+    // tests/e2e/support/editor.ts useTwoPlatformStarter: empty every column
+    // between them, all cells template (author NONE), history cleared.
+    await page.evaluate((platform) => {
+      const m = window.__pewter.model;
+      const s = m.snapshot();
+      const keep = (x) => x < platform || x >= s.w - platform;
+      for (let y = 0; y < s.h; y++)
+        for (let x = 0; x < s.w; x++) {
+          const i = y * s.w + x;
+          if (!keep(x)) s.cells[i] = 0;
+          s.authors[i] = 0;
+        }
+      s.provenance = {};
+      s.entities = s.entities.filter((e) => keep(e.x));
+      for (const id of Object.keys(s.entityAuthors)) if (!s.entities.some((e) => e.id === id)) delete s.entityAuthors[id];
+      m.load(s);
+    }, 12);
+
     const G = (fn, arg) => page.evaluate(fn, arg);
     const tileAt = (x, y) => G(([x, y]) => window.__pewter.model.tileAt(x, y), [x, y]);
     const authorAt = (x, y) => G(([x, y]) => window.__pewter.model.authorAt(x, y), [x, y]);
@@ -167,7 +187,16 @@ function sugg(id, over) {
         },
         [x, y],
       );
-    const home = () => G(() => window.__pewter.scene.camera.home(window.__pewter.model.start));
+    // The editor's opening view panned right by 8 columns: the old panel floats
+    // over the canvas from x 925 (tile 25.7 at zoom 2.25), and this check
+    // clicks columns up to 30 (tests/e2e/support/editor.ts home does the same).
+    const home = () =>
+      G(() => {
+        const cam = window.__pewter.scene.camera;
+        cam.home(window.__pewter.model.start);
+        cam.panByScreen(8 * 16 * cam.zoom, 0);
+      });
+    await home();
 
     assert((await strip()).main === "quiet · Ctrl+Space to ask", "status strip mounted in #ghost-status, quiet");
     assert(await page.locator("#ghost-status #pg-ghost-strip").isVisible(), "strip visible under the toolbar");
