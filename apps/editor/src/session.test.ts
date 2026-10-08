@@ -6,7 +6,7 @@ import { FillerRegistry, StubFiller, sleep } from "./fill/Filler";
 import { LevelModel } from "./level/LevelModel";
 import { checkCompleteness } from "./research/completeness";
 import { validateEvent } from "./research/schema";
-import { FakeClock } from "./suggest/fakeClock";
+import { FakeClock, type Clock } from "./suggest/fakeClock";
 import { DEFAULT_CONFIG, resetConfig, type GhostConfig } from "./suggest/config";
 import { SuggestionManager } from "./suggest/SuggestionManager";
 import {
@@ -17,6 +17,7 @@ import {
   resolveConfig,
   sessionEvent,
   urlOverrides,
+  type FillLoopOptions,
   type FillOutcome,
   type GhostSink,
 } from "./session";
@@ -27,8 +28,8 @@ const cfgWith = (over: Partial<GhostConfig> = {}): GhostConfig => ({
   ...over,
 });
 
-function starterModel(): LevelModel {
-  const m = new LevelModel();
+function starterModel(clock?: () => number): LevelModel {
+  const m = new LevelModel(clock ? { clock } : {});
   m.load(starterSnapshot({ w: m.w, h: m.h }));
   return m;
 }
@@ -47,10 +48,10 @@ function drawStairs(m: LevelModel): void {
 }
 
 /** A ghost sink backed by a real SuggestionManager, like GhostSession. */
-function managerSink(cfg: () => GhostConfig, listeners = {}) {
+function managerSink(cfg: () => GhostConfig, listeners = {}, clock?: Clock) {
   const offers: VerifiedSuggestion[] = [];
   const reports: unknown[] = [];
-  const manager = new SuggestionManager({ config: cfg, listeners });
+  const manager = new SuggestionManager({ config: cfg, listeners, clock });
   const sink: GhostSink = {
     offer: (s, o) => {
       offers.push(s);
@@ -153,17 +154,18 @@ describe("FillLoop", () => {
     agent.dispose();
   });
 
-  function makeLoop(filler: Filler | null, opts: { patrol?: boolean } = {}) {
+  function makeLoop(filler: Filler | null, opts: { patrol?: boolean; clock?: () => number; agent?: FillLoopOptions["agent"] } = {}) {
     const registry = new FillerRegistry();
     registry.register(new StubFiller());
     if (filler) registry.register(filler);
     cfg.filler = filler ? (filler.name as GhostConfig["filler"]) : "none";
     const l = new FillLoop({
       model,
-      agent,
+      agent: opts.agent ?? agent,
       registry,
       log: (e) => log.push(e),
       config: () => cfg,
+      clock: opts.clock,
       patrol: opts.patrol ?? false,
       onOutcome: (o) => outcomes.push(o),
     });
@@ -204,29 +206,6 @@ describe("FillLoop", () => {
       expect(c.requestHash).toMatch(/^[0-9a-f]{64}$/);
       expect(validateEvent(c).ok).toBe(true);
     }
-  });
-
-  it("speculative fills: newest wins and superseded calls are logged", async () => {
-    // A slow stub so each placement replaces the call in flight.
-    const slow = new StubFiller({ delayMs: 150 });
-    const l = makeLoop(slow);
-    const { sink, offers } = managerSink(() => cfg);
-    l.setGhost(sink);
-    drawStairs(model); // three placements, each debounced to 0 ms; they arrive in one tick
-    await sleep(5);
-    model.beginStroke();
-    model.paintTile(15, 11, TILE.GRASS);
-    model.endStroke();
-    await waitFor(() => outcomes.some((o) => !o.superseded));
-    await sleep(50);
-    const calls = log.filter((e): e is Extract<LogEvent, { type: "fill.call" }> => e.type === "fill.call");
-    expect(calls.some((c) => c.superseded)).toBe(true);
-    const sup = calls.find((c) => c.superseded)!;
-    expect(sup.error).toBe("superseded");
-    expect(sup.requestHash).toMatch(/^[0-9a-f]{64}$/);
-    // Only the newest request can reach the manager: it continues from (15,11).
-    expect(offers.length).toBe(1);
-    expect(offers[0].adds[0]).toMatchObject({ x: 16, y: 10 });
   });
 
   it("none = human-only: placements are logged, no calls, no ghosts, no patrol", async () => {
@@ -374,6 +353,347 @@ describe("FillLoop", () => {
     const res = checkCompleteness(log, { expectTypes: ["session", "place", "fill.call", "ghost.show", "ghost.end"] });
     expect(res.errors).toEqual([]);
     expect(res.ok).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Speculation with reconciliation (decisions 2026-10-08)
+// ---------------------------------------------------------------------------
+
+type FillCall = Extract<LogEvent, { type: "fill.call" }>;
+
+/** One call to the scripted filler: answer it (or not) whenever the test likes. */
+interface ScriptedCall {
+  request: FillRequest;
+  signal?: AbortSignal;
+  aborted: boolean;
+  answer(s: Suggestion | null): void;
+}
+
+/** A filler whose answers the test releases by hand, in any order (a stand-in for the model). */
+class ScriptedFiller implements Filler {
+  readonly name = "llm" as const;
+  readonly calls: ScriptedCall[] = [];
+  fill(request: FillRequest, signal?: AbortSignal): Promise<Suggestion | null> {
+    return new Promise((resolve, reject) => {
+      const call: ScriptedCall = { request, signal, aborted: false, answer: resolve };
+      this.calls.push(call);
+      signal?.addEventListener(
+        "abort",
+        () => {
+          call.aborted = true;
+          const e = new Error("aborted");
+          e.name = "AbortError";
+          reject(e);
+        },
+        { once: true },
+      );
+    });
+  }
+}
+
+let answerSeq = 0;
+/** A grass staircase answer in level coordinates, as the model's "staircase, N more steps". */
+function stairsAnswer(cells: [number, number][], over: Partial<Suggestion> = {}): Suggestion {
+  answerSeq++;
+  return {
+    id: `ans${answerSeq}`,
+    kind: "finish",
+    adds: cells.map(([x, y]) => ({ x, y, tile: TILE.GRASS })),
+    removes: [],
+    entities: [],
+    confidence: 0.85,
+    label: `staircase, ${cells.length} more steps`,
+    anchor: { x: cells[0][0], y: cells[0][1] },
+    requestHash: answerSeq.toString(16).padStart(64, "0"),
+    filler: "llm",
+    // Live latency: far above sendBackIfUnderMs, so no send-back.
+    latencyMs: 2100,
+    mode: "auto",
+    verified: false,
+    attempts: 1,
+    ...over,
+  };
+}
+
+describe("FillLoop speculation: calls are not cancelled, answers are reconciled", () => {
+  let clock: FakeClock;
+  let model: LevelModel;
+  let agent: AgentClient;
+  let log: LogEvent[];
+  let cfg: GhostConfig;
+  let outcomes: FillOutcome[];
+  let loop: FillLoop | null;
+  let filler: ScriptedFiller;
+  let manager: SuggestionManager;
+  let offers: VerifiedSuggestion[];
+  let drops: { id: string; reason: string }[];
+  let ends: { id: string; outcome: string }[];
+  let offPlacement: (() => void) | null;
+
+  beforeEach(() => {
+    resetConfig();
+    clock = new FakeClock(1000);
+    const now = () => clock.now();
+    model = starterModel(now);
+    agent = new AgentClient({ worker: null });
+    log = [];
+    outcomes = [];
+    cfg = cfgWith();
+    filler = new ScriptedFiller();
+    drops = [];
+    ends = [];
+    const registry = new FillerRegistry();
+    registry.register(filler);
+    cfg.filler = "llm";
+    loop = makeSpecLoop();
+    const sink = managerSink(
+      () => cfg,
+      {
+        onDrop: (s: Suggestion, reason: string) => drops.push({ id: s.id, reason }),
+        onEnd: (s: VerifiedSuggestion, outcome: string) => ends.push({ id: s.id, outcome }),
+      },
+      clock,
+    );
+    manager = sink.manager;
+    offers = sink.offers;
+    loop.setGhost(sink.sink);
+    // As GhostSession does: the manager sees the person's placements too.
+    offPlacement = model.onPlacement((e) => manager.onPlacement(e));
+
+    function makeSpecLoop(a: FillLoopOptions["agent"] = agent): FillLoop {
+      const l = new FillLoop({
+        model,
+        agent: a,
+        registry,
+        log: (e) => log.push(e),
+        config: () => cfg,
+        clock: now,
+        patrol: false,
+        onOutcome: (o) => outcomes.push(o),
+      });
+      l.refresh();
+      return l;
+    }
+  });
+  afterEach(() => {
+    offPlacement?.();
+    loop?.dispose();
+    agent.dispose();
+  });
+
+  /** The person paints one tile (one stroke), then the debounced fill fires. */
+  async function place(x: number, y: number, tile: number = TILE.GRASS): Promise<void> {
+    model.beginStroke();
+    model.paintTile(x, y, tile as (typeof TILE)[keyof typeof TILE]);
+    model.endStroke();
+    await sleep(5);
+  }
+  const fillCalls = () => log.filter((e): e is FillCall => e.type === "fill.call");
+  const outcomeOf = (seq: number) => outcomes.find((o) => o.seq === seq);
+  const settled = (seq: number) => waitFor(() => !!outcomeOf(seq));
+
+  it("three placements, answers out of order: the 1st answer still fits after the 3rd placement and is shown; the 3rd replaces it; the late 2nd is stale", async () => {
+    // A 3-step staircase at 400 ms per tile, as measured live.
+    await place(12, 14);
+    clock.advance(400);
+    await place(13, 13);
+    clock.advance(400);
+    await place(14, 12);
+    expect(filler.calls).toHaveLength(3);
+    expect(filler.calls.some((c) => c.aborted)).toBe(false); // nothing cancelled by newer placements
+    expect(loop!.inFlight).toBe(3);
+
+    // 2.1 s after the first placement, its answer arrives: "three more steps" from step 1.
+    // Steps 2 and 3 were since drawn exactly as proposed: trimmed, (15,11) is left and still fits.
+    clock.set(3100);
+    filler.calls[0].answer(stairsAnswer([[13, 13], [14, 12], [15, 11]]));
+    await settled(1);
+    const o1 = outcomeOf(1)!;
+    expect(o1.superseded).toBe(false);
+    expect(o1.trimmed).toBe(2);
+    expect(o1.offer).toEqual({ status: "shown", because: "now" });
+    expect(manager.shown?.adds.map((a) => [a.x, a.y])).toEqual([[15, 11]]);
+    expect(manager.shown?.verified).toBe(true);
+
+    // The 3rd answer arrives: newer, same structure, different cells -> the manager replaces the ghost.
+    clock.set(3900);
+    filler.calls[2].answer(stairsAnswer([[15, 11], [16, 10]]));
+    await settled(3);
+    const o3 = outcomeOf(3)!;
+    expect(o3.superseded).toBe(false);
+    expect(o3.trimmed).toBe(0);
+    expect(o3.offer).toEqual({ status: "shown", because: "now" });
+    expect(manager.shown?.adds.map((a) => [a.x, a.y])).toEqual([
+      [15, 11],
+      [16, 10],
+    ]);
+    expect(ends).toEqual([{ id: o1.verify!.verified!.id, outcome: "replaced" }]);
+
+    // The 2nd answer comes in last: an answer to a newer request covering this area was already shown.
+    clock.set(5200);
+    filler.calls[1].answer(stairsAnswer([[14, 12], [15, 11], [16, 10]]));
+    await settled(2);
+    expect(outcomeOf(2)).toMatchObject({ superseded: true, dropReason: "stale: newer shown" });
+    expect(manager.shown?.id).toBe(o3.verify!.verified!.id);
+    expect(offers).toHaveLength(2);
+
+    // Logging stays truthful: two answers verified and offered, one dropped as stale.
+    const calls = fillCalls();
+    expect(calls).toHaveLength(3);
+    for (const c of calls) expect(validateEvent(c, { strict: true }).ok, JSON.stringify(c)).toBe(true);
+    const [c1, c3, c2] = calls; // in order of arrival
+    expect(c1).toMatchObject({ superseded: false, verdictStage: "ok", act: true });
+    expect(c3).toMatchObject({ superseded: false, verdictStage: "ok" });
+    expect(c2).toMatchObject({ superseded: true, error: "superseded", reason: "stale: newer shown" });
+    expect(c2.verdictStage).toBeUndefined(); // dropped before verification
+    expect(loop!.stats).toMatchObject({ requests: 3, superseded: 1, stale: 1, trimmed: 2, offered: 2 });
+  });
+
+  it("a newer answer with the same cells as the shown ghost is dropped by the manager (duplicate), not shown twice", async () => {
+    await place(12, 14);
+    clock.advance(400);
+    await place(13, 13);
+    filler.calls[0].answer(stairsAnswer([[13, 13], [14, 12]]));
+    await settled(1);
+    expect(manager.shown?.adds.map((a) => [a.x, a.y])).toEqual([[14, 12]]);
+    filler.calls[1].answer(stairsAnswer([[14, 12]]));
+    await settled(2);
+    expect(outcomeOf(2)?.offer).toEqual({ status: "dropped", reason: "duplicate" });
+    expect(manager.shown?.id).toBe(outcomeOf(1)!.verify!.verified!.id);
+  });
+
+  it("an answer whose cells were drawn over since its request is dropped with a reason", async () => {
+    await place(12, 14);
+    clock.advance(400);
+    await place(13, 13);
+    clock.advance(400);
+    // The person puts DIRT where the answer will propose grass.
+    await place(14, 12, TILE.DIRT);
+    filler.calls[1].answer(stairsAnswer([[14, 12], [15, 11]]));
+    await settled(2);
+    expect(outcomeOf(2)).toMatchObject({ superseded: true, dropReason: "stale: cells drawn" });
+    expect(outcomeOf(2)!.verify).toBeUndefined();
+    expect(offers).toHaveLength(0);
+    expect(manager.shown).toBeNull();
+    const c = fillCalls().at(-1)!;
+    expect(c).toMatchObject({ superseded: true, error: "superseded", reason: "stale: cells drawn", act: null });
+    expect(validateEvent(c, { strict: true }).ok).toBe(true);
+
+    // An answer the person has since drawn completely: right, but late.
+    filler.calls[0].answer(stairsAnswer([[13, 13]]));
+    await settled(1);
+    expect(outcomeOf(1)).toMatchObject({ superseded: true, dropReason: "stale: all cells drawn" });
+  });
+
+  it("an answer whose cells the person PARTLY filled with the same tiles is trimmed to the rest and shown", async () => {
+    await place(12, 14);
+    clock.advance(400);
+    await place(13, 13);
+    clock.advance(600);
+    // Still drawing the same pattern: the next step, exactly as the answer will propose it.
+    await place(14, 12);
+    clock.advance(1500);
+    filler.calls[1].answer(stairsAnswer([[14, 12], [15, 11], [16, 10]]));
+    await settled(2);
+    const o = outcomeOf(2)!;
+    expect(o).toMatchObject({ superseded: false, trimmed: 1 });
+    const v = o.verify!.verified!;
+    expect(v.adds.map((a) => [a.x, a.y])).toEqual([
+      [15, 11],
+      [16, 10],
+    ]);
+    expect(v.anchor).toEqual({ x: 15, y: 11 });
+    expect(manager.shown?.id).toBe(v.id);
+    // The fill.call reports the model's answer as it came (3 tiles) and its verdict.
+    expect(fillCalls().at(-1)).toMatchObject({ superseded: false, verdictStage: "ok", tiles: 3 });
+  });
+
+  it("over maxInFlight: a new placement aborts only the OLDEST call, logged superseded", async () => {
+    cfg.maxInFlight = 2;
+    await place(12, 14);
+    await place(13, 13);
+    expect(filler.calls.map((c) => c.aborted)).toEqual([false, false]);
+    await place(14, 12);
+    expect(filler.calls.map((c) => c.aborted)).toEqual([true, false, false]);
+    await settled(1);
+    expect(outcomeOf(1)).toMatchObject({ superseded: true, dropReason: "aborted: over maxInFlight" });
+    const c = fillCalls()[0];
+    expect(c).toMatchObject({ superseded: true, error: "superseded", reason: "aborted: over maxInFlight" });
+    expect(validateEvent(c, { strict: true }).ok).toBe(true);
+    // The two newer calls are still running and can still be shown.
+    filler.calls[2].answer(stairsAnswer([[15, 11], [16, 10]]));
+    await settled(3);
+    expect(outcomeOf(3)?.offer?.status).toBe("shown");
+    expect(filler.calls[1].aborted).toBe(false);
+  });
+
+  it("an answer whose request is older than maxAnswerAgeMs is dropped", async () => {
+    await place(12, 14);
+    clock.advance(400);
+    await place(13, 13);
+    clock.advance(cfg.maxAnswerAgeMs + 1);
+    filler.calls[1].answer(stairsAnswer([[14, 12], [15, 11]]));
+    await settled(2);
+    expect(outcomeOf(2)).toMatchObject({ superseded: true, dropReason: "stale: too old" });
+    expect(fillCalls().at(-1)).toMatchObject({ superseded: true, error: "superseded", reason: "stale: too old" });
+    expect(offers).toHaveLength(0);
+    // Not too old yet at exactly maxAnswerAgeMs: the 1st request was built 400 ms earlier... and is now too old as well.
+    filler.calls[0].answer(stairsAnswer([[13, 13], [14, 12]]));
+    await settled(1);
+    expect(outcomeOf(1)?.dropReason).toBe("stale: too old");
+  });
+
+  it("a newer answer offered while an older one is still being verified makes the older one stale before its offer", async () => {
+    // Hold the agent for the first verification only.
+    let gate!: () => void;
+    let gated = 0;
+    const held = new Promise<void>((r) => (gate = r));
+    const slowAgent: FillLoopOptions["agent"] = {
+      verify: async (q, o) => {
+        if (gated++ === 0) await held;
+        return agent.verify(q, o);
+      },
+      patrol: (q, o) => agent.patrol(q, o),
+    };
+    loop!.dispose();
+    const registry = new FillerRegistry();
+    registry.register(filler);
+    loop = new FillLoop({ model, agent: slowAgent, registry, log: (e) => log.push(e), config: () => cfg, clock: () => clock.now(), patrol: false, onOutcome: (o) => outcomes.push(o) });
+    loop.refresh();
+    const sink = managerSink(() => cfg, {}, clock);
+    manager = sink.manager;
+    loop.setGhost(sink.sink);
+    offPlacement?.();
+    offPlacement = model.onPlacement((e) => manager.onPlacement(e));
+
+    await place(12, 14);
+    clock.advance(400);
+    await place(13, 13);
+    filler.calls[0].answer(stairsAnswer([[13, 13], [14, 12]])); // trimmed to (14,12), verification held
+    await waitFor(() => gated === 1);
+    filler.calls[1].answer(stairsAnswer([[14, 12], [15, 11]]));
+    await settled(2);
+    expect(outcomeOf(2)?.offer?.status).toBe("shown");
+    gate();
+    await settled(1);
+    const o1 = outcomeOf(1)!;
+    expect(o1).toMatchObject({ superseded: true, dropReason: "stale: newer shown" });
+    expect(o1.verify?.verified).toBeTruthy(); // it passed verification, then lost to the newer answer
+    expect(manager.shown?.id).toBe(outcomeOf(2)!.verify!.verified!.id);
+    const c1 = fillCalls().find((c) => c.requestHash === o1.result.requestHash)!;
+    expect(c1).toMatchObject({ superseded: true, error: "superseded", reason: "stale: newer shown", verdictStage: "ok" });
+  });
+
+  it("cancel() (Play, load) aborts every call in flight, logged as cancelled", async () => {
+    await place(12, 14);
+    await place(13, 13);
+    loop!.setPaused(true);
+    await settled(1);
+    await settled(2);
+    expect(filler.calls.every((c) => c.aborted)).toBe(true);
+    for (const c of fillCalls()) expect(c).toMatchObject({ superseded: true, error: "superseded", reason: "cancelled" });
+    expect(loop!.inFlight).toBe(0);
   });
 });
 

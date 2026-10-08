@@ -1,17 +1,27 @@
 /**
  * The whole Pewter Ghost loop (integration: G-17 / G-23 wiring, G-18 hooks, G-33 client).
  *
- *   LevelModel placements ──► PlacementStream ──► (debounced, newest wins)
- *     buildFillRequest + brief + measured numbers
+ *   LevelModel placements ──► PlacementStream ──► (debounced: a drag is one request)
+ *     buildFillRequest + brief + measured numbers (+ a snapshot of the level)
  *       ──► active Filler (llm | stub | none) through FillScheduler
- *       ──► verifyWithSendBack (validator, rule check, agent; one send-back)
+ *           (speculative: up to config.maxInFlight calls side by side; a new
+ *           placement does not cancel older calls, only overflow aborts the oldest)
+ *       ──► reconcile the answer with the level NOW (fill/reconcile.ts):
+ *           too old / cells drawn over / a newer overlapping answer already
+ *           offered ──► dropped as stale; cells drawn as proposed ──► trimmed
+ *       ──► verifyWithSendBack on the current level (validator, rule check,
+ *           agent; one send-back) ──► age / newer-offer check again
  *       ──► GhostSession.offer ──► SuggestionManager ──► GhostLayer / StatusStrip
  *   Tab ──► LevelModel.applySuggestion (ghost/session.ts)
  *   idle ──► Patrol (agent, start → frontier) ──► blocked ──► patrol FillRequest
  *       ──► verifyPatrolFix (send-back, then the local ≤3-tile repair) ──► Fix ghost
  *
  * Every step is logged through the research log: session (first), place / erase,
- * fill.call (superseded calls too, with the verdict stage and send-back),
+ * fill.call (one per model call, with the verdict stage and send-back;
+ * `superseded: true` + error "superseded" when the call was aborted or its
+ * answer dropped before showing, `reason` saying why: "stale: cells drawn",
+ * "stale: all cells drawn", "stale: newer shown", "stale: too old",
+ * "aborted: over maxInFlight", "cancelled"),
  * ghost.show / ghost.end (ghost/session.ts), patrol, play.*, undo / redo, save
  * (editor). Events logged before the session resolves are buffered and written
  * after the `session` event.
@@ -39,6 +49,7 @@ import type {
   FillerName,
   GhostHistoryItem,
   GhostOutcome,
+  LevelSnapshot,
   LogEvent,
   PlacementEvent,
   Suggestion,
@@ -50,6 +61,7 @@ import { BRIEF_VERSION, BriefCache, measureRequestWindow, type Brief } from "./f
 import { FillerRegistry, StubFiller, type ActiveFiller } from "./fill/Filler";
 import { requestHash } from "./fill/hash";
 import {
+  CANCELLED,
   FillScheduler,
   LLMFiller,
   fillCallEvent,
@@ -58,6 +70,14 @@ import {
   type FillResult,
 } from "./fill/LLMFiller";
 import { PROMPT_VERSION } from "./fill/prompt";
+import {
+  OfferLedger,
+  freshness,
+  reconcileAnswer,
+  reconcileCells,
+  snapshotReader,
+  type AnswerContext,
+} from "./fill/reconcile";
 import { PlacementStream } from "./fill/stream";
 import { buildFillRequest } from "./fill/window";
 import type { DevFillInfo } from "./ghost/devOverlay";
@@ -233,10 +253,20 @@ export interface FillLoopOptions {
 export interface FillOutcome {
   mode: FillMode;
   request: FillRequest;
+  /** Request sequence number in this loop (higher = built later). */
+  seq: number;
   result: FillResult;
   verify?: VerifyOutcome;
   offer?: OfferResult;
+  /** The call was aborted, or its answer was dropped before it could be offered. */
   superseded: boolean;
+  /**
+   * Why, when superseded (the fill.call `reason`): a reconciliation reason
+   * ("stale: ...", fill/reconcile.ts STALE), "aborted: over maxInFlight" or "cancelled".
+   */
+  dropReason?: string;
+  /** Answer items trimmed because the person drew exactly them after the request. */
+  trimmed?: number;
   /** fill.call events written for this trip (first call, then the send-back). */
   events: FillCallEvent[];
 }
@@ -270,15 +300,35 @@ export class FillLoop {
   private ended: EndedGhost[] = [];
   private ghost: GhostSink | null = null;
   private debounce: unknown = null;
-  private ctrl: AbortController | null = null;
+  /** Trips in flight (call, reconciliation, verification); cancel() aborts them all. */
+  private readonly trips = new Set<AbortController>();
+  /** Request sequence numbers: answers arrive out of order, this says which request is newer. */
+  private seq = 0;
+  /** Verified answers offered to the ghost, for the "stale: newer shown" rule. */
+  private readonly offers = new OfferLedger();
   private lastGuess: string | undefined;
   private patrolOn = false;
   private paused = false;
   private suspended = false;
   private disposed = false;
   private readonly cleanups: (() => void)[] = [];
-  /** Counters for dev tools and tests. */
-  readonly stats = { requests: 0, superseded: 0, verified: 0, offered: 0, shown: 0, patrolFixes: 0, errors: 0 };
+  /**
+   * Counters for dev tools and tests. superseded: trips whose call was aborted
+   * or whose answer was dropped before the offer; stale: answers (first or
+   * send-back) dropped by reconciliation; trimmed: answers shortened to the
+   * cells not yet drawn.
+   */
+  readonly stats = {
+    requests: 0,
+    superseded: 0,
+    stale: 0,
+    trimmed: 0,
+    verified: 0,
+    offered: 0,
+    shown: 0,
+    patrolFixes: 0,
+    errors: 0,
+  };
   /** Last finished trip (dev tools). */
   last: FillOutcome | null = null;
 
@@ -298,6 +348,7 @@ export class FillLoop {
         if (ch.source === "load") {
           this.stream.reset();
           this.cancel();
+          this.offers.clear();
           this.ended = [];
           this.tags.clear();
           this.lastGuess = undefined;
@@ -395,14 +446,17 @@ export class FillLoop {
     return this.run("requested");
   }
 
-  /** Abort the fill / verification in flight and any pending speculative fill. */
+  /** Abort every fill / verification in flight and any pending speculative fill (logged "cancelled"). */
   cancel(): void {
     this.clearDebounce();
-    if (this.ctrl) {
-      this.ctrl.abort();
-      this.ctrl = null;
-    }
+    for (const c of this.trips) c.abort(CANCELLED);
+    this.trips.clear();
     for (const s of this.schedulers.values()) s.cancel();
+  }
+
+  /** Trips (calls, reconciliation, verification) in flight now. */
+  get inFlight(): number {
+    return this.trips.size;
   }
 
   dispose(): void {
@@ -472,7 +526,8 @@ export class FillLoop {
   private onPlacement(e: PlacementEvent): void {
     this.o.log({ ...e, type: e.tool === "erase" ? "erase" : "place" });
     if (!this.enabled || this.halted) return;
-    // Speculative: every placement asks again (newest wins); a drag is coalesced.
+    // Speculative: every placement asks again; a drag is coalesced. Older calls
+    // keep running and their answers are reconciled when they arrive.
     this.clearDebounce();
     const ms = Math.max(0, this.cfg().fillDebounceMs);
     this.debounce = this.timers.set(() => {
@@ -523,35 +578,54 @@ export class FillLoop {
     return s;
   }
 
-  /** One trip: request → filler → verifier → manager. Never rejects. */
+  /** The reconciliation context of a trip, read now (config is live). */
+  private answerContext(seq: number, requestedAt: number): AnswerContext {
+    const cfg = this.cfg();
+    return {
+      seq,
+      requestedAt,
+      now: this.clock(),
+      ledger: this.offers,
+      maxAgeMs: cfg.maxAnswerAgeMs,
+      margin: cfg.cooldownMarginTiles,
+    };
+  }
+
+  /**
+   * One trip: request → filler → reconcile → verifier → manager. Never
+   * rejects. Trips overlap: a newer placement starts a new trip and leaves
+   * this one running, so its answer may arrive after newer ones.
+   */
   private async run(mode: FillMode, blocked?: PatrolBlocked): Promise<FillOutcome | null> {
     const filler = this.o.registry.active;
     if (!filler || this.disposed || this.halted) return null;
-    // Newest wins: a newer trip aborts this one's verification too.
-    this.ctrl?.abort();
+    // Calls to a filler that is no longer active are cancelled. Calls to this
+    // one keep running (speculation); FillScheduler caps them at maxInFlight.
     for (const [f, s] of this.schedulers) if (f !== filler) s.cancel();
     const ctrl = new AbortController();
-    this.ctrl = ctrl;
+    this.trips.add(ctrl);
     this.stats.requests++;
 
+    const seq = ++this.seq;
     const requestedAt = this.clock();
     let request: FillRequest;
-    let snap: ReturnType<LevelModel["snapshot"]>;
+    /** The level the request describes (what the answer is reconciled against). */
+    let then: LevelSnapshot;
     try {
       request = this.buildRequest(mode, blocked);
-      snap = this.o.model.snapshot();
+      then = this.o.model.snapshot();
     } catch (e) {
       this.stats.errors++;
       console.error("fill request could not be built", e);
-      if (this.ctrl === ctrl) this.ctrl = null;
+      this.trips.delete(ctrl);
       return null;
     }
 
     const result = await this.schedulerFor(filler).schedule(request);
     const events: FillCallEvent[] = [];
-    const finish = (o: Omit<FillOutcome, "events" | "mode" | "request" | "result">): FillOutcome => {
-      if (this.ctrl === ctrl) this.ctrl = null;
-      const out: FillOutcome = { mode, request, result, events, ...o };
+    const finish = (o: Omit<FillOutcome, "events" | "mode" | "request" | "result" | "seq">): FillOutcome => {
+      this.trips.delete(ctrl);
+      const out: FillOutcome = { mode, request, seq, result, events, ...o };
       if (out.superseded) this.stats.superseded++;
       this.last = out;
       try {
@@ -567,35 +641,69 @@ export class FillLoop {
       events.push(ev);
       this.o.log(ev);
     };
+    /** The same result, marked as dropped before showing (fill.call superseded + reason). */
+    const dropped = (r: FillResult, reason: string): FillResult => ({ ...r, superseded: true, supersededReason: reason });
 
     if (result.superseded || ctrl.signal.aborted) {
+      // Aborted: over maxInFlight (FillScheduler) or cancelled (Play, load, cancel()).
       result.superseded = true;
+      result.supersededReason ??= CANCELLED;
       writeCall(result, request);
-      return finish({ superseded: true });
+      return finish({ superseded: true, dropReason: result.supersededReason });
     }
     const guess = result.suggestion?.levelGuess ?? result.answer?.levelGuess;
     if (guess) this.lastGuess = guess;
 
-    if (!result.suggestion) {
+    // Reconcile with the level as it is now: drop a stale answer, trim cells
+    // the person has drawn exactly as proposed (fill/reconcile.ts).
+    const thenCells = snapshotReader(then);
+    const asFix = (s: Suggestion | null): Suggestion | null => (s && mode === "patrol" ? { ...s, kind: "fix" } : s);
+    let answer = asFix(result.suggestion);
+    let trimmed = 0;
+    if (answer) {
+      this.offers.prune(this.clock() - this.cfg().maxAnswerAgeMs);
+      const rc = reconcileAnswer(answer, thenCells, this.o.model, this.answerContext(seq, requestedAt));
+      if (!rc.suggestion) {
+        const reason = rc.reason ?? "stale";
+        this.stats.stale++;
+        writeCall(dropped(result, reason), request);
+        this.report(mode, filler, { ...result, error: reason }, undefined);
+        return finish({ superseded: true, dropReason: reason, trimmed: rc.trimmed });
+      }
+      answer = rc.suggestion;
+      trimmed = rc.trimmed;
+      if (trimmed) this.stats.trimmed++;
+    }
+
+    if (!answer) {
       writeCall(result, request);
       this.report(mode, filler, result, undefined);
       // Patrol with no model answer still gets the local repair.
       if (!blocked) return finish({ superseded: false });
     }
 
-    // Send-back calls go to the same filler; their results are logged as their own fill.call.
-    const sendBacks: { r: FillResult; req: FillRequest }[] = [];
-    const asFix = (s: Suggestion | null): Suggestion | null => (s && mode === "patrol" ? { ...s, kind: "fix" } : s);
+    // Send-back calls go to the same filler; their results are logged as their
+    // own fill.call. A send-back asks about the same level as the first request,
+    // so its answer is reconciled the same way.
+    const sendBacks: { r: FillResult; req: FillRequest; stale?: string }[] = [];
     const sendBackFiller = {
       fill: async (req: FillRequest, signal?: AbortSignal): Promise<Suggestion | null> => {
         const r = await this.detailedFill(filler, req, signal);
-        sendBacks.push({ r, req });
+        const sb: (typeof sendBacks)[number] = { r, req };
+        sendBacks.push(sb);
         if (signal?.aborted) {
           const e = new Error("superseded");
           e.name = "AbortError";
           throw e;
         }
-        return asFix(r.suggestion);
+        const s = asFix(r.suggestion);
+        if (!s) return null;
+        const rc = reconcileCells(s, thenCells, this.o.model);
+        if (!rc.suggestion) {
+          sb.stale = rc.reason;
+          this.stats.stale++;
+        }
+        return rc.suggestion;
       },
     };
     const deps: VerifyDeps = {
@@ -605,41 +713,62 @@ export class FillLoop {
       validate: { lastGhosts: this.recentGhosts(), frontierX: this.stream.frontier(this.o.model)?.x },
     };
 
+    // Verify against the level as it is NOW: the answer has to fit what the
+    // person has drawn since the request, not the level they were asked about.
+    const now = this.o.model.snapshot();
     let verify: VerifyOutcome;
     try {
       verify = blocked
-        ? await verifyPatrolFix(snap, request, asFix(result.suggestion), sendBackFiller, blocked, deps)
-        : await verifyWithSendBack(snap, request, result.suggestion, sendBackFiller, deps);
+        ? await verifyPatrolFix(now, request, answer, sendBackFiller, blocked, deps)
+        : await verifyWithSendBack(now, request, answer, sendBackFiller, deps);
     } catch (e) {
-      if (result.suggestion) writeCall({ ...result, superseded: isAbort(e) }, request, isAbort(e) ? {} : { error: errText(e) });
-      for (const sb of sendBacks) writeCall({ ...sb.r, superseded: true }, sb.req, { sendBack: true });
-      if (!isAbort(e)) {
+      const aborted = isAbort(e);
+      const fail: Partial<FillCallEvent> = aborted ? {} : { error: errText(e) };
+      if (result.suggestion) writeCall(aborted ? dropped(result, CANCELLED) : result, request, fail);
+      for (const sb of sendBacks) writeCall(aborted ? dropped(sb.r, CANCELLED) : sb.r, sb.req, { sendBack: true, ...fail });
+      if (!aborted) {
         this.stats.errors++;
         console.error("verification failed", e);
       }
-      return finish({ superseded: isAbort(e) });
+      return finish({ superseded: aborted, dropReason: aborted ? CANCELLED : undefined, trimmed });
     }
 
-    const verdictOf = (attempt: number) => verify.verdicts.find((v) => v.attempt === attempt);
-    const stageOf = (v: AttemptVerdict | undefined): Partial<FillCallEvent> =>
-      v ? { verdictStage: v.ok ? ("ok" as const) : v.stage, ...(v.ok || !v.reason ? {} : { reason: v.reason }) } : {};
-    if (result.suggestion) writeCall(result, request, { ...stageOf(verdictOf(1)), sendBack: verify.sendBack });
-    sendBacks.forEach((sb, i) => writeCall(sb.r, sb.req, { ...stageOf(verdictOf(2 + i)), sendBack: true }));
+    const v = verify.verified;
+    const final = verify.verdicts[verify.verdicts.length - 1] as (AttemptVerdict & { tags?: string[] }) | undefined;
+    // Verification takes time (the agent, maybe a send-back): a newer answer
+    // may have been offered meanwhile, or this one may have grown too old.
+    let late: string | null = null;
+    if (v) late = ctrl.signal.aborted ? CANCELLED : freshness(v, this.answerContext(seq, requestedAt));
+    /** Mark the call whose answer was verified when that answer is dropped late. */
+    const lateFor = (attempt: number, r: FillResult): FillResult =>
+      late && final?.attempt === attempt ? dropped(r, late) : r;
+
+    const verdictOf = (attempt: number) => verify.verdicts.find((x) => x.attempt === attempt);
+    const stageOf = (x: AttemptVerdict | undefined): Partial<FillCallEvent> =>
+      x ? { verdictStage: x.ok ? ("ok" as const) : x.stage, ...(x.ok || !x.reason ? {} : { reason: x.reason }) } : {};
+    if (result.suggestion) writeCall(lateFor(1, result), request, { ...stageOf(verdictOf(1)), sendBack: verify.sendBack });
+    sendBacks.forEach((sb, i) =>
+      writeCall(sb.stale ? dropped(sb.r, sb.stale) : lateFor(2 + i, sb.r), sb.req, { ...stageOf(verdictOf(2 + i)), sendBack: true }),
+    );
 
     let offer: OfferResult | undefined;
-    const v = verify.verified;
     if (v) {
       this.stats.verified++;
       if (v.mode === "patrol") this.stats.patrolFixes++;
-      const final = verify.verdicts[verify.verdicts.length - 1] as AttemptVerdict & { tags?: string[] };
       if (final?.tags?.length) this.tags.set(v.id, [...final.tags]);
-      if (this.ghost && !ctrl.signal.aborted) {
-        offer = this.ghost.offer(v, { requestedAt });
-        this.stats.offered++;
-      }
     }
-    if (result.suggestion || v) this.report(mode, filler, result, verify);
-    return finish({ superseded: false, verify, offer });
+    if (result.suggestion || v) this.report(mode, filler, late ? { ...result, error: late } : result, verify);
+    if (v && late) {
+      if (late !== CANCELLED) this.stats.stale++;
+      return finish({ superseded: true, dropReason: late, verify, trimmed });
+    }
+    if (v && this.ghost) {
+      offer = this.ghost.offer(v, { requestedAt });
+      this.stats.offered++;
+      // Held or shown: an older answer for this area arriving later is stale.
+      if (offer.status !== "dropped") this.offers.record(seq, v, this.clock());
+    }
+    return finish({ superseded: false, verify, offer, trimmed });
   }
 
   /** fillDetailed when the filler has it, else an adapted FillResult. */
