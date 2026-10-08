@@ -12,6 +12,36 @@
 #pg-stage {
   position: relative;
 }
+
+/* Layout: nothing sits on the drawing area. The old app floated its panel
+   and toolbar over the canvas (Phaser DOM at (1095, 360) and (460, 692)),
+   which blocked drawing under them (audit UX-04). Pewter Ghost keeps the
+   old 1280 px footprint and the old pieces, side by side instead of on top:
+   canvas (928 x 720) | 12 px | panel (340 px), toolbar on its own row below
+   the canvas. Hidden chrome (Play, U) keeps its space so the canvas never moves. */
+#pg-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+#pg-frame {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+#pg-panel-slot {
+  width: 340px;
+  flex: 0 0 340px;
+}
+#pg-toolbar-slot {
+  display: flex;
+  min-height: 44px;
+}
+#pg-panel-slot.pg-hidden,
+#pg-toolbar-slot.pg-hidden {
+  visibility: hidden;
+}
 #pg-stage canvas {
   touch-action: none;
 }

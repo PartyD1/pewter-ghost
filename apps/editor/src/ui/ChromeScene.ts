@@ -1,14 +1,16 @@
 /**
- * Mounts the chrome (ui/Chrome.ts) over the canvas the way the old
- * Pewter Platformer UIScene did (pewter-platfomer src/phaser/UIScene.ts):
- * Phaser DOM elements in the game's DOM container, the panel at
- * (1095, 360) and the toolbar at (460, 692) with depth 1001, and U (without
- * Ctrl) toggling both plus the minimap (old lines 247-281).
+ * Mounts the chrome (ui/Chrome.ts): the old Pewter Platformer right panel
+ * and bottom toolbar.
  *
- * Changes for Pewter Ghost: the scene starts with the game (active), so the
- * palette is there as soon as the page is; the old app stopped UIScene in
- * Play, here setPlaying() hides the panel and toolbar instead; the U key is
- * a document listener that ignores text fields and open dialogs.
+ * The old UIScene put both over the canvas as Phaser DOM elements (panel at
+ * (1095, 360), toolbar at (460, 692)), which blocked drawing under them
+ * (audit UX-04). Here they go into page slots beside and below the canvas
+ * (index.html #pg-panel-slot, #pg-toolbar-slot), so nothing covers the
+ * drawing area. Looks and markup are unchanged.
+ *
+ * Kept from the old app: U (without Ctrl) toggles both plus the minimap
+ * (old lines 247-281). Play hides them (the old app stopped UIScene). Hidden
+ * chrome keeps its space, so the canvas never moves.
  */
 import Phaser from "phaser";
 import { isTypingTarget } from "../editor/keys";
@@ -18,8 +20,8 @@ import { isDialogOpen } from "./Dialog";
 export const CHROME_SCENE = "ChromeScene";
 
 export class ChromeScene extends Phaser.Scene {
-  private chatBox!: Phaser.GameObjects.DOMElement;
-  private toolbarDom!: Phaser.GameObjects.DOMElement;
+  private panelSlot: HTMLElement | null = null;
+  private toolbarSlot: HTMLElement | null = null;
   private isChatVisible = true;
   private playing = false;
 
@@ -28,13 +30,23 @@ export class ChromeScene extends Phaser.Scene {
   }
 
   create(): void {
-    // Create hidden chatbox (old UIScene.ts:140)
-    this.chatBox = this.add.dom(1095, 360, this.chrome.panelNode);
-    this.chatBox.setVisible(true);
-
-    // DOM toolbar (old UIScene.ts:517-527)
-    this.toolbarDom = this.add.dom(460, 692, this.chrome.toolbarNode);
-    this.toolbarDom.setDepth(1001);
+    this.panelSlot = document.getElementById("pg-panel-slot");
+    this.toolbarSlot = document.getElementById("pg-toolbar-slot");
+    // Fallback for pages without the slots: next to the game's parent.
+    const host = this.game.canvas?.parentElement?.parentElement ?? document.body;
+    if (!this.panelSlot) {
+      this.panelSlot = document.createElement("div");
+      this.panelSlot.id = "pg-panel-slot";
+      host.append(this.panelSlot);
+    }
+    if (!this.toolbarSlot) {
+      this.toolbarSlot = document.createElement("div");
+      this.toolbarSlot.id = "pg-toolbar-slot";
+      host.append(this.toolbarSlot);
+    }
+    this.panelSlot.append(this.chrome.panelNode);
+    this.toolbarSlot.append(this.chrome.toolbarNode);
+    this.apply();
 
     // Toggle UI (and notify other scenes to toggle overview/minimap)
     const onKey = (e: KeyboardEvent) => {
@@ -61,9 +73,8 @@ export class ChromeScene extends Phaser.Scene {
   }
 
   private apply(): void {
-    if (!this.chatBox || !this.toolbarDom) return;
     const show = this.isChatVisible && !this.playing;
-    this.chatBox.setVisible(show);
-    this.toolbarDom.setVisible(show);
+    this.panelSlot?.classList.toggle("pg-hidden", !show);
+    this.toolbarSlot?.classList.toggle("pg-hidden", !show);
   }
 }

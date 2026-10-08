@@ -176,7 +176,9 @@ const gameConfig: Phaser.Types.Core.GameConfig & { resolution?: number } = {
       },
     },
   },
-  width: 1280,
+  // 928 = the old 1280 px canvas minus the 340 px panel and a 12 px gap: the
+  // panel now sits beside the canvas instead of over it (style.css #pg-frame).
+  width: 928,
   height: 720,
   parent: stage,
   scene: [LoadingScene, editorScene, UIScene, chromeScene],
