@@ -7,6 +7,8 @@
  *   UI laid on top of the canvas (hit-tested with elementFromPoint), when the
  *   button is released anywhere, and when the window loses focus.
  * - Pan mode, or Space held, turns a left drag into a camera pan.
+ * - Select mode: pressing on the Start pennant or the Goal flag and releasing
+ *   on another cell moves it there (one undo step).
  */
 import Phaser from "phaser";
 import type { Point } from "../contracts";
@@ -23,13 +25,20 @@ export interface PointerDeps {
   onHover: (cell: Point | undefined) => void;
   /** Select-mode click (inspection only; never edits). */
   onSelect?: (cell: Point) => void;
+  /** Which movable marker (Start pennant, Goal flag) is at this cell, if any. */
+  markerAt?: (cell: Point) => MarkerKind | null;
+  /** Move a marker; returns false when the target is not allowed. */
+  moveMarker?: (kind: MarkerKind, to: Point) => boolean;
   inBounds: (x: number, y: number) => boolean;
 }
 
 type NativePointer = MouseEvent | PointerEvent | TouchEvent;
 
+export type MarkerKind = "start" | "flag";
+
 export class PointerBinding {
   private panning: { lastX: number; lastY: number; button: number } | null = null;
+  private markerDrag: { kind: MarkerKind; from: Point } | null = null;
   private readonly canvas: HTMLCanvasElement;
   private readonly cleanups: (() => void)[] = [];
 
@@ -75,10 +84,16 @@ export class PointerBinding {
     return this.panning !== null;
   }
 
+  /** The marker being dragged in Select mode, if any. */
+  get draggingMarker(): MarkerKind | null {
+    return this.markerDrag?.kind ?? null;
+  }
+
   /** End any stroke or pan in progress (mode change, Play, dialogs). */
   stopAll(): void {
     this.deps.painter.end();
     this.panning = null;
+    this.markerDrag = null;
   }
 
   /** True when the native event is over the canvas itself, not DOM UI laid on top. */
@@ -111,7 +126,10 @@ export class PointerBinding {
     }
     const cell = this.cellOf(p);
     if (mode === "select") {
-      if (this.deps.inBounds(cell.x, cell.y)) this.deps.onSelect?.(cell);
+      if (!this.deps.inBounds(cell.x, cell.y)) return;
+      const kind = this.deps.markerAt?.(cell) ?? null;
+      if (kind) this.markerDrag = { kind, from: { x: cell.x, y: cell.y } };
+      this.deps.onSelect?.(cell);
       return;
     }
     painter.begin(cell, mode, modes.brush);
@@ -144,7 +162,14 @@ export class PointerBinding {
     this.deps.onHover(this.deps.inBounds(cell.x, cell.y) ? cell : undefined);
   }
 
-  private onUp(): void {
+  private onUp(p?: Phaser.Input.Pointer): void {
+    const drag = this.markerDrag;
+    if (drag && p && this.overCanvas(p)) {
+      const to = this.cellOf(p);
+      if (this.deps.inBounds(to.x, to.y) && (to.x !== drag.from.x || to.y !== drag.from.y)) {
+        this.deps.moveMarker?.(drag.kind, to);
+      }
+    }
     this.stopAll();
   }
 

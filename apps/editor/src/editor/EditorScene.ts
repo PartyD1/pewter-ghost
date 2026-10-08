@@ -144,6 +144,26 @@ export class EditorScene extends Phaser.Scene {
       inBounds: (x, y) => model.inBounds(x, y),
       onHover: (cell) => this.setHover(cell),
       onSelect: (cell) => this.inspect(cell),
+      markerAt: (cell) => {
+        const st = model.start;
+        if (st.x === cell.x && st.y === cell.y) return "start";
+        return model.entitiesAt(cell.x, cell.y).some((e) => e.kind === "flag") ? "flag" : null;
+      },
+      moveMarker: (kind, to) => {
+        // Never drop a marker into ground: placing it there would erase the tile.
+        if (model.isSolid(to.x, to.y)) return false;
+        if (kind === "start") return model.setStart({ x: to.x, y: to.y });
+        const flag = model.entities.find((e) => e.kind === "flag");
+        if (!flag) return false;
+        model.beginStroke();
+        try {
+          model.removeEntity(flag.id);
+          model.placeEntity("flag", to.x, to.y);
+        } finally {
+          model.endStroke();
+        }
+        return true;
+      },
     });
 
     this.play = new PlayController({

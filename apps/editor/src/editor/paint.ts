@@ -15,7 +15,7 @@
  *   entities. There is no right-click eraser and no eyedropper.
  */
 import type { EntityKind, Point, TileId } from "../contracts";
-import type { LevelModel } from "../level/LevelModel";
+import { DEFAULT_START, type LevelModel } from "../level/LevelModel";
 import type { Brush, Mode } from "./modes";
 
 /** The part of LevelModel painting needs (LevelModel satisfies it). */
@@ -183,6 +183,13 @@ export class StrokePainter {
       if (todo.length) {
         this.model.erase(todo);
         changedCells = todo;
+      }
+      // Erasing the Start pennant puts the knight back on the default start
+      // (a level always has a start; the pennant only shows when it is moved).
+      const st = this.model.start;
+      const onStart = fresh.find((c) => c.x === st.x && c.y === st.y);
+      if (onStart && (st.x !== DEFAULT_START.x || st.y !== DEFAULT_START.y) && this.model.setStart({ ...DEFAULT_START })) {
+        if (!changedCells.some((c) => c.x === onStart.x && c.y === onStart.y)) changedCells = [...changedCells, onStart];
       }
     } else if (info.brush.kind === "tile") {
       const tile: TileId = info.brush.tile;
