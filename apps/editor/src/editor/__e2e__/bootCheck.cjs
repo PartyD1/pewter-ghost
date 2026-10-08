@@ -57,6 +57,25 @@ function assert(cond, msg) {
     await page.waitForFunction(() => !!(window.__pewter && window.__pewter.api), null, { timeout: 20000 });
     await page.waitForTimeout(300);
 
+    // The editor starts on the old Pewter default map (full ground floor).
+    // The Play steps below need the two 12-tile platforms with open air
+    // between them (as tests/e2e/support/editor.ts useTwoPlatformStarter).
+    await page.evaluate((platform) => {
+      const m = window.__pewter.model;
+      const s = m.snapshot();
+      const keep = (x) => x < platform || x >= s.w - platform;
+      for (let y = 0; y < s.h; y++)
+        for (let x = 0; x < s.w; x++) {
+          const i = y * s.w + x;
+          if (!keep(x)) s.cells[i] = 0;
+          s.authors[i] = 0;
+        }
+      s.provenance = {};
+      s.entities = s.entities.filter((e) => keep(e.x));
+      for (const id of Object.keys(s.entityAuthors)) if (!s.entities.some((e) => e.id === id)) delete s.entityAuthors[id];
+      m.load(s);
+    }, 12);
+
     const canvasBox = await page.locator("#pg-stage canvas").boundingBox();
     assert(canvasBox && canvasBox.width > 300 && canvasBox.height > 200, "canvas fills the stage");
 
