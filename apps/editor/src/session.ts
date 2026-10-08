@@ -730,6 +730,24 @@ export function buildRegistry(cfg: GhostConfig, o: RegistryOptions): FillerRegis
   return reg;
 }
 
+/**
+ * In development (`npm run dev` / `npm run dev:ai`) the editor uses the local
+ * proxy's built-in "dev" token, so AI suggestions work at http://localhost:5173/
+ * with no URL parameters. The proxy only accepts "dev" when PROXY_OPEN=1.
+ *
+ * Not used when: the page sets ?token= or ?filler= (a launcher link or a test
+ * pins its own session), it is a production build, the app was constructed
+ * with an explicit `search` (unit tests), or the browser is automated
+ * (Playwright) unless ?devtoken=1 asks for it.
+ */
+export function autoDevToken(params: URLSearchParams, fromPage: boolean): string | null {
+  if (!fromPage || !import.meta.env.DEV) return null;
+  if (params.has("filler")) return null;
+  const automated = typeof navigator !== "undefined" && (navigator as Navigator & { webdriver?: boolean }).webdriver === true;
+  if (automated && params.get("devtoken") !== "1") return null;
+  return "dev";
+}
+
 // ---------------------------------------------------------------------------
 // PewterApp: boot glue
 // ---------------------------------------------------------------------------
@@ -781,8 +799,9 @@ export class PewterApp {
       clock: this.clock,
     });
     const params = new URLSearchParams(search);
-    const token = params.get("token")?.trim() || readTokenFromUrl() || null;
-    this.ready = this.init(url, token);
+    const explicit = params.get("token")?.trim() || readTokenFromUrl() || null;
+    const devToken = explicit ? null : autoDevToken(params, o.search === undefined);
+    this.ready = this.init(url, explicit ?? devToken, devToken !== null);
   }
 
   /** The editor's logger (pass to EditorScene / api.log). */
@@ -790,7 +809,7 @@ export class PewterApp {
     return this.sessionLog.log;
   }
 
-  private async init(url: Partial<GhostConfig>, token: string | null): Promise<SessionInfo> {
+  private async init(url: Partial<GhostConfig>, token: string | null, autoDev = false): Promise<SessionInfo> {
     const info = await fetchSession({
       proxyUrl: liveConfig.proxyUrl,
       token,
@@ -798,7 +817,10 @@ export class PewterApp {
       timeoutMs: 4000,
       fallbackCondition: liveConfig.filler === "none" ? "none" : (liveConfig.filler as SessionInfo["condition"]),
     });
-    if (token && !info.fromProxy) console.warn(`session: proxy unavailable (${info.error ?? "unknown"}); running locally`);
+    if (token && !info.fromProxy) {
+      if (autoDev) console.info("Pewter Ghost: no local proxy, so no AI suggestions. Run `npm run dev:ai` (see .env.example).");
+      else console.warn(`session: proxy unavailable (${info.error ?? "unknown"}); running locally`);
+    }
     const cfg = resolveConfig(url, info);
     applyOverrides(cfg);
     this.session = info;

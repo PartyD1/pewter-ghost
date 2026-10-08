@@ -105,6 +105,8 @@ test.describe("latency budget (§24)", () => {
   test("2: an answer delayed 1,200 ms is dropped and logged, nothing shown", async ({ page }) => {
     const ed = await Editor.open(page, {
       proxy: { condition: "llm", fill: () => ({ fixture: "finish-staircase", delayMs: 1200 }) },
+      // The default timeout is longer than a live model call (3500 ms); this contract is about the plan's 900 ms budget.
+      params: { callTimeoutMs: "900" },
     });
     const cfg = await config(ed);
     expect(cfg.callTimeoutMs).toBeLessThan(1200);

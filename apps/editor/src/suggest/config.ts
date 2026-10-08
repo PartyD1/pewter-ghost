@@ -11,7 +11,13 @@ export interface GhostConfig {
   pauseMs: number;
   /** Idle ms after which low-confidence ghosts may show. */
   longPauseMs: number;
-  /** Give up on a model call after this many ms. */
+  /**
+   * Give up on a model call after this many ms. The plan's target is 900 ms,
+   * but live gemini-3.7-flash answers take about 2.0 s (p50) to 2.9 s (p90)
+   * with thinking off (eval/reports/baseline.md), so 900 would drop every
+   * answer. 3500 lets the model work today; lower it once a faster model passes
+   * the offline suite (G-28).
+   */
   callTimeoutMs: number;
   /** Playtest agent time cap per suggestion. */
   agentCapMs: number;
@@ -83,7 +89,7 @@ export const DEFAULT_CONFIG: GhostConfig = {
   showAtPauseAbove: 0.4,
   pauseMs: 800,
   longPauseMs: 2500,
-  callTimeoutMs: 900,
+  callTimeoutMs: 3500,
   agentCapMs: 300,
   patrolCapMs: 1000,
   patrolIdleMs: 3000,

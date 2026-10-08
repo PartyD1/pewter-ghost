@@ -6,6 +6,7 @@
   "description": "Pewter Ghost: an LLM autofill for 2D platformer level design.",
   "scripts": {
     "dev": "vite",
+    "dev:ai": "node scripts/dev-ai.mjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
