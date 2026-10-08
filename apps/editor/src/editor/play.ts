@@ -130,10 +130,15 @@ export class PlayController implements EnemyHost {
 
   spawnPellet(p: PelletSpec): void {
     if (!this.pellets) return;
-    const s = this.pellets.create(p.x, p.y, ASSET.pellets, p.mega ? 2 : 1) as Phaser.Types.Physics.Arcade.SpriteWithDynamicBody;
+    // Old pellets (Slime.ts:130-131, UltraSlime.ts:146-161): "pellets" frame 1
+    // (Slime), 0 (Ultra Slime) or 2 (mega), drawn at setScale(2). The body
+    // size is halved to cancel the scale, so hit boxes stay 4 / 6 px.
+    const frame = p.mega ? 2 : p.kind === "ultraslime" ? 0 : 1;
+    const s = this.pellets.create(p.x, p.y, ASSET.pellets, frame) as Phaser.Types.Physics.Arcade.SpriteWithDynamicBody;
+    s.setScale(2);
     s.setDepth(DEPTH.pellets);
     s.body.setAllowGravity(false);
-    s.body.setSize(p.mega ? 6 : 4, p.mega ? 6 : 4, true);
+    s.body.setSize(p.mega ? 3 : 2, p.mega ? 3 : 2, true);
     s.setVelocityX(p.speed * p.dir);
     s.setData("damage", p.damage);
     s.setData("lifeMs", p.lifeMs);

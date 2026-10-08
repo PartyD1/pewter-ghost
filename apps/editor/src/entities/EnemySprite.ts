@@ -14,6 +14,8 @@ export interface PelletSpec {
   y: number;
   dir: 1 | -1;
   mega: boolean;
+  /** Who fired it (picks the old pellet frame: Slime 1, Ultra Slime 0, mega 2). */
+  kind?: "slime" | "ultraslime";
   speed: number;
   damage: number;
   lifeMs: number;
@@ -78,7 +80,7 @@ export abstract class EnemySprite extends Phaser.Physics.Arcade.Sprite {
 
   private fire(shot: Shot): void {
     const p = this.pelletFor(shot);
-    this.host.spawnPellet({ x: this.x + shot.dir * 6, y: this.y + 2, dir: shot.dir, mega: shot.mega, ...p });
+    this.host.spawnPellet({ x: this.x + shot.dir * 6, y: this.y + 2, dir: shot.dir, mega: shot.mega, kind: this.kind === "ultraslime" ? "ultraslime" : "slime", ...p });
   }
 
   /** Stomped by the knight: dies until the level resets. */
