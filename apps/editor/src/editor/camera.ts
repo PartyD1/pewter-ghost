@@ -158,12 +158,33 @@ export class CameraController implements CameraApi {
     return { min: home, max: Math.max(OLD_ZOOM.max, home) };
   }
 
-  /** Native wheel event (trackpad two-finger pan, pinch zoom, mouse wheel). */
+  /**
+   * Native wheel event. A plain vertical wheel zooms as in the old editor
+   * (editorScene.ts:579-604: one notch is +-0.1 zoom, clamped to 2.25-10,
+   * about the camera's centre). Pinch / Ctrl+wheel (smooth zoom at the
+   * pointer), Shift+wheel and sideways two-finger scrolls (pan) are Pewter
+   * Ghost additions the old app did not handle.
+   */
   onWheel(e: WheelLike & { offsetX?: number; offsetY?: number }): void {
+    if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.deltaY !== 0 && Math.abs(e.deltaX) < Math.abs(e.deltaY) * 0.5) {
+      this.oldWheelZoom(e.deltaY);
+      return;
+    }
     const fits = this.levelPx.h * this._zoom <= this.viewport.h;
     const intent = wheelIntent(e, fits);
     if (intent.kind === "zoom") this.zoomBy(intent.factor, e.offsetX !== undefined ? { x: e.offsetX, y: e.offsetY ?? 0 } : undefined);
     else this.panByScreen(intent.dx, intent.dy);
+  }
+
+  /** Old editorScene.ts:579-604: deltaY > 0 zooms out by 0.1, else in by 0.1. */
+  private oldWheelZoom(deltaY: number): void {
+    if (this.following) return;
+    const lim = this.limits();
+    const zoomLevel = deltaY > 0 ? Phaser.Math.Clamp(this._zoom - 0.1, lim.min, lim.max) : Phaser.Math.Clamp(this._zoom + 0.1, lim.min, lim.max);
+    if (zoomLevel === this._zoom) return;
+    this.tween = null;
+    this._zoom = zoomLevel;
+    this.apply();
   }
 
   nudgeTo(x: number, y: number, opts: { w?: number; h?: number; durationMs?: number } = {}): void {
@@ -178,9 +199,15 @@ export class CameraController implements CameraApi {
 
   private startNudge(req: PendingNudge): void {
     const rect = { x: req.x * TILE_PX, y: req.y * TILE_PX, w: req.w * TILE_PX, h: req.h * TILE_PX };
-    const margin = Math.min(3 * TILE_PX, (this.viewport.w / this._zoom) * 0.15);
-    const target = nudgeTarget(this.center, this._zoom, this.viewport, rect, margin);
-    if (!target) return;
+    // Only the canvas left of the old right panel counts as visible: nudge
+    // within that strip (a virtual camera centred on it), then shift back.
+    const visW = this.visibleWidthPx();
+    const shift = (this.viewport.w - visW) / 2 / this._zoom;
+    const vis = { w: visW, h: this.viewport.h };
+    const margin = Math.min(3 * TILE_PX, (visW / this._zoom) * 0.15);
+    const moved = nudgeTarget({ x: this.center.x - shift, y: this.center.y }, this._zoom, vis, rect, margin);
+    if (!moved) return;
+    const target = { x: moved.x + shift, y: moved.y };
     const to = clampCenter(target, this._zoom, this.viewport, this.levelPx, BOUNDS_PAD_PX);
     const duration = reducedMotion() ? 0 : req.durationMs;
     if (duration <= 0) {
@@ -232,7 +259,6 @@ export class CameraController implements CameraApi {
     this.following = false;
     const cam = this.cam;
     cam.stopFollow();
-    cam.removeBounds();
     if (this.savedView) {
       this.center = this.savedView.center;
       this._zoom = this.savedView.zoom;
@@ -245,19 +271,46 @@ export class CameraController implements CameraApi {
     if (this.following) return;
     this.center = clampCenter(this.center, this._zoom, this.viewport, this.levelPx, BOUNDS_PAD_PX);
     const cam = this.cam;
+    // Old editorScene.ts:551-557: bounds = the map, then centerOn and setZoom.
+    // Phaser's bounds clamp (not only clampCenter) gives the old sub-pixel
+    // scroll at zoom 2.25 (-355.56, not the floored -356), so the tiles and
+    // grid land on exactly the old screen pixels.
+    cam.setBounds(0, 0, this.levelPx.w, this.levelPx.h);
     cam.setZoom(this._zoom);
     cam.centerOn(this.center.x, this.center.y);
   }
 
+  /**
+   * Canvas px (from the left) not covered by the old right panel
+   * (`.pt-chatbox`, a Phaser DOM element over the canvas: UIScene.ts:140).
+   * The ghost treats tiles under the panel as off-screen (viewTiles, nudges,
+   * edge arrow). The whole width when there is no panel or it is hidden (U).
+   */
+  visibleWidthPx(): number {
+    const w = this.viewport.w;
+    if (typeof document === "undefined") return w;
+    const canvas = this.scene.game.canvas;
+    const panel = document.querySelector<HTMLElement>(".pt-chatbox");
+    if (!canvas || !panel || panel.offsetParent === null) return w;
+    const c = canvas.getBoundingClientRect();
+    const p = panel.getBoundingClientRect();
+    if (c.width <= 0 || p.width <= 0 || p.bottom <= c.top || p.top >= c.bottom || p.left >= c.right || p.right <= c.left) return w;
+    const left = ((p.left - c.left) / c.width) * w;
+    // Only a panel on the right side narrows the view.
+    if (left < w / 2) return w;
+    return Math.max(TILE_PX, Math.min(w, left));
+  }
+
   // --- CameraApi ------------------------------------------------------------
 
+  /** The visible tile rect: the canvas left of the old right panel (visibleWidthPx). */
   viewTiles(): { x: number; y: number; w: number; h: number } {
     const vw = this.viewport.w / this._zoom;
     const vh = this.viewport.h / this._zoom;
     return {
       x: (this.center.x - vw / 2) / TILE_PX,
       y: (this.center.y - vh / 2) / TILE_PX,
-      w: vw / TILE_PX,
+      w: this.visibleWidthPx() / this._zoom / TILE_PX,
       h: vh / TILE_PX,
     };
   }

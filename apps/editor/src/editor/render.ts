@@ -16,7 +16,7 @@
 import Phaser from "phaser";
 import type { Entity } from "../contracts";
 import { ENEMY_KINDS } from "../contracts";
-import type { LevelChangeEx, LevelModel } from "../level/LevelModel";
+import { DEFAULT_START, type LevelChangeEx, type LevelModel } from "../level/LevelModel";
 import { ASSET, DEPTH, ENTITY_FRAME, FRAME, TERRAIN_IDS, TILE_PX, tileFrame } from "./constants";
 
 export interface RendererStats {
@@ -121,7 +121,7 @@ export class Renderer {
     this.editView = on;
     this.entityLayer.setVisible(on);
     this.patrolGfx.setVisible(on);
-    this.startMarker.setVisible(on);
+    this.startMarker.setVisible(on && this.startMoved());
     this.goalMarker.setVisible(on && this.model.goal !== undefined);
   }
 
@@ -203,9 +203,20 @@ export class Renderer {
     this.entityData.delete(id);
   }
 
+  /**
+   * The old editor drew no start marker, so the starting view is the old one:
+   * the pennant shows only once the start is moved off the default spot
+   * (the Start item in Blocks, or a loaded level with its own start).
+   */
+  private startMoved(): boolean {
+    const st = this.model.start;
+    return st.x !== DEFAULT_START.x || st.y !== DEFAULT_START.y;
+  }
+
   private placeMarkers(): void {
     const st = this.model.start;
     this.startMarker.setPosition(st.x * TILE_PX, st.y * TILE_PX);
+    this.startMarker.setVisible(this.editView && this.startMoved());
     const g = this.model.goal;
     if (g) this.goalMarker.setPosition(g.x * TILE_PX, g.y * TILE_PX);
     this.goalMarker.setVisible(this.editView && !!g);
