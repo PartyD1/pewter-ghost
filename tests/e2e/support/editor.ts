@@ -9,6 +9,9 @@ import { expect, type Page } from "@playwright/test";
 import type { LogEvent, Point } from "../../../apps/editor/src/contracts";
 import { PROXY_URL, ProxyMock, type ProxyMockOptions } from "./proxyMock";
 
+/** Columns the tests' home view is panned right by (see Editor.home). */
+export const HOME_PAN_TILES = 8;
+
 /** Tile ids (contracts TILE). */
 export const T = { EMPTY: 0, BLOCK: 1, GRASS_HALF: 4, DIRT: 5, GRASS: 6, QUESTION: 7 } as const;
 /** Author ids (contracts AUTHOR). */
@@ -155,11 +158,19 @@ export class Editor {
 
   // ------------------------------------------------------------------ camera / pointer
 
+  /**
+   * The editor's opening view (camera.home: zoom 2.25, the level's top-left),
+   * then panned right by HOME_PAN_TILES. The old Pewter panel floats over the
+   * canvas from x 925 (tile 25.7 at zoom 2.25 from column 0), and the specs
+   * work on columns 12-31, so the tests' view starts at column 8 (columns
+   * 8-33 are uncovered canvas).
+   */
   async home(): Promise<void> {
-    await this.page.evaluate(() => {
+    await this.page.evaluate((tiles) => {
       const w = (window as any).__pewter;
       w.scene.camera.home(w.model.start);
-    });
+      w.scene.camera.panByScreen(tiles * 16 * w.scene.camera.zoom, 0);
+    }, HOME_PAN_TILES);
     await this.settle();
   }
 
