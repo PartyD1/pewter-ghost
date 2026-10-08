@@ -48,11 +48,16 @@ The loop is wired in `apps/editor/src/session.ts`, and `main.ts` starts it.
 Node 22. From this directory:
 
 ```bash
-npm ci
-npm run dev                     # http://localhost:5173/
+cp .env.example .env            # then put your Gemini key in .env (GEMINI_API_KEY=...); never commit it
+npm install
+npm run dev:ai                  # starts the key-holding proxy and the editor together
 ```
 
-Open the editor with a filler:
+Open http://localhost:5173. The editor looks like Pewter Platformer (panel on the
+right, toolbar at the bottom) but has no chat: ghosts appear on the canvas as you
+draw. Without a key the editor still runs, just without suggestions.
+
+`npm run dev` starts the editor alone. To force a filler, open it with:
 
 | URL | What you get |
 |---|---|
