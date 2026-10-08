@@ -15,28 +15,22 @@
  *   the "R Route" pill: hold R to see the checked route. Same markup and
  *   inline `right: 140px`.
  * - "Q Exit" stops Play through EditorScene.stopPlay (old: startEditor).
- * - New elements with no old source, built from the old `.pt-play-stats`
- *   class and the old HUD text colours (#e8e4ff kbd, rgba(210,200,240,.8)
- *   label): the sign bubble (top-centre, in Play) and the inspector line (a
- *   Select-mode click, top-left under the minimap, 2.5 s).
- * The old editor had no in-canvas mode pill or hover coordinates (the active
- * mode is the highlighted toolbar button), so there are none.
+ * - New element with no old source, built from the old `.pt-play-stats`
+ *   class and the old HUD text colour (#e8e4ff kbd): the sign bubble
+ *   (top-centre, in Play, only while the knight reads a sign).
+ * The old editor had no in-canvas mode pill, hover coordinates or tile
+ * inspector, so there are none.
  */
 import Phaser from "phaser";
 import { SCENE } from "./constants";
 import { UI_EVENT, type EditorScene } from "./EditorScene";
 import type { PlayHud } from "./play";
 
-/** Under the old minimap (top 10, height 48: editorScene.ts:2342-2363), 8 px gap. */
-const BELOW_MINIMAP_PX = 10 + 48 + 8;
-
 export class UIScene extends Phaser.Scene {
   private playStatsEl: HTMLElement | null = null;
   private playHudEl: HTMLElement | null = null;
   private playRouteEl: HTMLElement | null = null;
   private signEl: HTMLElement | null = null;
-  private inspectEl: HTMLElement | null = null;
-  private inspectTimer: Phaser.Time.TimerEvent | null = null;
 
   constructor() {
     super({ key: SCENE.ui });
@@ -49,22 +43,17 @@ export class UIScene extends Phaser.Scene {
 
   create(): void {
     const ev = this.game.events;
-    const onInspect = (d: { text: string }) => this.showInspect(d.text);
     const onPlay = (on: boolean) => {
-      this.hideInspect();
       if (on) this.createPlayHud();
       else this.removePlayHud();
     };
     const onHud = (h: PlayHud) => this.updatePlayHud(h);
-    ev.on(UI_EVENT.inspect, onInspect);
     ev.on(UI_EVENT.play, onPlay);
     ev.on(UI_EVENT.hud, onHud);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      ev.off(UI_EVENT.inspect, onInspect);
       ev.off(UI_EVENT.play, onPlay);
       ev.off(UI_EVENT.hud, onHud);
       this.removePlayHud();
-      this.hideInspect();
     });
   }
 
@@ -139,32 +128,5 @@ export class UIScene extends Phaser.Scene {
   private removePlayHud(): void {
     for (const el of [this.playStatsEl, this.playHudEl, this.playRouteEl, this.signEl]) el?.remove();
     this.playStatsEl = this.playHudEl = this.playRouteEl = this.signEl = null;
-  }
-
-  // --- Select-mode inspector (new; no old source) -----------------------------
-
-  private showInspect(text: string): void {
-    const parent = this.overlayParent;
-    if (!parent) return;
-    if (!this.inspectEl) {
-      const el = document.createElement("div");
-      el.className = "pt-play-stats pg-inspect";
-      el.style.top = `${BELOW_MINIMAP_PX}px`;
-      el.style.left = "10px";
-      el.style.fontSize = "13px";
-      el.style.color = "rgba(210,200,240,.8)";
-      parent.appendChild(el);
-      this.inspectEl = el;
-    }
-    this.inspectEl.textContent = text;
-    this.inspectTimer?.remove();
-    this.inspectTimer = this.time.delayedCall(2500, () => this.hideInspect());
-  }
-
-  private hideInspect(): void {
-    this.inspectTimer?.remove();
-    this.inspectTimer = null;
-    this.inspectEl?.remove();
-    this.inspectEl = null;
   }
 }

@@ -2,7 +2,8 @@
  * Renderer (G-03): the ONLY code that writes Phaser tile layers.
  *
  * It subscribes to LevelModel change diffs and updates the tilemap layer,
- * the entity sprites, the start/goal markers and the enemy patrol marks.
+ * the entity sprites and the start/goal markers. The old editor drew enemies
+ * as plain tiles with nothing around them, so there are no patrol marks.
  * A full redraw happens only on load; everything else is diff-driven.
  *
  * Under the level it draws the old Pewter Platformer backdrop: the
@@ -15,7 +16,6 @@
  */
 import Phaser from "phaser";
 import type { Entity } from "../contracts";
-import { ENEMY_KINDS } from "../contracts";
 import { DEFAULT_START, type LevelChangeEx, type LevelModel } from "../level/LevelModel";
 import { ASSET, DEPTH, ENTITY_FRAME, FRAME, TERRAIN_IDS, TILE_PX, tileFrame } from "./constants";
 
@@ -34,7 +34,6 @@ export class Renderer {
   private readonly entitySprites = new Map<string, Phaser.GameObjects.Image>();
   private readonly entityData = new Map<string, Entity>();
   private readonly entityLayer: Phaser.GameObjects.Container;
-  private readonly patrolGfx: Phaser.GameObjects.Graphics;
   private readonly startMarker: Phaser.GameObjects.Image;
   private readonly goalMarker: Phaser.GameObjects.Image;
   private readonly unsubscribe: () => void;
@@ -87,7 +86,6 @@ export class Renderer {
     this.layer.setCollision([...TERRAIN_IDS]);
 
     this.entityLayer = scene.add.container(0, 0).setDepth(DEPTH.entities);
-    this.patrolGfx = scene.add.graphics().setDepth(DEPTH.entities - 1);
     this.startMarker = scene.add.image(0, 0, ASSET.tiles, FRAME.START).setOrigin(0, 0).setDepth(DEPTH.markers);
     this.goalMarker = scene.add
       .image(0, 0, ASSET.tiles, FRAME.FLAG)
@@ -114,13 +112,12 @@ export class Renderer {
   }
 
   /**
-   * Edit view shows entity sprites, markers and patrols; Play hides them (Play
+   * Edit view shows entity sprites and markers; Play hides them (Play
    * draws live objects). The grid is EditorScene's (drawn per frame, cleared in Play).
    */
   setEditView(on: boolean): void {
     this.editView = on;
     this.entityLayer.setVisible(on);
-    this.patrolGfx.setVisible(on);
     this.startMarker.setVisible(on && this.startMoved());
     this.goalMarker.setVisible(on && this.model.goal !== undefined);
   }
@@ -131,7 +128,6 @@ export class Renderer {
     this.entitySprites.clear();
     this.entityData.clear();
     this.entityLayer.destroy();
-    this.patrolGfx.destroy();
     this.startMarker.destroy();
     this.goalMarker.destroy();
     this.map.destroy();
@@ -150,7 +146,6 @@ export class Renderer {
     this.entityData.clear();
     for (const e of m.entities) this.addEntity(e);
     this.placeMarkers();
-    this.drawPatrols();
   }
 
   private apply(c: LevelChangeEx): void {
@@ -162,15 +157,12 @@ export class Renderer {
     for (const cell of c.cells) this.writeTile(cell.x, cell.y, cell.tile, true);
     for (const id of c.entitiesRemoved) this.removeEntity(id);
     for (const e of c.entitiesAdded) this.addEntity(e);
-    let patrolsChanged = c.entitiesRemoved.length > 0 || c.entitiesAdded.some((e) => ENEMY_KINDS.has(e.kind));
     for (const e of c.entitiesUpdated ?? []) {
       this.entityData.set(e.id, { ...e });
       const s = this.entitySprites.get(e.id);
       if (s) s.setPosition(e.x * TILE_PX, e.y * TILE_PX);
-      patrolsChanged = true;
     }
     if (c.start !== undefined || c.goal !== undefined) this.placeMarkers();
-    if (patrolsChanged) this.drawPatrols();
   }
 
   private writeTile(x: number, y: number, tile: number, faces: boolean): void {
@@ -220,33 +212,6 @@ export class Renderer {
     const g = this.model.goal;
     if (g) this.goalMarker.setPosition(g.x * TILE_PX, g.y * TILE_PX);
     this.goalMarker.setVisible(this.editView && !!g);
-  }
-
-  /** A thin dashed line along each enemy's patrol floor, so spans are visible while editing. */
-  private drawPatrols(): void {
-    const g = this.patrolGfx;
-    g.clear();
-    for (const e of this.entityData.values()) {
-      if (!ENEMY_KINDS.has(e.kind)) continue;
-      const color = e.kind === "slime" ? 0x9be15d : 0xff6fae;
-      if (!e.patrol) {
-        // No floor: warn with a small red cross under the enemy.
-        g.lineStyle(1, 0xd23c3c, 0.9);
-        const cx = e.x * TILE_PX + TILE_PX / 2;
-        const cy = (e.y + 1) * TILE_PX + 3;
-        g.lineBetween(cx - 3, cy - 3, cx + 3, cy + 3);
-        g.lineBetween(cx + 3, cy - 3, cx - 3, cy + 3);
-        continue;
-      }
-      const y = (e.y + 1) * TILE_PX - 1.5;
-      const x0 = e.patrol[0] * TILE_PX + 1;
-      const x1 = (e.patrol[1] + 1) * TILE_PX - 1;
-      g.lineStyle(1, color, 0.9);
-      for (let x = x0; x < x1; x += 4) g.lineBetween(x, y, Math.min(x + 2, x1), y);
-      g.fillStyle(color, 0.9);
-      g.fillRect(x0, y - 2, 1, 3);
-      g.fillRect(x1 - 1, y - 2, 1, 3);
-    }
   }
 
   /** Entity sprite for an id (e2e tests, ghost layer hit tests). */

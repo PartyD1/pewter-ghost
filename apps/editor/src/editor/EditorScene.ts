@@ -38,12 +38,11 @@ const KEY_PAN_PX_PER_S = 600;
 const KEY_PAN_SHIFT_FACTOR = 4;
 
 /**
- * Hover highlight colour per mode. Paint and Erase use the old editor's
- * highlight colour (Z-level 1, red: colors.ts Z_LEVEL_COLORS[0]). Select and
- * Pan did not exist in the old editor; they take the blue and cyan of the same
- * old Z-level palette (Z_LEVEL_COLORS[4], [8]).
+ * Hover highlight colour. The old editor highlighted the hovered tile in the
+ * Z-level 1 red (colors.ts Z_LEVEL_COLORS[0], currentZLevel 1) whatever was
+ * selected, so every mode uses it; Erase adds the old crossed "Empty" mark.
  */
-const HIGHLIGHT_COLOR = { paint: 0xff0000, erase: 0xff0000, select: 0x0000ff, pan: 0x00ffff } as const;
+const HIGHLIGHT_COLOR = { paint: 0xff0000, erase: 0xff0000, select: 0xff0000, pan: 0xff0000 } as const;
 
 export interface EditorSceneDeps {
   model: LevelModel;
