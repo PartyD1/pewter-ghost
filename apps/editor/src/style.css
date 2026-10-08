@@ -38,6 +38,35 @@
     0 4px 20px rgba(0, 0, 0, 0.7),
     0 1px 4px rgba(0, 0, 0, 0.5);
 }
+/* The buttons inside a group pill use the pill's own type (old .pt-tbtn:
+   600 14px, #c8c8e8, letter-spacing 0.02em, line-height 1) on the old tab
+   shape (.pt-tab: radius 6px, 1px border); padding NEW: 6px 9px, which
+   keeps the group as tall as the other pills (36px) and the row inside the
+   old 910px toolbar (with "↶ Undo" / "↷ Redo" words it measured 971px, so
+   Undo / Redo are their arrows, named by title and aria-label). The active
+   mode is the old active tab (.pt-tab.active, violet). */
+.pg-tbtn-group .pt-tab {
+  padding: 6px 9px;
+  color: #c8c8e8;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  white-space: nowrap;
+}
+/* Undo / Redo arrows: NEW size 16px (an arrow at 14px reads as a speck);
+   padding 5px keeps the 36px pill. */
+.pg-tbtn-group #tbtn-undo,
+.pg-tbtn-group #tbtn-redo {
+  font-size: 16px;
+  padding: 5px 9px;
+}
+.pg-tbtn-group .pt-tab:hover:not(.active):not(:disabled) {
+  color: #ffffff;
+}
+.pg-tbtn-group .pt-tab.active {
+  color: #ffffff;
+}
 /* Space held: the mode in effect for now (Pan) gets the active tab's border,
    dashed (NEW: dashed). */
 .pg-tbtn-group .pt-tab.pg-temp {
@@ -45,9 +74,10 @@
   border-style: dashed;
 }
 /* Disabled (Undo / Redo with nothing to undo). NEW: the old app had no
-   disabled buttons. */
+   disabled buttons; the label only dims a little (#c8c8e8 at 0.6, NEW),
+   the pill keeps its rest look. */
 .pg-tbtn-group .pt-tab:disabled {
-  opacity: 0.45;
+  color: rgba(200, 200, 232, 0.6);
   cursor: default;
   background: transparent;
   border-color: transparent;
@@ -64,58 +94,63 @@
   transform: scale(2);
   transform-origin: center;
 }
-/* Sign text: the old chat input (.pt-chat-input), under the Markers list. */
-.pt-chat-input.pg-sign-text {
-  margin-top: 8px;
+/* Sign text: a chip like the old block buttons (.pt-blocks-list button:
+   padding 8px 14px, radius 8px, var(--pt-border), var(--pt-surface),
+   #c0c0e0, 12.5px / 500), focus border the old hover border. Width NEW: 200px. */
+.pg-sign-text {
+  flex: 0 1 200px;
+  min-width: 0;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--pt-border);
+  background: var(--pt-surface);
+  color: #c0c0e0;
+  font-family: var(--pt-font);
+  font-size: 12.5px;
+  font-weight: 500;
+  outline: none;
+  box-sizing: border-box;
 }
-.pt-chat-input.pg-sign-text[hidden] {
+.pg-sign-text:focus {
+  border-color: var(--pt-border-hi);
+  background: var(--pt-raised);
+}
+.pt-blocks-group[hidden] {
   display: none;
 }
 
-/* --- Panel: messages (old chat log: gap 10px, padding 14px sides) -------- */
+/* --- Panel: notices (the old temporary message, ui/Toast.ts) ------------ */
+/* The slot sits at the panel's foot with the old chat log's side padding
+   (.pt-chat-log: 14px) and bottom (8px), so the message lands where the
+   old one did. */
 .pg-toasts {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 0 14px 10px;
+  padding: 0 14px 8px;
   flex-shrink: 0;
 }
 .pg-toasts:empty {
   display: none;
 }
-.pg-toast.pt-msg-ai {
-  max-width: 100%;
-  align-self: stretch;
+.pg-toasts .pt-temp-message {
+  margin: 0;
 }
 /* Error: the old eraser group's red (#blocks-list-eraser button). */
-.pg-toast.pg-toast-error {
-  background: rgba(220, 38, 38, 0.1);
-  border-color: rgba(239, 68, 68, 0.25);
-  color: #fca5a5;
-}
-.pg-toast-details {
-  margin: 5px 0 2px;
-  padding-left: 18px;
-  font-size: 12px;
-}
-.pg-toast-actions {
-  display: flex;
-  gap: 2px;
-  justify-content: flex-end;
-  margin-top: 4px;
+.pt-temp-message.pg-toast-error {
+  color: #fca5a5 !important;
+  background: rgba(220, 38, 38, 0.1) !important;
+  border-color: rgba(239, 68, 68, 0.25) !important;
 }
 
 /* --- Panel: ghost status and suggestions switch -------------------------- */
-/* The area is the old chat input area (.pt-chat-input-area). Human-only
-   sessions have no status line (empty #ghost-status) and no switch. */
+/* One more palette group after Markers. Human-only sessions have no status
+   line (empty #ghost-status) and no group. */
 .pg-ghost-area:has(#ghost-status:empty) {
   display: none;
 }
-.pg-ghost-area .pt-blocks-heading {
-  margin: 10px 2px 6px;
-}
 .pg-suggest-switch {
-  margin-left: 0;
+  margin: 6px 0 0;
+  flex-wrap: wrap;
 }
 
 /* --- Dialogs: the old panel's glass ------------------------------------- */
@@ -165,6 +200,27 @@
   gap: 8px;
   margin-top: 14px;
 }
+/* Help: the dialog fits the canvas frame above the toolbar (NEW: 640px, the
+   720px frame less the toolbar row); the key list scrolls and the links sit
+   under it like the old chat input area (.pt-chat-input-area: padding
+   10px 14px 14px, top border var(--pt-border)), as old tabs 2px apart
+   (.pt-tabs-inline). */
+#pg-help {
+  max-height: min(640px, calc(100vh - 32px));
+}
+.pg-dialog-actions.pg-help-links {
+  margin: 0;
+  gap: 2px;
+  justify-content: flex-start;
+  padding: 10px 14px 14px;
+  border-top: 1px solid var(--pt-border);
+  flex-shrink: 0;
+}
+
+.pg-help-links .pg-help-done {
+  margin-left: auto;
+}
+
 /* Body text: the old .control-desc grey. */
 .pg-help-lead,
 .pg-share-status,

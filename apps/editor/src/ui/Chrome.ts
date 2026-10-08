@@ -13,16 +13,21 @@
  *   (the old Controls tab is replaced by Help and the visible modes).
  * - "Empty" (a selection-box tool) is gone from the eraser group; the
  *   Markers group (Start, Goal flag, Sign) follows Enemies with the same
- *   markup as its siblings.
- * - Below the palette, in the old chat input area's place and style
- *   (.pt-chat-input-area): the ghost status line (#ghost-status) and the
- *   suggestions switch, whose buttons are the old .pt-tab buttons.
+ *   markup as its siblings. While the Sign brush is on, a "Sign text" group
+ *   in the same markup holds the text field (a chip like the old block
+ *   buttons, not the old chat input).
+ * - After Markers, as one more palette group: "Ghost", the one-line status
+ *   (#ghost-status) and the suggestions switch (old .pt-tab buttons).
+ * - Notices (#pg-toasts) are the old temporary message at the panel's foot,
+ *   where the old chat log showed it (ui/Toast.ts).
  * - Toolbar: "✕ Deselect" is gone (no selection boxes); "? Help" is the
  *   neutral .pt-tbtn pill (Deselect's style); "↺ Save & Reload" is
  *   "↺ Save task". The four modes, and Undo / Redo, are each one neutral
- *   pill holding old .pt-tab buttons (the active mode is the old active
- *   tab): eleven separate 20px-padded pills do not fit the old 910px row
- *   left of the panel (measured 1037px), two groups do (about 880px).
+ *   pill holding buttons in the pill's own type (600 14px #c8c8e8; the
+ *   active mode is the old violet active tab): eleven separate 20px-padded
+ *   pills do not fit the old 910px row left of the panel (measured
+ *   1037px), two groups do; Undo / Redo show their arrows only (with the
+ *   words the row measured 971px).
  * - data-cmd / data-mode / data-item attributes are the ones the tests use.
  */
 import type { GhostConfig } from "../suggest/config";
@@ -62,20 +67,25 @@ export const PANEL_HTML = `
             <div class="pt-blocks-group">
               <h4 class="pt-blocks-heading">Markers</h4>
               <div id="blocks-list-markers" class="pt-blocks-list"></div>
-              <input id="pg-sign-text" class="pt-chat-input pg-sign-text" type="text" maxlength="120" placeholder="Sign text" aria-label="Text for new signs" value="Hello!" autocomplete="off" hidden />
+            </div>
+            <div id="pg-sign-group" class="pt-blocks-group" hidden>
+              <h4 class="pt-blocks-heading">Sign text</h4>
+              <div class="pt-blocks-list">
+                <input id="pg-sign-text" class="pg-sign-text" type="text" maxlength="120" aria-label="Text for new signs" value="Hello!" autocomplete="off" />
+              </div>
+            </div>
+            <div id="ghost-content" class="pt-blocks-group pg-ghost-area">
+              <h4 class="pt-blocks-heading">Ghost</h4>
+              <div id="ghost-status" aria-live="polite"></div>
+              <div class="pt-tabs-inline pg-suggest-switch" role="radiogroup" aria-label="Suggestions">
+                <button class="pt-tab" type="button" role="radio" data-suggest="off">Off</button>
+                <button class="pt-tab" type="button" role="radio" data-suggest="finish">Finish only</button>
+                <button class="pt-tab" type="button" role="radio" data-suggest="extend">Finish + Extend</button>
+                <button class="pt-tab active" type="button" role="radio" data-suggest="all">All</button>
+              </div>
             </div>
           </div>
           <div id="pg-toasts" class="pg-toasts" role="status" aria-live="polite"></div>
-          <div id="ghost-content" class="pt-chat-input-area pg-ghost-area">
-            <div id="ghost-status" aria-live="polite"></div>
-            <h4 class="pt-blocks-heading">Suggestions</h4>
-            <div class="pt-tabs-inline pg-suggest-switch" role="radiogroup" aria-label="Suggestions">
-              <button class="pt-tab" type="button" role="radio" data-suggest="off">Off</button>
-              <button class="pt-tab" type="button" role="radio" data-suggest="finish">Finish only</button>
-              <button class="pt-tab" type="button" role="radio" data-suggest="extend">Finish + Extend</button>
-              <button class="pt-tab active" type="button" role="radio" data-suggest="all">All</button>
-            </div>
-          </div>
         </div>
       </div>
     `;
@@ -134,6 +144,8 @@ export class Chrome {
   readonly statusSlot: HTMLElement;
   readonly toastSlot: HTMLElement;
   readonly signText: HTMLInputElement;
+  /** The "Sign text" group (shown while the Sign brush is on). */
+  readonly signGroup: HTMLElement;
 
   constructor() {
     this.panelNode = fromHTML(PANEL_HTML);
@@ -141,6 +153,7 @@ export class Chrome {
     this.statusSlot = this.panel("#ghost-status");
     this.toastSlot = this.panel("#pg-toasts");
     this.signText = this.panel<HTMLInputElement>("#pg-sign-text");
+    this.signGroup = this.panel("#pg-sign-group");
   }
 
   panel<T extends HTMLElement = HTMLElement>(sel: string): T {

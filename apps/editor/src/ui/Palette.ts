@@ -12,7 +12,7 @@
  * - items the old palette did not have (Start, Goal flag, Sign) use
  *   the same icon span, cut from the composite pg-tiles texture
  *   (.pg-block-icon-tiles, style.css);
- * - the Sign item shows the sign-text field while the sign brush is on.
+ * - the Sign item shows the "Sign text" group while the sign brush is on.
  */
 import type { Brush, ModeState } from "../editor/modes";
 import type { Chrome } from "./Chrome";
@@ -43,6 +43,7 @@ export class Palette {
   private buttons = new Map<string, HTMLButtonElement>();
   private readonly root: HTMLElement;
   private readonly signText: HTMLInputElement;
+  private readonly signGroup: HTMLElement;
 
   constructor(
     chrome: Chrome,
@@ -50,6 +51,7 @@ export class Palette {
   ) {
     this.root = chrome.panelNode;
     this.signText = chrome.signText;
+    this.signGroup = chrome.signGroup;
     this.signText.addEventListener("input", () => {
       const b = this.modes.brush;
       if (b.kind === "entity" && b.entity === "sign") this.modes.setBrush({ kind: "entity", entity: "sign", text: this.signText.value });
@@ -101,7 +103,7 @@ export class Palette {
       b.classList.toggle("selected", id === active);
       b.setAttribute("aria-pressed", String(id === active));
     }
-    this.signText.hidden = !(mode === "paint" && brush.kind === "entity" && brush.entity === "sign");
+    this.signGroup.hidden = !(mode === "paint" && brush.kind === "entity" && brush.entity === "sign");
   }
 
   /** Point the new items' icons at the composite tile texture once Phaser has built it. */
