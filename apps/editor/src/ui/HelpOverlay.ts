@@ -27,7 +27,6 @@ export const HELP_SECTIONS: readonly [string, readonly [string, string][]][] = [
     "Play",
     [
       ["P", "Play / stop"],
-      ["R", "Show the checked route (hold, in Play)"],
       ["Esc or Q", "Stop playing"],
     ],
   ],

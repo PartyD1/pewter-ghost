@@ -393,7 +393,7 @@ export class GhostSession {
       }
     }
     this.routes.add(s.id, s.path);
-    if (s.path && s.path.length >= 2) this.paths.show(s.path);
+    // No route overlay on accept: the lab found the unexplained yellow lines confusing.
   }
 
   private knightTile(): Point | null {
@@ -406,7 +406,7 @@ export class GhostSession {
   private stripView(): StripView {
     if (!this.enabled()) return { mode: "off" };
     const guess = this.guess;
-    if (this.api.isPlaying()) return { mode: "playing", guess, routeKey: this.routes.size > 0 || this.opts.routeProvider ? ROUTE_KEY : undefined };
+    if (this.api.isPlaying()) return { mode: "playing", guess, routeKey: undefined };
     const s = this.manager.shown;
     if (s) {
       const total = ghostCells(s).length;

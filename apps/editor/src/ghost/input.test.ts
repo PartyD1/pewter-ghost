@@ -142,7 +142,7 @@ describe("bindGhostInput", () => {
     expect(t.ends).toEqual(["esc"]);
   });
 
-  it("Ctrl+Space requests; R routes only in Play", () => {
+  it("Ctrl+Space requests; R does nothing (the route overlay was removed)", () => {
     const t = setup();
     t.target.press({ key: " ", code: "Space", ctrlKey: true });
     expect(t.calls.request).toBe(1);
@@ -151,7 +151,7 @@ describe("bindGhostInput", () => {
     expect(t.calls.route).toBe(0);
     t.setPlaying(true);
     t.target.press({ key: "r" });
-    expect(t.calls.route).toBe(1);
+    expect(t.calls.route).toBe(0);
   });
 
   it("painting the proposed tile on a ghost cell accepts that cell; painting elsewhere ends it partial", () => {

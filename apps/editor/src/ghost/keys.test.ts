@@ -38,10 +38,10 @@ describe("ghostKeyAction", () => {
     expect(ghostKeyAction({ key: "Escape" }, edit({ dialogOpen: true }))).toBeNull();
   });
 
-  it("in Play: R shows the route; Tab, Esc and Ctrl+Space are not the ghost's", () => {
+  it("in Play: R does nothing (route overlay removed); Tab, Esc and Ctrl+Space are not the ghost's", () => {
     const play = edit({ playing: true });
-    expect(ghostKeyAction({ key: "r" }, play)).toBe("route");
-    expect(ghostKeyAction({ key: "R", shiftKey: true }, play)).toBe("route");
+    expect(ghostKeyAction({ key: "r" }, play)).toBeNull();
+    expect(ghostKeyAction({ key: "R", shiftKey: true }, play)).toBeNull();
     expect(ghostKeyAction({ key: "r", repeat: true }, play)).toBeNull();
     expect(ghostKeyAction({ key: "r", ctrlKey: true }, play)).toBeNull();
     expect(ghostKeyAction({ key: "Tab" }, play)).toBeNull();

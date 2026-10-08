@@ -48,7 +48,6 @@ export function ghostKeyAction(e: GhostKeyLike, ctx: GhostKeyContext): GhostKeyA
   const isSpace = e.code === "Space" || e.key === " " || e.key === "Spacebar";
 
   if (ctx.playing) {
-    if (!ctrl && !meta && !alt && !e.repeat && (e.key === "r" || e.key === "R")) return "route";
     return null;
   }
 

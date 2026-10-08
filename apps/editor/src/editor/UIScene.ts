@@ -64,15 +64,7 @@ export class UIScene extends Phaser.Scene {
     const parent = this.overlayParent;
     if (!parent) return;
 
-    // Boxes toggle button in play HUD — same style as the Q hint
-    // (Pewter Ghost: the R route hint in the old B pill's place.)
-    const routeEl = document.createElement("div");
-    routeEl.className = "pt-play-hint-q";
-    routeEl.style.right = "140px";
-    routeEl.innerHTML = `<kbd>R</kbd><span>Route</span>`;
-    routeEl.title = "Hold R to see the checked route";
-    parent.appendChild(routeEl);
-    this.playRouteEl = routeEl;
+    // (The old B box-toggle pill is gone with the boxes; no route pill either.)
 
     // Floating DOM stats pill — matches the new UI style
     const statsEl = document.createElement("div");
