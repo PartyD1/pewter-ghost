@@ -101,7 +101,7 @@ function setup() {
   return { model, stream, tick, row, stroke, now: () => t };
 }
 
-/** 1. finish, 0.9: a floating staircase mid-climb; the answer runs four steps ahead. */
+/** 1. finish, 0.9: a floating staircase mid-climb; the answer runs six steps ahead. */
 export function finishStaircase(): Scenario {
   const { model, stream, tick, row, stroke, now } = setup();
   model.paint(row(17, 20, 44, TILE.GRASS));
@@ -116,7 +116,7 @@ export function finishStaircase(): Scenario {
   return {
     id: "finish-staircase",
     title: "Mid-pattern: steps of two blocks, one row up each",
-    why: "Three identical steps were drawn in quick strokes, so the unit (2 wide, 1 up, block) is certain. The person is still drawing, so the answer runs four steps ahead: the steps they draw while it travels are trimmed off and the rest still shows.",
+    why: "Three identical steps were drawn in quick strokes, so the unit (2 wide, 1 up, block) is certain. The person is still drawing, so the answer runs six steps ahead: the steps they draw while it travels are trimmed off and the rest still shows.",
     model,
     stream,
     now: now(),
@@ -134,11 +134,15 @@ export function finishStaircase(): Scenario {
         { x: 44, y: 11, tile: "block" },
         { x: 45, y: 10, tile: "block" },
         { x: 46, y: 10, tile: "block" },
+        { x: 47, y: 9, tile: "block" },
+        { x: 48, y: 9, tile: "block" },
+        { x: 49, y: 8, tile: "block" },
+        { x: 50, y: 8, tile: "block" },
       ],
       removes: [],
       entities: [],
       confidence: 0.9,
-      label: "staircase, four more steps",
+      label: "staircase, six more steps",
       levelGuess: "speedrun",
     },
   };

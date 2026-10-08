@@ -1,7 +1,7 @@
 {
   "id": "finish-staircase",
   "title": "Mid-pattern: steps of two blocks, one row up each",
-  "why": "Three identical steps were drawn in quick strokes, so the unit (2 wide, 1 up, block) is certain. The person is still drawing, so the answer runs four steps ahead: the steps they draw while it travels are trimmed off and the rest still shows.",
+  "why": "Three identical steps were drawn in quick strokes, so the unit (2 wide, 1 up, block) is certain. The person is still drawing, so the answer runs six steps ahead: the steps they draw while it travels are trimmed off and the rest still shows.",
   "request": {
     "grid": "Window 24x12 = level x 29..52, y 8..19. All coordinates are window-relative: x 0..23 right, y 0..11 down.\n   000000000011111111112222\n   012345678901234567890123\n 0 ........................\n 1 ........................\n 2 ........................\n 3 ........................\n 4 ........................\n 5 ........................\n 6 ........BB..............\n 7 ......BB................\n 8 ....BB..................\n 9 GGGGGGGGGGGGGGGG........\n10 DDDDDDDDDDDDDDDD........\n11 ........................",
     "origin": {
@@ -136,12 +136,32 @@
         "x": 17,
         "y": 2,
         "tile": "block"
+      },
+      {
+        "x": 18,
+        "y": 1,
+        "tile": "block"
+      },
+      {
+        "x": 19,
+        "y": 1,
+        "tile": "block"
+      },
+      {
+        "x": 20,
+        "y": 0,
+        "tile": "block"
+      },
+      {
+        "x": 21,
+        "y": 0,
+        "tile": "block"
       }
     ],
     "removes": [],
     "entities": [],
     "confidence": 0.9,
-    "label": "staircase, four more steps",
+    "label": "staircase, six more steps",
     "levelGuess": "speedrun"
   }
 }

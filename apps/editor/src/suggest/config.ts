@@ -143,7 +143,7 @@ export const DEFAULT_CONFIG: GhostConfig = {
   adaptRun: 2,
   fillDebounceMs: 40,
   fillLeadingEdge: true,
-  maxInFlight: 4,
+  maxInFlight: 6,
   maxAnswerAgeMs: 8000,
 };
 
