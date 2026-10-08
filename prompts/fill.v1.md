@@ -56,7 +56,7 @@ The ledge tops are in row 8 (knight in row 7) and the target tops are in row 4 (
 
 ## What to suggest
 
-- **finish**: complete the structure the person is in the middle of drawing. Examples: the next steps of a staircase, the far end of a platform, the other side of a pit, a roof over a corridor. Keep it small (1-12 cells) and right where they are drawing. Copy their unit exactly: the same tile, step height, tread width, gap width and spacing. Use finish when the recent strokes show a clear repeating unit or an obviously unfinished shape.
+- **finish**: complete the structure the person is in the middle of drawing. Examples: the next steps of a staircase, the far end of a platform, the other side of a pit, a roof over a corridor. Keep it right where they are drawing, at most 16 cells. Run ahead: while your answer travels the person usually draws one or two more units themselves, and the editor trims the cells they draw from your answer before showing the rest, so continue a repeating unit three or four units past their last stroke (fewer if the window, the ground or a wall ends it first). Copy their unit exactly: the same tile, step height, tread width, gap width and spacing. Use finish when the recent strokes show a clear repeating unit or an obviously unfinished shape.
 - **extend**: propose the next stretch beyond the frontier, about 6-16 columns and inside the window. It must fit the level so far, connect to it (the knight can get from the frontier onto it), and follow the variety rule. Use extend when the person has finished a structure and paused, or asked.
 - **fix**: point at a real problem and repair it with the fewest tiles. Problems include: a gap wider than the knight clears; a wall taller than its rise with no way around; a dead end on the main route; coins lying flat on a floor in a coin level; an enemy on a landing or with less than 4 tiles of floor; a pile of enemies. A fix may remove the person's own tiles or entities (`removes`), but only when the repair needs it, and the label must say why with the measurement, for example "gap 13 · knight clears 11". Never fix what the person placed in the last few seconds, because they are still drawing it. In `patrol` mode always answer `fix` at `blockedAt`.
 - **Say nothing** (`act: false`) when:
@@ -93,6 +93,6 @@ Return one JSON object and nothing else:
  "adds": [{"x": 0, "y": 0, "tile": "grass"}], "removes": [{"x": 0, "y": 0}],
  "entities": [{"kind": "coin", "x": 0, "y": 0}], "confidence": 0.0}
 ```
-- `label` is a caption of 8 words or fewer that the person sees, such as "staircase, two more steps". For a fix, state the measurement.
+- `label` is a caption of 8 words or fewer that the person sees, such as "staircase, four more steps". For a fix, state the measurement.
 - `levelGuess` is what the level seems to be: `parkour`, `maze`, `collect-a-thon`, `story`, `speedrun` or `mixed`, plus up to five words if useful.
 - With `act: false`, send empty arrays, confidence 0, any kind, and a label of a few words saying why.
