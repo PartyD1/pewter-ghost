@@ -9,18 +9,20 @@
  *     the answer to the third placement's request.
  *
  *     How "within 200 ms of the third placement" is read: the loop is
- *     speculative with newest-wins (§ "Timing budget": one call in flight,
- *     a newer placement supersedes it), so at 300 ms per tile the calls for
- *     placements 1 and 2 are superseded and the third placement's call is
- *     the one that can answer. Its answer cannot arrive before
+ *     speculative with reconciliation (docs/decisions.md 2026-10-08): every
+ *     placement starts a call, up to config.maxInFlight run side by side and
+ *     none is aborted by a newer placement. The calls for placements 1 and 2
+ *     see a partial staircase and decline; the third placement's call is the
+ *     one that answers. Its answer cannot arrive before
  *     fillDebounceMs + 500 ms. The 200 ms is the client's whole budget on top
  *     of the model: request building, the debounce, the validator, the rule
  *     check, the playtest agent and the manager. The test asserts
  *       show.t - place3.t <= fillDebounceMs + modelRoundTrip + 200
  *     where modelRoundTrip is the call's measured latency (>= 500 ms), and
- *     that the earlier calls were superseded rather than shown.
+ *     that the earlier calls ran to their (declined) answers, none aborted.
  *  2. An answer delayed by 1,200 ms (> callTimeoutMs 900) is dropped and
- *     logged (fill.call with a timeout error) and nothing is shown.
+ *     logged (fill.call with a timeout error) and nothing is shown. With
+ *     speculation every placement's call runs to its own timeout.
  *  3. An unplayable recorded answer: nothing is shown and the send-back (one
  *     more call carrying the failure reason) is logged.
  */
@@ -96,8 +98,9 @@ test.describe("latency budget (§24)", () => {
     test.info().annotations.push({ type: "latency", description: note });
     console.log(`[latency 1] ${note}`);
     expect(elapsed).toBeLessThanOrEqual(budget);
-    // Placements 1 and 2 were superseded by newer ones, never shown.
-    expect(calls.filter((c) => c.superseded && c.t <= winner!.t).length).toBeGreaterThanOrEqual(2);
+    // Speculation: placements 1 and 2 were NOT aborted by the newer ones; their calls ran to a decline, never shown.
+    expect(calls.some((c) => c.superseded)).toBe(false);
+    expect(calls.filter((c) => c.act === false).length).toBeGreaterThanOrEqual(2);
     expect(ev.filter((e) => e.type === "ghost.show")).toHaveLength(1);
     ed.expectNoErrors();
   });
@@ -105,7 +108,7 @@ test.describe("latency budget (§24)", () => {
   test("2: an answer delayed 1,200 ms is dropped and logged, nothing shown", async ({ page }) => {
     const ed = await Editor.open(page, {
       proxy: { condition: "llm", fill: () => ({ fixture: "finish-staircase", delayMs: 1200 }) },
-      // The default timeout is longer than a live model call (3500 ms); this contract is about the plan's 900 ms budget.
+      // The default timeout is longer than a live model call (6000 ms); this contract is about the plan's 900 ms budget.
       params: { callTimeoutMs: "900" },
     });
     const cfg = await config(ed);
@@ -114,24 +117,26 @@ test.describe("latency budget (§24)", () => {
     await ed.paintTimed(STEPS, CADENCE_MS);
     const [, , p3] = await placements(ed);
 
-    // Wait until the last call has timed out, then past the answer's arrival.
+    // Speculation: every placement's call stays in flight (3 <= maxInFlight) and runs to its own timeout.
+    const sent = ed.proxy!.fills.length;
+    expect(sent).toBeGreaterThanOrEqual(1);
     await expect
-      .poll(async () => (await ed.fillCalls()).filter((c) => c.t > p3.t && !c.superseded && /timeout/.test(c.error ?? "")).length, {
-        timeout: 5000,
-      })
-      .toBe(1);
+      .poll(async () => (await ed.fillCalls()).filter((c) => /timeout/.test(c.error ?? "")).length, { timeout: 5000 })
+      .toBe(ed.proxy!.fills.length);
+    // ...then past the last answer's arrival.
     await page.waitForTimeout(1200 - cfg.callTimeoutMs + 600);
 
     const calls = await ed.fillCalls();
-    const last = calls.filter((c) => c.t > p3.t && !c.superseded);
-    expect(last).toHaveLength(1);
-    expect(last[0]).toMatchObject({ mode: "auto", act: null, error: `timeout after ${cfg.callTimeoutMs} ms` });
-    expect(last[0].latencyMs).toBeGreaterThanOrEqual(cfg.callTimeoutMs - 5);
-    expect(last[0].latencyMs).toBeLessThan(1200);
-    // A timed-out call is not sent back.
+    expect(calls).toHaveLength(ed.proxy!.fills.length);
+    for (const c of calls) {
+      expect(c).toMatchObject({ mode: "auto", act: null, superseded: false, error: `timeout after ${cfg.callTimeoutMs} ms` });
+      expect(c.latencyMs).toBeGreaterThanOrEqual(cfg.callTimeoutMs - 5);
+      expect(c.latencyMs).toBeLessThan(1200);
+    }
+    // The third placement's call is among them.
+    expect(calls.some((c) => c.t > p3.t)).toBe(true);
+    // A timed-out call is not sent back, and none reached the verifier.
     expect(calls.some((c) => c.sendBack)).toBe(false);
-    // Earlier calls ended superseded or timed out; none reached the verifier.
-    expect(calls.every((c) => c.superseded || /timeout/.test(c.error ?? ""))).toBe(true);
     expect(calls.some((c) => c.verdictStage !== undefined)).toBe(false);
 
     expect(await ed.ghost()).toBeNull();
@@ -154,7 +159,8 @@ test.describe("latency budget (§24)", () => {
       .toBe(2);
     await page.waitForTimeout(800);
 
-    const calls = (await ed.fillCalls()).filter((c) => c.t > p3.t && !c.superseded);
+    // The earlier placements' calls declined (act:false, never verified); only the verified ones count here.
+    const calls = (await ed.fillCalls()).filter((c) => c.t > p3.t && !c.superseded && c.verdictStage !== undefined);
     expect(calls).toHaveLength(2);
     const [first, second] = calls;
     // First answer: well-formed, arrived under sendBackIfUnderMs, failed playability, sent back.
@@ -176,8 +182,8 @@ test.describe("latency budget (§24)", () => {
     expect((await ed.layer()).visible).toBe(false);
     expect((await ed.events()).some((e) => e.type === "ghost.show")).toBe(false);
     for (const [x, y] of [
-      [15, 6],
-      [16, 9],
+      [11, 8],
+      [11, 14],
     ] as [number, number][])
       expect(await ed.tileAt(x, y)).toBe(0);
     ed.expectNoErrors();
