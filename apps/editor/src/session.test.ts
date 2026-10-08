@@ -82,7 +82,8 @@ function waitFor(pred: () => boolean, ms = 8000): Promise<void> {
 describe("config resolution (G-33)", () => {
   it("reads filler, proxy and callTimeoutMs from the URL and ignores junk", () => {
     expect(urlOverrides("?filler=stub&dev=1&token=abc")).toEqual({ filler: "stub" });
-    expect(urlOverrides("?filler=gpt&proxy=javascript:alert(1)&callTimeoutMs=-5")).toEqual({});
+    expect(urlOverrides("?filler=gpt&proxy=javascript:alert(1)&callTimeoutMs=-5&tidyIdleMs=-1")).toEqual({});
+    expect(urlOverrides("?tidyIdleMs=0")).toEqual({ tidyIdleMs: 0 });
     expect(urlOverrides("?filler=none&proxy=http://127.0.0.1:9000/&callTimeoutMs=4000")).toEqual({
       filler: "none",
       proxyUrl: "http://127.0.0.1:9000",

@@ -110,7 +110,8 @@ const FILLER_VALUES: readonly GhostConfig["filler"][] = ["llm", "algo", "stub", 
 
 /**
  * Config overrides from the page URL: ?filler=stub|llm|none|algo,
- * ?proxy=<url>, ?callTimeoutMs=<ms>. Unknown or malformed values are ignored.
+ * ?proxy=<url>, ?callTimeoutMs=<ms>, ?tidyIdleMs=<ms> (0 = no tidy calls).
+ * Unknown or malformed values are ignored.
  */
 export function urlOverrides(search: string | URLSearchParams): Partial<GhostConfig> {
   const p = typeof search === "string" ? new URLSearchParams(search) : search;
@@ -121,6 +122,8 @@ export function urlOverrides(search: string | URLSearchParams): Partial<GhostCon
   if (proxy && /^https?:\/\/[^\s]+$/i.test(proxy)) out.proxyUrl = proxy.replace(/\/+$/, "");
   const timeout = Number(p.get("callTimeoutMs"));
   if (p.has("callTimeoutMs") && Number.isFinite(timeout) && timeout > 0) out.callTimeoutMs = Math.round(timeout);
+  const tidy = Number(p.get("tidyIdleMs"));
+  if (p.has("tidyIdleMs") && Number.isFinite(tidy) && tidy >= 0) out.tidyIdleMs = Math.round(tidy);
   return out;
 }
 

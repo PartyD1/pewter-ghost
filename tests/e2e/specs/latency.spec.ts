@@ -129,7 +129,8 @@ test.describe("latency budget (§24)", () => {
     const ed = await Editor.open(page, {
       proxy: { condition: "llm", fill: () => ({ fixture: "finish-staircase", delayMs: 1200 }) },
       // The default timeout is longer than a live model call (6000 ms); this contract is about the plan's 900 ms budget.
-      params: { callTimeoutMs: "900" },
+      // Only the auto calls are under test: no tidy call after the strokes.
+      params: { callTimeoutMs: "900", tidyIdleMs: "0" },
     });
     const cfg = await config(ed);
     expect(cfg.callTimeoutMs).toBeLessThan(1200);
