@@ -29,10 +29,17 @@ const ghostTexture = (scene: Phaser.Scene): string => (scene.textures.exists(ASS
 /**
  * Contrast on the old Pewter Platformer backdrop (white, light-blue and
  * dark-blue bands under a black dotted grid): the grey ghost tiles are drawn
- * at this multiple of GHOST_STYLE.alpha so they read on every band while
- * staying clearly fainter than real tiles. No old source (the old app had no ghost).
+ * at this multiple of GHOST_STYLE.alpha (0.35 * 1.3 = 0.455) so they read on
+ * every band while staying clearly fainter than real tiles. No old source
+ * (the old app had no ghost).
  */
-const GHOST_ALPHA_ON_BACKDROP = 1.6;
+const GHOST_ALPHA_ON_BACKDROP = 1.3;
+/**
+ * Neutral grey wash under each added cell and ghost entity, so the band colour (#1950c0 dark
+ * blue in particular) does not tint the faint tile blue: the plan's "faint
+ * grey" on every band. No old source (the old app had no ghost).
+ */
+const GHOST_WASH = { color: 0xc4c4c4, alpha: 0.6 } as const;
 
 export type LayerEnd = "accepted" | "dismissed";
 
@@ -69,7 +76,7 @@ interface Active {
   plan: GhostPlan;
   container: Phaser.GameObjects.Container;
   gfx: Phaser.GameObjects.Graphics;
-  images: Phaser.GameObjects.Image[];
+  images: (Phaser.GameObjects.Image | Phaser.GameObjects.Graphics)[];
   shownAt: number;
   captionText: string;
   captionOut: boolean;
@@ -129,7 +136,7 @@ export class GhostLayer {
     const plan = planGhost(s);
     const container = scene.add.container(0, 0).setDepth(DEPTH.ghost);
     const gfx = scene.add.graphics();
-    const images: Phaser.GameObjects.Image[] = [];
+    const images: Active["images"] = [];
     container.add(gfx);
     this.active = { s, plan, container, gfx, images, shownAt: this.now(), captionText, captionOut: false };
     this.rebuild();
@@ -279,6 +286,10 @@ export class GhostLayer {
     for (const im of a.images) im.destroy();
     a.images.length = 0;
     const scene = this.o.scene;
+    const wash = scene.add.graphics();
+    wash.fillStyle(GHOST_WASH.color, GHOST_WASH.alpha);
+    for (const c of [...a.plan.adds, ...a.plan.entities]) wash.fillRect(c.x * TILE_PX, c.y * TILE_PX, TILE_PX, TILE_PX);
+    a.images.push(wash);
     for (const add of a.plan.adds) {
       const im = scene.add.image(add.x * TILE_PX, add.y * TILE_PX, ghostTexture(scene), add.tile).setOrigin(0, 0).setAlpha(GHOST_STYLE.alpha * GHOST_ALPHA_ON_BACKDROP);
       a.images.push(im);
