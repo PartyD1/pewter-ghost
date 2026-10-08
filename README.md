@@ -59,6 +59,10 @@ draw. `npm run dev` refuses to start without a model key, because Pewter Ghost
 without the AI is not the product.
 
 `npm run dev:editor` starts the editor alone, without AI, for debugging the editor.
+
+In development a plain reload starts a fresh level (handy for testing). **Save task**
+reloads into the level it just saved; `?restore=1` brings back the autosave. A built
+copy restores the autosave on every reload so a participant never loses work.
 To force a filler, open it with:
 
 | URL | What you get |

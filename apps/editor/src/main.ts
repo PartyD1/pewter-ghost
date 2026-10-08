@@ -12,7 +12,8 @@
  * bottom toolbar mounted over it by ui/ChromeScene.ts.
  *
  * e2e tests read window.__pewter = { model, scene, game, config, api, modes, settings, app, ghost }.
- * URL flags: ?fresh=1 ignores the autosave (new starter level); ?renderer=webgl forces WebGL
+ * URL flags: ?fresh=1 ignores the autosave (new starter level); ?restore=1
+ * restores it in development, where a plain reload starts fresh; ?renderer=webgl forces WebGL
  * (the default is the old app's Canvas renderer; ?renderer=canvas is accepted too);
  * ?filler=llm|stub|none, ?token=, ?proxy=, ?callTimeoutMs= (session.ts); ?dev=1 dev overlay.
  */
@@ -124,8 +125,30 @@ function reportLoad(res: LoadResult, what: string): boolean {
   return true;
 }
 
+/**
+ * Reload behaviour. In development (npm run dev) a plain reload starts a fresh
+ * level, which is what testing wants. The autosave comes back only after
+ * "Save task" (it reloads into what it saved, the study's per-task step) or
+ * with ?restore=1. Production builds restore the autosave on every reload, so
+ * a participant who reloads by accident keeps their work. ?fresh=1 always
+ * starts fresh.
+ */
+const RESTORE_ONCE_KEY = "pg-restore-once";
+function takeRestoreOnce(): boolean {
+  try {
+    const v = sessionStorage.getItem(RESTORE_ONCE_KEY) === "1";
+    sessionStorage.removeItem(RESTORE_ONCE_KEY);
+    return v;
+  } catch {
+    return false;
+  }
+}
+const restoreOnce = takeRestoreOnce();
+const wantRestore =
+  params.get("fresh") !== "1" && (!import.meta.env.DEV || restoreOnce || params.get("restore") === "1");
+
 let restored = false;
-if (params.get("fresh") !== "1") {
+if (wantRestore) {
   const res = restoreAutosave(model, storage);
   if (res?.ok) {
     settings.replace(res.file.playSettings);
@@ -230,6 +253,11 @@ function doSaveTaskAndReload(): void {
   if (editorScene.isPlaying) return;
   doSaveTask();
   autosaver.flush();
+  try {
+    sessionStorage.setItem(RESTORE_ONCE_KEY, "1");
+  } catch {
+    /* no sessionStorage: in development the reload starts fresh */
+  }
   setTimeout(() => {
     const url = new URL(location.href);
     url.searchParams.delete("fresh");
