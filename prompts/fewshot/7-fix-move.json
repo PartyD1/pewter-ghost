@@ -1,0 +1,131 @@
+{
+  "id": "fix-move",
+  "title": "Even row of floating platforms, one a row too high",
+  "why": "Every platform is 3 wide with gaps of 2 in row 12, and the person just added another in row 12 at the left end, so the one in row 11 drawn 9 s ago is out of line. Moving it down 1 (remove the old cells, add the same tiles one row lower) makes the row even.",
+  "request": {
+    "grid": "Window 24x12 = level x 119..142, y 6..17. All coordinates are window-relative: x 0..23 right, y 0..11 down.\n   000000000011111111112222\n   012345678901234567890123\n 0 ........................\n 1 ........................\n 2 ........................\n 3 ........................\n 4 ........................\n 5 ...............BBB......\n 6 .....BBB..BBB.......BBB.\n 7 ........................\n 8 ........................\n 9 ........................\n10 ........................\n11 .GGGGGGGGGGGGGGGGGGGGGGG",
+    "origin": {
+      "x": 119,
+      "y": 6
+    },
+    "size": {
+      "w": 24,
+      "h": 12
+    },
+    "recent": [
+      {
+        "dt": 0,
+        "x": 21,
+        "y": 6,
+        "tile": "block",
+        "tool": "paint"
+      },
+      {
+        "dt": 0,
+        "x": 22,
+        "y": 6,
+        "tile": "block",
+        "tool": "paint"
+      },
+      {
+        "dt": 0,
+        "x": 25,
+        "y": 6,
+        "tile": "block",
+        "tool": "paint"
+      },
+      {
+        "dt": 0,
+        "x": 26,
+        "y": 6,
+        "tile": "block",
+        "tool": "paint"
+      },
+      {
+        "dt": 0,
+        "x": 27,
+        "y": 6,
+        "tile": "block",
+        "tool": "paint"
+      },
+      {
+        "dt": 9120,
+        "x": 7,
+        "y": 6,
+        "tile": "block",
+        "tool": "paint"
+      },
+      {
+        "dt": 120,
+        "x": 6,
+        "y": 6,
+        "tile": "block",
+        "tool": "paint"
+      },
+      {
+        "dt": 120,
+        "x": 5,
+        "y": 6,
+        "tile": "block",
+        "tool": "paint"
+      }
+    ],
+    "frontier": {
+      "x": 27,
+      "y": 6,
+      "idleMs": 900
+    },
+    "mode": "auto",
+    "lastGhosts": [
+      {
+        "kind": "finish",
+        "label": "platform row, one more",
+        "outcome": "timeout"
+      }
+    ],
+    "knight": {
+      "maxGapStand": 8,
+      "maxGapRun": 11,
+      "maxRise": 6
+    }
+  },
+  "answer": {
+    "act": true,
+    "kind": "fix",
+    "adds": [
+      {
+        "x": 15,
+        "y": 6,
+        "tile": "block"
+      },
+      {
+        "x": 16,
+        "y": 6,
+        "tile": "block"
+      },
+      {
+        "x": 17,
+        "y": 6,
+        "tile": "block"
+      }
+    ],
+    "removes": [
+      {
+        "x": 15,
+        "y": 5
+      },
+      {
+        "x": 16,
+        "y": 5
+      },
+      {
+        "x": 17,
+        "y": 5
+      }
+    ],
+    "entities": [],
+    "confidence": 0.6,
+    "label": "move platform down 1 to line up",
+    "levelGuess": "parkour"
+  }
+}

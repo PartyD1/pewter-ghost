@@ -28,7 +28,7 @@ const SNAP_DIR = "../../../../prompts/__snapshots__";
 const PROMPTS_DIR = path.resolve(__dirname, "../../../../prompts");
 
 /** System prompt budget (est. tokens). The plan's ~1,200 is the per-request part; the system part is cacheable. */
-const SYSTEM_BUDGET = 7500;
+const SYSTEM_BUDGET = 8000;
 /** Per-request user message budget for the fixture states (brief placeholder). */
 const USER_BUDGET = 1000;
 
@@ -57,9 +57,11 @@ describe("generated sources", () => {
 });
 
 describe("few-shot examples", () => {
-  it("has six: two act:false, one fix with removals, one coin arc, one patrol", () => {
-    expect(FEWSHOTS).toHaveLength(6);
-    expect(FEWSHOTS.filter((s) => !s.answer.act)).toHaveLength(2);
+  it("has seven: one act:false, a box, a move, a fix with removals, a coin arc, a patrol", () => {
+    expect(FEWSHOTS).toHaveLength(7);
+    expect(FEWSHOTS.filter((s) => !s.answer.act)).toHaveLength(1);
+    expect(FEWSHOTS.some((s) => s.id === "finish-box")).toBe(true);
+    expect(FEWSHOTS.some((s) => s.answer.kind === "fix" && s.answer.removes.length > 0 && s.answer.adds.length > 0)).toBe(true);
     expect(FEWSHOTS.some((s) => s.answer.kind === "fix" && s.answer.removes.length > 0)).toBe(true);
     expect(FEWSHOTS.some((s) => s.answer.entities.filter((e) => e.kind === "coin").length >= 3)).toBe(true);
     expect(FEWSHOTS.some((s) => s.request.mode === "patrol" && s.request.blockedAt)).toBe(true);

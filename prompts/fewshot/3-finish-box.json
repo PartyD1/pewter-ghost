@@ -1,0 +1,137 @@
+{
+  "id": "finish-box",
+  "title": "A top and a left side: an open box outline",
+  "why": "A top row with a side hanging from its left end is two sides of a rectangle, so the answer closes the box (bottom and right side, same block, one tile thick) instead of running the top on as a line. The box floats 4 rows above the floor, so the knight still walks underneath.",
+  "request": {
+    "grid": "Window 24x12 = level x 86..109, y 8..19. All coordinates are window-relative: x 0..23 right, y 0..11 down.\n   000000000011111111112222\n   012345678901234567890123\n 0 ......BBBBBB............\n 1 ......B.................\n 2 ......B.................\n 3 ......B.................\n 4 ......B.................\n 5 ........................\n 6 ........................\n 7 ........................\n 8 ........................\n 9 GGGGGGGGGGGGGGGGGGGGG...\n10 DDDDDDDDDDDDDDDDDDDDD...\n11 ........................",
+    "origin": {
+      "x": 86,
+      "y": 8
+    },
+    "size": {
+      "w": 24,
+      "h": 12
+    },
+    "recent": [
+      {
+        "dt": 110,
+        "x": 8,
+        "y": 0,
+        "tile": "block",
+        "tool": "paint"
+      },
+      {
+        "dt": 110,
+        "x": 9,
+        "y": 0,
+        "tile": "block",
+        "tool": "paint"
+      },
+      {
+        "dt": 110,
+        "x": 10,
+        "y": 0,
+        "tile": "block",
+        "tool": "paint"
+      },
+      {
+        "dt": 110,
+        "x": 11,
+        "y": 0,
+        "tile": "block",
+        "tool": "paint"
+      },
+      {
+        "dt": 610,
+        "x": 6,
+        "y": 1,
+        "tile": "block",
+        "tool": "paint"
+      },
+      {
+        "dt": 110,
+        "x": 6,
+        "y": 2,
+        "tile": "block",
+        "tool": "paint"
+      },
+      {
+        "dt": 110,
+        "x": 6,
+        "y": 3,
+        "tile": "block",
+        "tool": "paint"
+      },
+      {
+        "dt": 110,
+        "x": 6,
+        "y": 4,
+        "tile": "block",
+        "tool": "paint"
+      }
+    ],
+    "frontier": {
+      "x": 20,
+      "y": 9,
+      "idleMs": 300
+    },
+    "mode": "auto",
+    "lastGhosts": [],
+    "knight": {
+      "maxGapStand": 8,
+      "maxGapRun": 11,
+      "maxRise": 6
+    }
+  },
+  "answer": {
+    "act": true,
+    "kind": "finish",
+    "adds": [
+      {
+        "x": 7,
+        "y": 4,
+        "tile": "block"
+      },
+      {
+        "x": 8,
+        "y": 4,
+        "tile": "block"
+      },
+      {
+        "x": 9,
+        "y": 4,
+        "tile": "block"
+      },
+      {
+        "x": 10,
+        "y": 4,
+        "tile": "block"
+      },
+      {
+        "x": 11,
+        "y": 4,
+        "tile": "block"
+      },
+      {
+        "x": 11,
+        "y": 1,
+        "tile": "block"
+      },
+      {
+        "x": 11,
+        "y": 2,
+        "tile": "block"
+      },
+      {
+        "x": 11,
+        "y": 3,
+        "tile": "block"
+      }
+    ],
+    "removes": [],
+    "entities": [],
+    "confidence": 0.85,
+    "label": "close the box",
+    "levelGuess": "maze"
+  }
+}

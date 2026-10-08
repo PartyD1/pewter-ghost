@@ -1,5 +1,5 @@
 /**
- * The six few-shot examples of prompt v1 (G-14), built from realistic editing
+ * The few-shot examples of prompt v1 (G-14), built from realistic editing
  * states with the real window builder, so the examples the model sees have
  * exactly the format of a live request.
  *
@@ -204,32 +204,38 @@ export function extendCoinArc(): Scenario {
   };
 }
 
-/** 3. act false: one block in mid-air, placed a moment ago. */
-export function falseTooEarly(): Scenario {
+/** 3. finish a shape: two sides of a floating box are drawn; close it, not a line. */
+export function finishBox(): Scenario {
   const { model, stream, tick, row, stroke, now } = setup();
-  model.paint(row(16, 84, 96, TILE.GRASS));
-  model.paint(row(17, 84, 96, TILE.DIRT));
+  model.paint(row(17, 84, 106, TILE.GRASS));
+  model.paint(row(18, 84, 106, TILE.DIRT));
   tick(4000);
-  stroke([[102, 11]], TILE.QUESTION);
-  tick(90);
+  // The top of the box, left to right, then the left side going down.
+  stroke([[92, 8], [93, 8], [94, 8], [95, 8], [96, 8], [97, 8]], TILE.BLOCK, 110);
+  tick(500);
+  stroke([[92, 9], [92, 10], [92, 11], [92, 12]], TILE.BLOCK, 110);
+  tick(300);
   return {
-    id: "false-too-early",
-    title: "A single ?-block, placed 90 ms ago",
-    why: "One tile could start a row of ?-blocks, a platform or a reveal. The person is still moving, so any guess would interrupt them.",
+    id: "finish-box",
+    title: "A top and a left side: an open box outline",
+    why: "A top row with a side hanging from its left end is two sides of a rectangle, so the answer closes the box (bottom and right side, same block, one tile thick) instead of running the top on as a line. The box floats 4 rows above the floor, so the knight still walks underneath.",
     model,
     stream,
     now: now(),
     mode: "auto",
     lastGhosts: [],
     answer: {
-      act: false,
+      act: true,
       kind: "finish",
-      adds: [],
+      adds: [
+        ...[93, 94, 95, 96, 97].map((x) => ({ x, y: 12, tile: "block" as TileName })),
+        ...[9, 10, 11].map((y) => ({ x: 97, y, tile: "block" as TileName })),
+      ],
       removes: [],
       entities: [],
-      confidence: 0,
-      label: "one tile, too early to tell",
-      levelGuess: "story",
+      confidence: 0.85,
+      label: "close the box",
+      levelGuess: "maze",
     },
   };
 }
@@ -319,6 +325,41 @@ export function fixWallRemoval(): Scenario {
   };
 }
 
+/** 7. fix by moving: one platform in an even row sits a row too high. */
+export function fixMove(): Scenario {
+  const { model, stream, tick, row, stroke, now } = setup();
+  model.paint(row(17, 120, 144, TILE.GRASS));
+  model.paint(row(18, 120, 144, TILE.DIRT));
+  model.paint(row(12, 129, 131, TILE.BLOCK));
+  model.paint(row(11, 134, 136, TILE.BLOCK));
+  model.paint(row(12, 139, 141, TILE.BLOCK));
+  model.paint(row(12, 144, 146, TILE.BLOCK));
+  tick(9000);
+  // The person is now adding platforms at the left end of the row.
+  stroke([[126, 12], [125, 12], [124, 12]], TILE.BLOCK, 120);
+  tick(900);
+  return {
+    id: "fix-move",
+    title: "Even row of floating platforms, one a row too high",
+    why: "Every platform is 3 wide with gaps of 2 in row 12, and the person just added another in row 12 at the left end, so the one in row 11 drawn 9 s ago is out of line. Moving it down 1 (remove the old cells, add the same tiles one row lower) makes the row even.",
+    model,
+    stream,
+    now: now(),
+    mode: "auto",
+    lastGhosts: [{ kind: "finish", label: "platform row, one more", outcome: "timeout" }],
+    answer: {
+      act: true,
+      kind: "fix",
+      adds: [134, 135, 136].map((x) => ({ x, y: 12, tile: "block" as TileName })),
+      removes: [134, 135, 136].map((x) => ({ x, y: 11 })),
+      entities: [],
+      confidence: 0.6,
+      label: "move platform down 1 to line up",
+      levelGuess: "parkour",
+    },
+  };
+}
+
 /** 6. patrol fix: the agent cannot cross a 13-wide pit. */
 export function patrolPitStone(): Scenario {
   const { model, stream, tick, row, now } = setup();
@@ -358,10 +399,11 @@ export function patrolPitStone(): Scenario {
 export const SCENARIOS = [
   finishStaircase,
   extendCoinArc,
-  falseTooEarly,
+  finishBox,
   falseErasing,
   fixWallRemoval,
   patrolPitStone,
+  fixMove,
 ] as const;
 
 /** Drop the legend line: the system prompt explains the glyphs once. */
