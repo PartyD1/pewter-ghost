@@ -3,13 +3,14 @@
  *   PEWTER_KV  KV namespace: recordings, logs, and tokens under `tokens/<token>`
  *   PEWTER_R2  optional R2 bucket: used for recordings/logs instead of KV when bound
  * Vars / secrets:
- *   VITE_LLM_API_KEY or GEMINI_API_KEY (secret), VITE_LLM_MODEL_NAME,
+ *   LLM_PROVIDER (gemini | openrouter | bayleaf) with that provider's key (secret)
+ *   and model (see provider.ts),
  *   PROXY_TOKENS (JSON token file), PROXY_OPEN ("1" accepts token "dev"),
  *   ALLOWED_ORIGINS (comma list; localhost always allowed),
  *   PROXY_UPSTREAM_TIMEOUT_MS, PROXY_THINKING_BUDGET, PROXY_LOGPROBS
  */
 import { renderFillPrompt, parseModelAnswer } from "@app/fill/prompt";
-import { geminiFromEnv, type GeminiEnv } from "./gemini";
+import { upstreamFromEnv, type ProviderEnv } from "./provider";
 import { createHandler, originAllowList, type ProxyHandler } from "./handler";
 import {
   ChainTokenStore,
@@ -23,7 +24,7 @@ import {
 import { ChunkedObjectStore, kvObjects, MemoryStore, r2Objects, type KVNamespaceLike, type ProxyStore, type R2BucketLike } from "./store";
 import { UpstreamError, type Upstream } from "./upstream";
 
-export interface WorkerEnv extends GeminiEnv {
+export interface WorkerEnv extends ProviderEnv {
   PEWTER_KV?: KVNamespaceLike;
   PEWTER_R2?: R2BucketLike;
   PROXY_TOKENS?: string;
@@ -54,11 +55,11 @@ let cached: { env: WorkerEnv; handler: ProxyHandler } | null = null;
 export function buildWorkerHandler(env: WorkerEnv): ProxyHandler {
   let upstream: Upstream;
   try {
-    upstream = geminiFromEnv(env);
+    upstream = upstreamFromEnv(env);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     upstream = {
-      model: env.VITE_LLM_MODEL_NAME || "unconfigured",
+      model: "unconfigured",
       generate: async () => {
         throw new UpstreamError("config", msg);
       },

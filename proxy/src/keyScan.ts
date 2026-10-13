@@ -1,6 +1,6 @@
 /**
  * "0 keys in dist/" check (G-09 measure). Scans a build output directory for
- * Google API key patterns and for the literal configured key. Prints only
+ * Google and OpenRouter API key patterns and for the literal configured key. Prints only
  * file names and a masked hint, never the key.
  *
  *   npx tsx proxy/src/keyScan.ts [dist]     # exit 1 when anything is found
@@ -8,8 +8,9 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { configuredKey } from "./provider";
 
-export const KEY_PATTERNS: RegExp[] = [/AIza[0-9A-Za-z_-]{35}/g];
+export const KEY_PATTERNS: RegExp[] = [/AIza[0-9A-Za-z_-]{35}/g, /sk-or-v1-[0-9a-f]{64}/g];
 
 export interface KeyHit {
   file: string;
@@ -50,7 +51,7 @@ function mask(k: string): string {
 const invokedDirectly = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (invokedDirectly) {
   const dir = path.resolve(process.argv[2] ?? "dist");
-  scanDir(dir, process.env.VITE_LLM_API_KEY || process.env.GEMINI_API_KEY)
+  scanDir(dir, configuredKey(process.env))
     .then((hits) => {
       for (const h of hits) console.error(`key material in ${h.file}: ${h.kind} ${h.masked}`);
       if (hits.length) process.exit(1);

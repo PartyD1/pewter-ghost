@@ -60,6 +60,11 @@ without the AI is not the product.
 
 `npm run dev:editor` starts the editor alone, without AI, for debugging the editor.
 
+The model provider can be Gemini, [OpenRouter](https://openrouter.ai/) or [BayLeaf](https://api.bayleaf.dev/)
+(free for UCSC). Set `LLM_PROVIDER` in `.env` (see `.env.example` for each provider's key
+and model), or choose for one run with `npm run dev -- bayleaf` (or `openrouter`, `gemini`).
+BayLeaf needs no key on the UCSC network.
+
 In development a plain reload starts a fresh level (handy for testing). **Save task**
 reloads into the level it just saved; `?restore=1` brings back the autosave. A built
 copy restores the autosave on every reload so a participant never loses work.

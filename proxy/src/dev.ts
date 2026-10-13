@@ -4,7 +4,8 @@
  *   npm run proxy                    # tokens from proxy/.data/tokens.json
  *   PROXY_OPEN=1 npm run proxy       # also accept the token "dev"
  *
- * Env: VITE_LLM_API_KEY (or GEMINI_API_KEY), VITE_LLM_MODEL_NAME,
+ * Env: LLM_PROVIDER (gemini | openrouter | bayleaf) and that provider's key/model
+ * (see provider.ts), PROXY_REASONING_EFFORT,
  * PROXY_UPSTREAM_TIMEOUT_MS, PROXY_THINKING_BUDGET, PROXY_LOGPROBS=0,
  * PROXY_ALLOWED_ORIGINS (comma list, localhost always allowed), PROXY_HOST.
  * `.env` / `.env.local` at the project root are loaded if present. The key is
@@ -14,7 +15,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { renderFillPrompt, parseModelAnswer } from "@app/fill/prompt";
-import { geminiFromEnv } from "./gemini";
+import { modelFromEnv, providerFromEnv, upstreamFromEnv } from "./provider";
 import { createHandler, originAllowList } from "./handler";
 import { FileStore } from "./node/fileStore";
 import { FileTokenStore } from "./node/fileTokens";
@@ -48,13 +49,13 @@ async function main(): Promise<void> {
   const log = (m: string) => console.error(`[proxy] ${m}`);
   let upstream: Upstream;
   try {
-    upstream = geminiFromEnv(env);
+    upstream = upstreamFromEnv(env);
   } catch (e) {
     // Still serve /session and /log without a key; /fill reports the problem.
     const msg = e instanceof Error ? e.message : String(e);
-    log(`WARNING: ${msg}; /fill will fail until VITE_LLM_API_KEY is set`);
+    log(`WARNING: ${msg}; /fill will fail until the provider's key is set`);
     upstream = {
-      model: env.VITE_LLM_MODEL_NAME || "unconfigured",
+      model: safeModel(env),
       generate: async () => {
         throw new UpstreamError("config", msg);
       },
@@ -74,7 +75,23 @@ async function main(): Promise<void> {
   const port = Number(env.PROXY_PORT) || 8787;
   const host = env.PROXY_HOST || "127.0.0.1";
   await startServer(handler, port, host, { onError: log });
-  log(`listening on http://${host}:${port}  model=${upstream.model}  tokens=${path.relative(projectRoot, tokensFile)}${open ? "  OPEN (token 'dev' accepted)" : ""}`);
+  log(`listening on http://${host}:${port}  provider=${safeProvider(env)}  model=${upstream.model}  tokens=${path.relative(projectRoot, tokensFile)}${open ? "  OPEN (token 'dev' accepted)" : ""}`);
+}
+
+function safeProvider(env: NodeJS.ProcessEnv): string {
+  try {
+    return providerFromEnv(env);
+  } catch {
+    return "unconfigured";
+  }
+}
+
+function safeModel(env: NodeJS.ProcessEnv): string {
+  try {
+    return modelFromEnv(env);
+  } catch {
+    return "unconfigured";
+  }
 }
 
 const invokedDirectly = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);

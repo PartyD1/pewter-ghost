@@ -4,6 +4,8 @@
  * (npm run dev:ai is the same; npm run dev:editor starts the editor alone, without AI.)
  *
  * The proxy reads .env / .env.local (copy .env.example to .env and add your key).
+ * Pick the model provider with LLM_PROVIDER in .env, or for one run:
+ *   npm run dev -- bayleaf        (or openrouter, gemini)
  * In development the editor uses the proxy's built-in "dev" token automatically,
  * so http://localhost:5173/ has AI suggestions with no URL parameters.
  *
@@ -28,10 +30,33 @@ for (const f of [".env.local", ".env"]) {
 env.PROXY_OPEN ??= "1";
 env.PROXY_THINKING_BUDGET ??= "0";
 
-if (!env.GEMINI_API_KEY && !env.VITE_LLM_API_KEY) {
+const PROVIDERS = ["gemini", "openrouter", "bayleaf"];
+const cli = process.argv.slice(2).map((a) => a.replace(/^--(provider=)?/, "").toLowerCase());
+const unknown = cli.find((a) => !PROVIDERS.includes(a));
+if (unknown) {
+  console.error(`[dev] Unknown option "${unknown}". Use one of: ${PROVIDERS.join(", ")}.`);
+  process.exit(1);
+}
+if (cli.length) env.LLM_PROVIDER = cli[cli.length - 1];
+if (env.LLM_PROVIDER && !PROVIDERS.includes(env.LLM_PROVIDER.trim().toLowerCase())) {
+  console.error(`[dev] LLM_PROVIDER="${env.LLM_PROVIDER}" is not one of: ${PROVIDERS.join(", ")}.`);
+  process.exit(1);
+}
+// Same rule as proxy/src/provider.ts: the named provider, else the first with a key.
+const provider =
+  env.LLM_PROVIDER?.trim().toLowerCase() ||
+  (env.GEMINI_API_KEY || env.VITE_LLM_API_KEY ? "gemini" : env.OPENROUTER_API_KEY ? "openrouter" : env.BAYLEAF_API_KEY ? "bayleaf" : "gemini");
+const hasKey =
+  provider === "gemini" ? !!(env.GEMINI_API_KEY || env.VITE_LLM_API_KEY) : provider === "openrouter" ? !!env.OPENROUTER_API_KEY : true;
+console.error(`[dev] Model provider: ${provider}`);
+if (provider === "bayleaf" && !env.BAYLEAF_API_KEY)
+  console.error('[dev] No BAYLEAF_API_KEY, so using "campus" (works only on the UCSC network; sign in at https://api.bayleaf.dev/login for a key).');
+
+if (!hasKey) {
   console.error(
     "\n[dev] No model key, so no AI. Pewter Ghost needs it:\n" +
-      "[dev]   cp .env.example .env   then set GEMINI_API_KEY=... in .env\n" +
+      `[dev]   cp .env.example .env   then set ${provider === "openrouter" ? "OPENROUTER_API_KEY" : "GEMINI_API_KEY"}=... in .env\n` +
+      "[dev]   (or pick another provider: npm run dev -- bayleaf | openrouter | gemini)\n" +
       "[dev]   npm run dev\n" +
       "[dev] (npm run dev:editor starts the editor alone, without AI, for debugging.)\n",
   );

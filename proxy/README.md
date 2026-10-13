@@ -32,7 +32,14 @@ A token's sessionId `p01` also admits `p01.<suffix>` so one token can hold sever
 
 ## Env
 
-`VITE_LLM_API_KEY` / `GEMINI_API_KEY`, `VITE_LLM_MODEL_NAME` (default `gemini-3.7-flash`),
+`LLM_PROVIDER` = `gemini` | `openrouter` | `bayleaf` (unset: the first with a key, in that order; see `src/provider.ts`).
+Gemini: `VITE_LLM_API_KEY` / `GEMINI_API_KEY`, `VITE_LLM_MODEL_NAME` (default `gemini-3.7-flash`).
+OpenRouter: `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` (default `z-ai/glm-5.3-flash`).
+BayLeaf: `BAYLEAF_API_KEY` (default `campus`, UCSC network only), `BAYLEAF_MODEL` (default `openrouter:z-ai/glm-5.3-flash`).
+OpenRouter and BayLeaf share `src/openrouter.ts` (chat/completions; `json_schema` output, stepping down to
+`json_object` then plain text if a model rejects it). `PROXY_THINKING_BUDGET=0` is sent as
+`reasoning: { enabled: false }`; `PROXY_REASONING_EFFORT` as `reasoning: { effort }`.
+Shared:
 `PROXY_OPEN=1`, `PROXY_PORT`, `PROXY_HOST`, `PROXY_ALLOWED_ORIGINS` (dev) / `ALLOWED_ORIGINS` (worker),
 `PROXY_UPSTREAM_TIMEOUT_MS` (10000), `PROXY_THINKING_BUDGET` (unset = not sent), `PROXY_LOGPROBS=0`.
 
