@@ -233,7 +233,7 @@ function sugg(id, over) {
     assert(L.caption === "staircase · Tab", `canvas caption near the anchor ("${L.caption}")`);
     assert(await page.locator(".pg-ghost-caption").isVisible(), "caption element visible");
     let st = await strip();
-    assert(/^ghost: staircase · /.test(st.main) && /Tab keeps them/.test(st.main), `first-ghost teaching line ("${st.main}")`);
+    assert(/^staircase · \d+ tiles · Tab to keep$/.test(st.main), `first-ghost teaching line ("${st.main}")`);
     assert(st.guess === "Ghost thinks: parkour", `level guess shown ("${st.guess}")`);
     assert(!/stub|llm|algo|jev/i.test(await page.locator("#ghost-status").innerText()), "strip never names the filler");
     assert((await tileAt(12, 15)) === 0, "showing does not change the level");
@@ -258,9 +258,6 @@ function sugg(id, over) {
     assert(coin && coin.kind === "coin" && coin.author === 2, "ghost coin placed with author GHOST");
     assert((await G(() => window.__pewter.model.provenanceAt(12, 15))) === "g-stair", "provenance = suggestion id");
     assert((await G(() => window.__pewter.ghost.current())) === null, "ghost gone after Tab");
-    assert((await G(() => window.__pewter.ghost.route().length)) >= 2, "agent route drawn on accept");
-    await page.waitForTimeout(2300);
-    assert((await G(() => window.__pewter.ghost.route().length)) === 0, "route gone after 2 s");
     assert((await G(() => window.__pewter.model.undoDepth)) === 1, "one accept = one undo step");
 
     // ---- Undo restores ---------------------------------------------------------
@@ -285,7 +282,7 @@ function sugg(id, over) {
     // ---- Painting on a ghost cell keeps that cell; painting elsewhere ends it --------
     r = await show(ledge("g-part"));
     assert(r.status === "shown", "third ghost shown");
-    assert(/Tab keeps them/.test((await strip()).main), "third ghost still carries the teaching line");
+    assert(/Tab to keep/.test((await strip()).main), "third ghost still carries the key hint");
     await page.click('[data-item="grass"]');
     let p = await screenOf(21, 12);
     await page.mouse.click(p.x, p.y);
@@ -301,10 +298,10 @@ function sugg(id, over) {
     assert(hist.outcomes.partial === 1 && hist.outcomes.esc === 1 && hist.outcomes.accepted === 1, `history: ${JSON.stringify(hist.outcomes)}`);
     await page.keyboard.press("1"); // back to Select
 
-    // ---- After three ghosts the strip uses the short line --------------------------
+    // ---- The strip line stays the same after three ghosts --------------------------
     r = await show(sugg("g-short", { label: "pillar", adds: [{ x: 26, y: 10, tile: 1 }] }));
     st = await strip();
-    assert(st.main === "ghost: pillar · Tab to accept · Esc to dismiss", `4th ghost: short line ("${st.main}")`);
+    assert(st.main === "pillar · 1 tile · Tab to keep", `4th ghost: same one-line strip ("${st.main}")`);
     assert((await layer()).caption === "pillar", "4th ghost: short canvas caption");
     await page.keyboard.press("Escape");
 
@@ -365,7 +362,7 @@ function sugg(id, over) {
     await page.waitForTimeout(200);
     assert(!(await page.locator(".pg-ghost-arrow").isVisible()), "arrow gone with the ghost");
 
-    // ---- Play: R shows the route for the current section --------------------------------
+    // ---- Play: strip says playing, Esc stops --------------------------------
     await home();
     r = await show(
       sugg("g-run", {
@@ -386,14 +383,10 @@ function sugg(id, over) {
     await page.keyboard.press("p");
     await page.waitForTimeout(400);
     assert(await G(() => window.__pewter.api.isPlaying()), "Play started");
-    assert(/R shows the checked route/.test((await strip()).main), "strip names the route key in Play");
-    await page.keyboard.press("r");
-    assert((await G(() => window.__pewter.ghost.route().length)) >= 2, "R shows the route in Play");
-    await page.screenshot({ path: shot.replace(/\.png$/, "-route.png") });
+    assert(/^playing · Esc to edit$/.test((await strip()).main), "strip says playing in Play");
     await page.keyboard.press("Escape");
     await page.waitForTimeout(150);
     assert(!(await G(() => window.__pewter.api.isPlaying())), "Esc still stops Play");
-    assert((await G(() => window.__pewter.ghost.route().length)) === 0, "route hidden after Play");
 
     const real = errors.filter((e) => !/favicon/i.test(e));
     assert(real.length === 0, `no console errors${real.length ? `: ${real.join(" | ")}` : ""}`);
