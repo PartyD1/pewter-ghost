@@ -136,6 +136,7 @@ export const ASCII_ENTITIES: Record<string, EntityKind> = {
   U: "ultraslime",
   F: "flag",
   i: "sign",
+  C: "checkpoint",
 };
 
 const TILE_GLYPH: Record<number, string> = Object.fromEntries(
@@ -148,7 +149,7 @@ const ENTITY_GLYPH: Record<string, string> = Object.fromEntries(
 /** One line describing the glyphs, for prompts that show chunks. */
 export const ASCII_LEGEND =
   ". empty  # grass  d dirt  B block  = half block  ? question block  " +
-  "c coin  f fruit  s slime  U ultraslime  F flag  i sign  P start";
+  "c coin  f fruit  s slime  U ultraslime  F flag  i sign  C checkpoint  P start";
 
 export interface ParsedAscii {
   grid: GridLike & { cells: number[] };

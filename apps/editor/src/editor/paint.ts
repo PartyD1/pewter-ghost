@@ -37,7 +37,7 @@ export type PaintTarget = Pick<
 >;
 
 /** Entity kinds placed once per click rather than along a drag. */
-export const SINGLE_SHOT_ENTITIES: ReadonlySet<EntityKind> = new Set(["slime", "ultraslime", "flag", "sign"]);
+export const SINGLE_SHOT_ENTITIES: ReadonlySet<EntityKind> = new Set(["slime", "ultraslime", "flag", "sign", "checkpoint"]);
 
 /** Every cell on the line from a to b, inclusive, in order (Bresenham). */
 export function lineCells(a: Point, b: Point): Point[] {
@@ -185,7 +185,7 @@ export class StrokePainter {
         changedCells = todo;
       }
       // Erasing the Start pennant puts the knight back on the default start
-      // (a level always has a start; the pennant only shows when it is moved).
+      // (a level always has a start, so the pennant cannot be removed).
       const st = this.model.start;
       const onStart = fresh.find((c) => c.x === st.x && c.y === st.y);
       if (onStart && (st.x !== DEFAULT_START.x || st.y !== DEFAULT_START.y) && this.model.setStart({ ...DEFAULT_START })) {

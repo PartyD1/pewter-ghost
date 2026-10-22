@@ -12,6 +12,7 @@ import {
   easeOutCubic,
   nudgeTarget,
   screenToWorld,
+  snapScroll,
   wheelIntent,
   zoomAround,
   type Size,
@@ -252,12 +253,30 @@ export class CameraController implements CameraApi {
     cam.setZoom(this._zoom);
     cam.setBounds(0, 0, this.levelPx.w, this.levelPx.h);
     cam.startFollow(target, false, 0.1, 0.1);
+    cam.on(Phaser.Cameras.Scene2D.Events.FOLLOW_UPDATE, this.snapFollow, this);
+  }
+
+  /**
+   * After Phaser's follow lerp (camera preRender, before drawing): snap the
+   * scroll so tiles land on whole screen pixels, and round sprite positions
+   * (the knight, enemies, pickups) to whole screen pixels as well. Without it
+   * the lerped scroll at zoom 2.25 drew every tile at a fractional position:
+   * thin lines between the backdrop's tiles and a blurry ground and knight in
+   * Play. Phaser's own roundPixels floors to whole WORLD pixels (still
+   * fractional on screen at 2.25) and only rounds sprites at integer zoom.
+   */
+  private snapFollow(cam: Phaser.Cameras.Scene2D.Camera): void {
+    cam.scrollX = snapScroll(cam.scrollX, cam.zoomX, cam.width * cam.originX);
+    cam.scrollY = snapScroll(cam.scrollY, cam.zoomY, cam.height * cam.originY);
+    // Typed read-only, but it is plain state that preRender recomputes every frame.
+    (cam as { renderRoundPixels: boolean }).renderRoundPixels = true;
   }
 
   stopFollow(): void {
     if (!this.following) return;
     this.following = false;
     const cam = this.cam;
+    cam.off(Phaser.Cameras.Scene2D.Events.FOLLOW_UPDATE, this.snapFollow, this);
     cam.stopFollow();
     if (this.savedView) {
       this.center = this.savedView.center;

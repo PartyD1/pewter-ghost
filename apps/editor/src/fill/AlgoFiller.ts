@@ -162,7 +162,7 @@ export function parseWindowGrid(req: Pick<FillRequest, "grid" | "size">): Window
       const kind = ENTITY_BY_GLYPH.get(g);
       if (kind) {
         entities.push({ kind, x, y });
-        if (kind === "flag") blocked[i] = 1;
+        if (kind === "flag" || kind === "checkpoint") blocked[i] = 1;
       }
     }
   });

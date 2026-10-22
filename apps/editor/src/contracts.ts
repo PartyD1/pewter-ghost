@@ -65,7 +65,9 @@ export type EntityKind =
   | "slime"
   | "ultraslime"
   | "flag"
-  | "sign";
+  | "sign"
+  /** Respawn point in Play (editor/checkpoints.ts). */
+  | "checkpoint";
 
 export const COLLECTABLE_KINDS: ReadonlySet<EntityKind> = new Set(["coin", "fruit"]);
 export const ENEMY_KINDS: ReadonlySet<EntityKind> = new Set(["slime", "ultraslime"]);

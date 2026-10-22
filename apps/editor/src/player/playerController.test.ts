@@ -93,7 +93,7 @@ function makeRig() {
 }
 
 describe("configurePlayerSprite", () => {
-  it("applies the shared 10x14 body, scale 1 and engine caps", () => {
+  it("applies the shared 10x14 body, scale 1, world-bounds walls and engine caps", () => {
     const { player, calls } = makeRig();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     configurePlayerSprite(player as any);
@@ -101,7 +101,7 @@ describe("configurePlayerSprite", () => {
       "scale:1",
       "size:10x14",
       "offset:3,1",
-      "bounds:false",
+      "bounds:true",
       "drag:0,0",
       `max:${MAX_RUN_SPEED_PX},${TERMINAL_VELOCITY_PX}`,
     ]);

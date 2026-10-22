@@ -1,5 +1,5 @@
 Window 24x12 = level x 49..72, y 8..19. All coordinates are window-relative: x 0..23 right, y 0..11 down.
-Legend: . empty | G grass D dirt B block H half-block Q ?-block (person's) | g d b h q same tiles accepted from Ghost | o coin * fruit S slime U ultraslime ~ enemy patrol F flag ! sign @ knight start
+Legend: . empty | G grass D dirt B block H half-block Q ?-block (person's) | g d b h q same tiles accepted from Ghost | o coin * fruit S slime U ultraslime ~ enemy patrol F flag ! sign C checkpoint @ knight start
    000000000011111111112222
    012345678901234567890123
  0 ........................

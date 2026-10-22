@@ -47,15 +47,20 @@ export const FRAME = {
   SIGN: 11,
   KNIGHT: 12,
   START: 13,
+  CHECKPOINT: 14,
 } as const;
 export const FRAME_COUNT = 16;
 
 /**
  * Where each composite frame comes from. `brackeys` frames are indexes into
  * the 240x16 strip; `kenney` frames are [col, row] in the 18 px Kenney sheet
- * (resampled to 16 px). `start` is drawn procedurally.
+ * (resampled to 16 px), with `blue` turning the red cloth blue. `start` is
+ * drawn procedurally.
  */
-export const FRAME_SOURCES: Record<number, { brackeys: number } | { kenney: [number, number] } | { draw: "start" }> = {
+export const FRAME_SOURCES: Record<
+  number,
+  { brackeys: number } | { kenney: [number, number]; blue?: boolean } | { draw: "start" }
+> = {
   [FRAME.BLOCK]: { kenney: [6, 0] },
   [FRAME.COIN]: { brackeys: 1 },
   [FRAME.FRUIT]: { brackeys: 2 },
@@ -69,6 +74,9 @@ export const FRAME_SOURCES: Record<number, { brackeys: number } | { kenney: [num
   [FRAME.SIGN]: { kenney: [6, 4] },
   [FRAME.KNIGHT]: { brackeys: 14 },
   [FRAME.START]: { draw: "start" },
+  // The Kenney flag's second (waving) frame, unused until now, in blue so it
+  // does not read as the red goal flag.
+  [FRAME.CHECKPOINT]: { kenney: [12, 5], blue: true },
 };
 
 export const KENNEY_PX = 18;
@@ -80,6 +88,7 @@ export const ENTITY_FRAME: Record<EntityKind, number> = {
   ultraslime: FRAME.ULTRASLIME,
   flag: FRAME.FLAG,
   sign: FRAME.SIGN,
+  checkpoint: FRAME.CHECKPOINT,
 };
 
 export const tileFrame = (tile: number): number => (tile === TILE.EMPTY ? -1 : tile);
