@@ -1,9 +1,9 @@
 {
   "id": "patrol-pit-stone",
-  "title": "Patrol: the knight is stuck before a 13-wide pit",
-  "why": "Two grass tiles in the middle split the pit into gaps of 6 and 5, both clearable from standing. That is the fewest-tile repair, and the person's pit stays a pit.",
+  "title": "Patrol: the knight is stuck before a 10-wide pit",
+  "why": "Two grass tiles in the middle split the pit into gaps of 4 and 4, both clearable from standing. That is the fewest-tile repair, and the person's pit stays a pit.",
   "request": {
-    "grid": "Window 24x12 = level x 168..191, y 8..19. All coordinates are window-relative: x 0..23 right, y 0..11 down.\n   000000000011111111112222\n   012345678901234567890123\n 0 ........................\n 1 ........................\n 2 ........................\n 3 ........................\n 4 ........................\n 5 ........................\n 6 ........................\n 7 GGGGGGGGGG.............G\n 8 DDDDDDDDDD.............D\n 9 ........................\n10 ........................\n11 ........................",
+    "grid": "Window 24x12 = level x 168..191, y 8..19. All coordinates are window-relative: x 0..23 right, y 0..11 down.\n   000000000011111111112222\n   012345678901234567890123\n 0 ........................\n 1 ........................\n 2 ........................\n 3 ........................\n 4 ........................\n 5 ........................\n 6 ........................\n 7 GGGGGGGGGG..........GGGG\n 8 DDDDDDDDDD..........DDDD\n 9 ........................\n10 ........................\n11 ........................",
     "origin": {
       "x": 168,
       "y": 8
@@ -78,9 +78,9 @@
     "mode": "patrol",
     "lastGhosts": [],
     "knight": {
-      "maxGapStand": 8,
-      "maxGapRun": 11,
-      "maxRise": 6
+      "maxGapStand": 5,
+      "maxGapRun": 7,
+      "maxRise": 4
     },
     "blockedAt": {
       "x": 9,
@@ -92,12 +92,12 @@
     "kind": "fix",
     "adds": [
       {
-        "x": 16,
+        "x": 14,
         "y": 7,
         "tile": "grass"
       },
       {
-        "x": 17,
+        "x": 15,
         "y": 7,
         "tile": "grass"
       }
@@ -105,7 +105,7 @@
     "removes": [],
     "entities": [],
     "confidence": 0.8,
-    "label": "pit 13 wide · knight clears 11",
+    "label": "pit 10 wide · knight clears 7",
     "levelGuess": "parkour"
   }
 }

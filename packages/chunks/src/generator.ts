@@ -204,8 +204,13 @@ export function generateChunk(opts: GenerateOptions = {}): GeneratedChunk {
       }
       piece("flat", x0, n, `flat ${n}`);
     } else if (kind === "pit" && room >= 4) {
+      // Run-up = flat columns BEHIND the takeoff column (x - 1), which is
+      // not counted: that is how @physsim's rule check counts it (rules.ts
+      // runway()). Counting the takeoff column too made every pit one tile
+      // optimistic. The audit's ladder was flat from run-up 2 up, so the
+      // error only showed once the knight's reach changed (feel retune).
       let runway = 0;
-      let k = x - 1;
+      let k = x - 2;
       while (k >= 0 && heights[k] === y && runway < maxRun) {
         runway++;
         k--;

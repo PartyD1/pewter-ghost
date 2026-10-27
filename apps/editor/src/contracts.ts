@@ -203,6 +203,8 @@ export interface FillRequest {
   blockedAt?: Point;
   /** Short one-line summary of the level outside the window. */
   summary?: string;
+  /** Deterministic anomaly/reachability hints (also rendered in the user prompt). */
+  computedContext?: string;
 }
 
 /** What the model returns (window-relative coordinates, names not ids). */

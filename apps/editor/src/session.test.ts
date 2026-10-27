@@ -487,9 +487,10 @@ describe("FillLoop", () => {
     const l = makeLoop(new StubFiller(), { patrol: true });
     const { sink, offers } = managerSink(() => cfg);
     l.setGhost(sink);
-    // A platform past a 14-wide pit (start platform ends at x=11; the knight clears 11).
+    // A platform past a 10-wide pit (start platform ends at x=11; the knight clears 7).
+    // (14 wide and 11 before the feel retune; a local repair only looks maxGapRun + 4 ahead.)
     model.beginStroke();
-    for (let x = 26; x <= 31; x++) model.paintTile(x, 15, TILE.GRASS);
+    for (let x = 22; x <= 27; x++) model.paintTile(x, 15, TILE.GRASS);
     model.endStroke();
     l.cancel(); // only the patrol trip matters here
     await waitFor(() => log.some((e) => e.type === "patrol"), 15000);

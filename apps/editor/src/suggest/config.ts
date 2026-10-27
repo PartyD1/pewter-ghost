@@ -116,6 +116,13 @@ export interface GhostConfig {
   /** Window of the tidy call, centred on the recent placements. */
   tidyCols: number;
   tidyRows: number;
+
+  /** Deterministic context injected into LLM requests (anomaly + reachability). */
+  context: {
+    enabled: boolean;
+    /** Flag wide-but-clearable jumps at or above this gap width. */
+    comfortGap: number;
+  };
 }
 
 export const DEFAULT_CONFIG: GhostConfig = {
@@ -158,6 +165,7 @@ export const DEFAULT_CONFIG: GhostConfig = {
   tidyIdleMs: 1200,
   tidyCols: 32,
   tidyRows: 14,
+  context: { enabled: true, comfortGap: 5 },
 };
 
 export const config: GhostConfig = structuredClone(DEFAULT_CONFIG);

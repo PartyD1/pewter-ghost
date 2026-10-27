@@ -27,6 +27,22 @@ export interface Rate {
 
 const rate = (hits: number, n: number): Rate => ({ n, hits, rate: n ? hits / n : 0 });
 
+/** Strict acceptance per kind: fully accepted over every ended ghost of that kind. */
+function strictByKind(ended: readonly GhostRecord[]): Record<SuggestionKind, Rate> {
+  const out = {} as Record<SuggestionKind, Rate>;
+  for (const k of ["finish", "extend", "fix"] as const) {
+    const list = ended.filter((g) => g.kind === k);
+    out[k] = rate(list.filter((g) => g.outcome === "accepted").length, list.length);
+  }
+  return out;
+}
+
+/**
+ * The project's success bar: at least this share of the ghosts shown are fully
+ * accepted (outcome "accepted": Tab pressed and nothing then drawn over it).
+ */
+export const STRICT_ACCEPTANCE_TARGET = 0.8;
+
 export interface SessionSummary {
   sessionId: string;
   filler: string;
@@ -65,6 +81,9 @@ export interface DashboardMetrics {
   sessions: SessionSummary[];
   ghosts: number;
   acceptance: Rate;
+  /** Fully accepted (not partial) of every ghost that was shown and has ended. The 80% target. */
+  strictAcceptance: Rate;
+  strictByKind: Record<SuggestionKind, Rate>;
   byKind: Record<SuggestionKind, Rate & { outcomes: Record<string, number> }>;
   byBand: { band: "low" | "mid" | "high"; lo: number; hi: number; r: Rate }[];
   byConfidence: { lo: number; hi: number; r: Rate }[];
@@ -213,6 +232,8 @@ export function computeMetrics(
     sessions: summaries,
     ghosts: ghosts.length,
     acceptance: rate(ended.filter((g) => ACCEPTED.has(g.outcome)).length, ended.length),
+    strictAcceptance: rate(ended.filter((g) => g.outcome === "accepted").length, ended.length),
+    strictByKind: strictByKind(ended),
     byKind,
     byBand,
     byConfidence,

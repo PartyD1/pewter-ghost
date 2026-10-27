@@ -47,7 +47,10 @@ import type { Chunk } from "@measure";
 export const BRIEF_DYNAMIC_FORMAT = 1;
 
 /** Gap widths whose coin offsets the placement fragment lists (level targets). */
-export const ARC_TABLE_GAPS = [2, 3, 4, 5, 6, 7, 8];
+export const ARC_TABLE_GAPS: number[] = Array.from(
+  { length: Math.max(0, knightLimits().maxGapRun - 1) },
+  (_, i) => i + 2,
+); // 2..maxGapRun: never list a jump the knight cannot make with a run-up
 
 /** Token budgets (estimateTokens: ~4 chars per token). */
 export const BRIEF_BUDGET = {

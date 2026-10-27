@@ -3,7 +3,7 @@
  * collect-a-thon, story or speedrun, stated as bands on @measure numbers.
  *
  * The bands restate prompts/brief/types.md in numbers (gap fractions are of
- * the knight's running limit, maxGapRun = 11 tiles at the design tier):
+ * the knight's running limit, maxGapRun = 7 tiles at the design tier since the feel retune):
  *
  *  parkour        sparse, bursty (hard jumps then a rest), gaps often 0.6-0.9,
  *                 narrow landings and pillars, few coins and enemies.

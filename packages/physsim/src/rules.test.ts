@@ -37,6 +37,7 @@ describe("rules vs agent", () => {
 
   it("agree on simple gap/rise levels: rules reachable => the agent finds a route", () => {
     // Takeoff run-ups 0..7, gaps 1..12, landings 4 lower to 6 higher.
+    // (After the feel retune the knight reaches less, so fewer combinations are reachable.)
     let checked = 0;
     for (const r of [0, 2, 4, 7])
       for (let gap = 1; gap <= 12; gap++)
@@ -48,7 +49,7 @@ describe("rules vs agent", () => {
           const a = search(g, { x: 0, y: 7 }, to, { capMs: 5000 });
           expect(a.found, `runway ${r} gap ${gap} rise ${rise}`).toBe(true);
         }
-    expect(checked).toBeGreaterThan(300);
+    expect(checked).toBeGreaterThan(120);
   }, 120_000);
 
   it("is conservative on open ground: the agent's reach is at least the design tier's", () => {
@@ -153,20 +154,20 @@ describe("moves", () => {
   });
 
   it("uses the run-up behind the takeoff", () => {
-    const short = gapLevel(0, 10);
-    const long = gapLevel(7, 10);
+    const short = gapLevel(0, 7);
+    const long = gapLevel(7, 7);
     expect(reachable(short, { x: 0, y: 7 }, { x0: short.w - 1 })).toBe(false);
     expect(reachable(long, { x: 0, y: 7 }, { x0: long.w - 1 })).toBe(true);
     const v = checkRules(long, { x: 0, y: 7 }, { x0: long.w - 1 });
-    const jump = reachability(long, { x: 0, y: 7 }).via.get(v.reached!.y * long.w + 18);
+    const jump = reachability(long, { x: 0, y: 7 }).via.get(v.reached!.y * long.w + 15);
     expect(jump?.kind).toBe("jump");
     expect(jump!.runUp!).toBeGreaterThanOrEqual(6);
     expect(jump!.gap!).toBeLessThanOrEqual(maxGap(0, jump!.runUp!));
-    expect(jump!.gap!).toBeGreaterThanOrEqual(10);
+    expect(jump!.gap!).toBeGreaterThanOrEqual(7);
   });
 
   it("respects the tier", () => {
-    const g = gapLevel(7, 12);
+    const g = gapLevel(7, 8);
     expect(reachable(g, { x: 0, y: 7 }, { x0: g.w - 1 })).toBe(false);
     expect(reachable(g, { x: 0, y: 7 }, { x0: g.w - 1 }, { tier: "ULTRA" })).toBe(true);
   });
@@ -174,26 +175,26 @@ describe("moves", () => {
 
 describe("verdicts and reasons", () => {
   it("explains a gap that is too wide", () => {
-    const g = gapLevel(7, 13);
+    const g = gapLevel(7, 9);
     const v = checkRules(g, { x: 0, y: 7 }, { x0: g.w - 1 });
     expect(v.ok).toBe(false);
     expect(v.blockedAt).toEqual({ x: 7, y: 7 });
-    expect(v.reason).toContain("13 empty tiles away");
+    expect(v.reason).toContain("9 empty tiles away");
     expect(v.reason).toContain("at the same height");
-    expect(v.reason).toContain("clears 11 with a 7-tile run-up");
+    expect(v.reason).toContain("clears 7 with a 7-tile run-up");
   });
 
   it("mentions the full run-up when the takeoff has a short one", () => {
-    const g = gapLevel(0, 9);
+    const g = gapLevel(0, 6);
     const v = checkRules(g, { x: 0, y: 7 }, { x0: g.w - 1 });
-    expect(v.reason).toContain("clears 8 with a 0-tile run-up (11 with a full run-up)");
+    expect(v.reason).toContain("clears 5 with a 0-tile run-up (7 with a full run-up)");
   });
 
   it("explains a wall that is too tall", () => {
     const g = wallLevel(7);
     const v = checkRules(g, { x: 0, y: 7 }, { x0: g.w - 1 });
     expect(v.ok).toBe(false);
-    expect(v.reason).toContain("climbs at most 6");
+    expect(v.reason).toContain("climbs at most 4");
   });
 
   it("explains a ceiling over the takeoff and a missing landing", () => {
@@ -209,9 +210,9 @@ describe("verdicts and reasons", () => {
   });
 
   it("lists the surfaces it cannot reach", () => {
-    const g = gapLevel(7, 13);
-    expect(unreachableSurfaces(g, { x: 0, y: 7 })).toEqual([{ y: 7, x0: 21, x1: 23 }]);
-    expect(checkRules(g, { x: 0, y: 7 }, { x0: g.w - 1 }).unreachable).toEqual([{ y: 7, x0: 21, x1: 23 }]);
+    const g = gapLevel(7, 9);
+    expect(unreachableSurfaces(g, { x: 0, y: 7 })).toEqual([{ y: 7, x0: 17, x1: 19 }]);
+    expect(checkRules(g, { x: 0, y: 7 }, { x0: g.w - 1 }).unreachable).toEqual([{ y: 7, x0: 17, x1: 19 }]);
     expect(unreachableSurfaces(flatLevel(10), { x: 0, y: 7 })).toEqual([]);
   });
 
@@ -224,12 +225,12 @@ describe("verdicts and reasons", () => {
 
   it("prefers the goal cell with the fewest moves", () => {
     const g = flatLevel(12);
-    const v = checkRules(g, { x: 0, y: 7 }, { x0: 8 });
-    expect(v.reached).toEqual({ x: 8, y: 7 });
+    const v = checkRules(g, { x: 0, y: 7 }, { x0: 5 });
+    expect(v.reached).toEqual({ x: 5, y: 7 });
     // One running jump over flat ground (reachpy allows jumps over walkable cells).
     expect(v.path).toEqual([
       { x: 0, y: 7 },
-      { x: 8, y: 7 },
+      { x: 5, y: 7 },
     ]);
   });
 });

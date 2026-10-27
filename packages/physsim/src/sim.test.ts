@@ -150,7 +150,7 @@ function bigLevel(): SolidGrid {
     for (let x = x0; x < x0 + n; x++) for (let y = 0; y < H; y++) m[y][x] = 0;
   };
   pit(30, 4);
-  pit(60, 9); // beatable with run-up
+  pit(60, 7); // beatable with run-up (NORMAL maxGapRun)
   for (let x = 80; x < 84; x++) col(x, 14); // a step up
   pit(120, 14); // impossible
   return gridFromMatrix(m);
@@ -189,7 +189,7 @@ describe("bounded window (verifying one suggestion)", () => {
   });
 
   it("the window really prunes: a run-up from outside it is not available", () => {
-    const g = gapLevel(7, 12);
+    const g = gapLevel(7, 8); // ULTRA reach: needs the run-up
     const open = search(g, { x: 7, y: 7 }, { x0: g.w - 1 }, PROVE);
     expect(open.found).toBe(true); // backs up left for a run-up, then jumps
     const boxed = search(g, { x: 7, y: 7 }, { x0: g.w - 1 }, { ...PROVE, xRange: [7, g.w - 1] });
@@ -206,7 +206,7 @@ describe("bounded window (verifying one suggestion)", () => {
 
 describe("caps and stepping", () => {
   it("maxNodes stops the search as timedOut, not exhausted", () => {
-    const g = gapLevel(7, 13);
+    const g = gapLevel(7, 9); // impossible, even with a run-up
     const r = search(g, { x: 0, y: 7 }, { x0: g.w - 1 }, { maxNodes: 500, capMs: 60_000 });
     expect(r.found).toBe(false);
     expect(r.timedOut).toBe(true);
@@ -216,7 +216,7 @@ describe("caps and stepping", () => {
 
   it("capMs stops the search using the injected clock", () => {
     let t = 0;
-    const g = gapLevel(7, 13);
+    const g = gapLevel(7, 9); // impossible, even with a run-up
     const r = search(g, { x: 0, y: 7 }, { x0: g.w - 1 }, { capMs: 100, now: () => (t += 1) });
     expect(r.found).toBe(false);
     expect(r.timedOut).toBe(true);
@@ -231,7 +231,7 @@ describe("caps and stepping", () => {
     let r: SearchResult | null = null;
     let slices = 0;
     while (!r) {
-      r = s.run(0.05);
+      r = s.run(0.02); // slices smaller than one injected clock tick (0.03), so the search is stepped
       slices++;
     }
     expect(slices).toBeGreaterThan(1);

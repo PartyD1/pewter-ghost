@@ -61,6 +61,7 @@ import type {
 } from "./contracts";
 import type { EditorApi } from "./editor/api";
 import { BRIEF_VERSION, BriefCache, measureRequestWindow, type Brief } from "./fill/brief";
+import { describeComputedContext } from "./fill/context";
 import { FillerRegistry, StubFiller, type ActiveFiller } from "./fill/Filler";
 import { requestHash } from "./fill/hash";
 import {
@@ -538,6 +539,8 @@ export class FillLoop {
       rows: tidy ? cfg.tidyRows : cfg.windowRows,
       focus: tidy ? this.recentCentre() : undefined,
     });
+    const ctx = describeComputedContext(base);
+    if (ctx) base.computedContext = ctx;
     return blocked ? patrolRequest(base, blocked) : base;
   }
 

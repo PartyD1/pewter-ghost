@@ -5,7 +5,7 @@
 @kind fixture
 @title Unbeatable gap
 @expect unbeatable
-@note A 14-tile pit after a full run-up: wider than the knight's best jump (maxGapRun 11, impossible from 13).
+@note A 14-tile pit after a full run-up: wider than the knight's best jump (maxGapRun 7, impossible from 9).
 @note The agent must exhaust its search and report the pit edge as blockedAt.
 
 == run-up

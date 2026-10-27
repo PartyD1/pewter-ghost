@@ -1,9 +1,9 @@
 {
   "id": "fix-wall-removal",
-  "title": "A 7-tall wall drawn 20 s ago across the only route",
-  "why": "From the floor the knight rises 6 at most, and there is no way around the 7-tall wall. Removing its top 2 tiles leaves a 5-tall wall the knight can climb, with slack. The tiles are old, and the label gives the measurement.",
+  "title": "A 5-tall wall drawn 20 s ago across the only route",
+  "why": "From the floor the knight rises 3 at most, and there is no way around the 5-tall wall. Removing its top 3 tiles leaves a 2-tall wall the knight can climb, with slack. The tiles are old, and the label gives the measurement.",
   "request": {
-    "grid": "Window 24x12 = level x 141..164, y 8..19. All coordinates are window-relative: x 0..23 right, y 0..11 down.\n   000000000011111111112222\n   012345678901234567890123\n 0 ........................\n 1 ...B....................\n 2 ...B....................\n 3 ...B....................\n 4 ...B....................\n 5 ...B....................\n 6 ...B....................\n 7 ...B....................\n 8 GGGGGGGGGGGGG...........\n 9 DDDDDDDDD...............\n10 ........................\n11 ........................",
+    "grid": "Window 24x12 = level x 141..164, y 8..19. All coordinates are window-relative: x 0..23 right, y 0..11 down.\n   000000000011111111112222\n   012345678901234567890123\n 0 ........................\n 1 ........................\n 2 ........................\n 3 ...B....................\n 4 ...B....................\n 5 ...B....................\n 6 ...B....................\n 7 ...B....................\n 8 GGGGGGGGGGGGG...........\n 9 DDDDDDDDD...............\n10 ........................\n11 ........................",
     "origin": {
       "x": 141,
       "y": 8
@@ -16,6 +16,20 @@
       {
         "dt": 100,
         "x": 3,
+        "y": 6,
+        "tile": "block",
+        "tool": "paint"
+      },
+      {
+        "dt": 100,
+        "x": 3,
+        "y": 5,
+        "tile": "block",
+        "tool": "paint"
+      },
+      {
+        "dt": 100,
+        "x": 3,
         "y": 4,
         "tile": "block",
         "tool": "paint"
@@ -24,20 +38,6 @@
         "dt": 100,
         "x": 3,
         "y": 3,
-        "tile": "block",
-        "tool": "paint"
-      },
-      {
-        "dt": 100,
-        "x": 3,
-        "y": 2,
-        "tile": "block",
-        "tool": "paint"
-      },
-      {
-        "dt": 100,
-        "x": 3,
-        "y": 1,
         "tile": "block",
         "tool": "paint"
       },
@@ -84,9 +84,9 @@
       }
     ],
     "knight": {
-      "maxGapStand": 8,
-      "maxGapRun": 11,
-      "maxRise": 6
+      "maxGapStand": 5,
+      "maxGapRun": 7,
+      "maxRise": 4
     }
   },
   "answer": {
@@ -96,16 +96,20 @@
     "removes": [
       {
         "x": 3,
-        "y": 1
+        "y": 3
       },
       {
         "x": 3,
-        "y": 2
+        "y": 4
+      },
+      {
+        "x": 3,
+        "y": 5
       }
     ],
     "entities": [],
     "confidence": 0.75,
-    "label": "wall 7 high · knight rises 6",
+    "label": "wall 5 high · knight rises 3",
     "levelGuess": "mixed"
   }
 }

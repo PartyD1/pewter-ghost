@@ -14,9 +14,11 @@ describe("player barrel", () => {
   it("keeps the legacy knight for comparison, and the new knight is slower", () => {
     expect(LEGACY_KNIGHT.PLAYER_SPEED).toBe(400);
     expect(player.MAX_RUN_SPEED_PX).toBeLessThan(LEGACY_KNIGHT.PLAYER_SPEED);
-    // Same jump impulse and gravity: the fork derives -550 px/s from 6.3 tiles.
-    expect(player.JUMP_VELOCITY_PX).toBeCloseTo(LEGACY_KNIGHT.JUMP_VELOCITY, 0);
-    expect(player.GRAVITY_PX).toBe(LEGACY_KNIGHT.GRAVITY);
+    // Feel retune: slower run, stronger gravity, weaker full jump than legacy
+    // (JUMP_HEIGHT 4.6 for a 5-tile standing gap, not the old 6.3).
+    expect(player.JUMP_VELOCITY_PX).toBeCloseTo(-525.36, 0);
+    expect(Math.abs(player.JUMP_VELOCITY_PX)).toBeLessThan(Math.abs(LEGACY_KNIGHT.JUMP_VELOCITY));
+    expect(player.GRAVITY_PX).toBeCloseTo(LEGACY_KNIGHT.GRAVITY * 1.25, 5);
     expect(player.PLAYER_BODY_PX).toEqual({
       width: LEGACY_KNIGHT.BODY.width,
       height: LEGACY_KNIGHT.BODY.height,

@@ -6,7 +6,7 @@
  *
  *   npx tsx eval/src/cli.ts dashboard --logs proxy/.data/logs --recordings proxy/.data/recordings --levels levels/saved
  */
-import type { DashboardMetrics, Rate } from "./metrics";
+import { STRICT_ACCEPTANCE_TARGET, type DashboardMetrics, type Rate } from "./metrics";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const pct = (r: number) => `${(r * 100).toFixed(0)}%`;
@@ -155,7 +155,8 @@ export function renderDashboard(m: DashboardMetrics, o: DashboardOptions = {}): 
   );
 
   parts.push(`<div class="tiles">${[
-    tile("Acceptance", rateText(m.acceptance), "accepted + partial of ended ghosts"),
+    tile("Strict acceptance", rateText(m.strictAcceptance), `fully accepted of all ghosts shown; target ${Math.round(STRICT_ACCEPTANCE_TARGET * 100)}%`),
+    tile("Acceptance (lenient)", rateText(m.acceptance), "accepted + partial of ended ghosts"),
     tile("Drawn over", rateText(m.drawnOver), "falling within a session is good"),
     tile("Verified first try", rateText(m.verifiedFirstTry), "answers passing with no send-back"),
     tile("Send-back pass", rateText(m.sendBackPass)),

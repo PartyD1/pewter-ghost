@@ -281,7 +281,7 @@ describe("agent physics == Phaser 3.90 Arcade", () => {
   });
 
   it("the widest gap found by the agent lands in the engine too", () => {
-    const grid = gapLevel(7, 12);
+    const grid = gapLevel(7, 8); // the widest gap the agent finds with a run-up (ULTRA reach)
     const res = search(grid, { x: 0, y: 7 }, { x0: grid.w - 1 }, { capMs: 5000 });
     expect(res.found).toBe(true);
     const eng = engineReplay(grid, { x: 0, y: 7 }, res.inputs!);

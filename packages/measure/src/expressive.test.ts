@@ -8,6 +8,7 @@ import {
   meanPairwiseDistance,
   pairwiseDistances,
 } from "./expressive";
+import { knightLimits } from "@jump-tables";
 import { snapshotFromAscii } from "./grid";
 import { measureLevel } from "./level";
 
@@ -72,6 +73,9 @@ describe("expressive range", () => {
 
   it("window measures work as input too", () => {
     const f = expressiveFeatures(levels[1].whole);
-    expect(f.gapMean).toBeCloseTo(0.3, 5);
+    // gapMean is the bin centre of a 3-wide gap: bin = 3 / maxGapRun in fifths
+    // (centre 0.3 when maxGapRun was 11, 0.5 now that it is 7).
+    const bin = Math.min(4, Math.floor(3 / knightLimits().maxGapRun / 0.2));
+    expect(f.gapMean).toBeCloseTo(bin * 0.2 + 0.1, 5);
   });
 });

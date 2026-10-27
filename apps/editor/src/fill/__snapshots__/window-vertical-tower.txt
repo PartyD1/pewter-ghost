@@ -117,9 +117,9 @@ Legend: . empty | G grass D dirt B block H half-block Q ?-block (person's) | g d
   "idleMs": 3000
  },
  "knight": {
-  "maxGapStand": 8,
-  "maxGapRun": 11,
-  "maxRise": 6
+  "maxGapStand": 5,
+  "maxGapRun": 7,
+  "maxRise": 4
  },
  "measured": {
   "density": 0,

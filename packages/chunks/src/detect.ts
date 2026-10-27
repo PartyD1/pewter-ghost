@@ -148,8 +148,24 @@ export function detectFinish(grid: DetectGrid, recent: readonly DetectPlacement[
   const push = (p: FinishProposal | null) => {
     if (p && p.adds.length + p.entities.length > 0) out.push(p);
   };
-  push(cellRepeat(v, terrain, opts, isLast(terrain[terrain.length - 1]) && !lastIsCoin));
-  push(unitRepeat(v, terrain, opts, isLast(terrain[terrain.length - 1]) && !lastIsCoin));
+  const freshLast = isLast(terrain[terrain.length - 1]) && !lastIsCoin;
+  const cell = cellRepeat(v, terrain, opts, freshLast);
+  const unit = unitRepeat(v, terrain, opts, freshLast);
+  const sky = skylineStairs(v, terrain, opts, freshLast);
+  // A structure that explains the strokes beats the raw "this stroke is a row/column"
+  // guess: the last stroke of a staircase IS a row (a tread) or a column (a riser), and
+  // extending it in a straight line is exactly the wrong continuation.
+  const rawLine = !!cell && (cell.pattern === "row" || cell.pattern === "column");
+  // Also when the straight run is only the edge of the last unit (a tread, a riser) and
+  // that unit itself repeats, even just twice.
+  const us = units(terrain);
+  const lastUnit = us[us.length - 1];
+  const runInLastUnit =
+    !!cell && !!lastUnit && terrain.slice(-cell.repeats).every((c) => lastUnit.cells.some((d) => d.x === c.x && d.y === c.y));
+  const structured = !!sky || (!!unit && (unit.repeats >= 3 || (unit.repeats >= 2 && runInLastUnit)));
+  if (!(structured && rawLine)) push(cell);
+  push(unit);
+  push(sky);
   push(coinArc(v, coins, opts, isLast(coins[coins.length - 1]) && lastIsCoin));
   const freshTerrain = isLast(terrain[terrain.length - 1]) && !lastIsCoin;
   push(endCap(v, terrain, opts, freshTerrain));
@@ -223,23 +239,29 @@ function cellRepeat(v: View, seq: Cell[], o: DetectOptions, fresh: boolean): Fin
 interface Unit {
   cells: Cell[];
   anchor: Point;
+  /** Tile of the first cell (the unit's nominal tile). */
   tile: string;
   /** Shape: offsets from the anchor, as keys. */
   shape: Set<string>;
+  /** Tile at each offset: a unit can mix tiles (a grass tread over dirt). */
+  tiles: Map<string, string>;
 }
 
 function units(seq: Cell[]): Unit[] {
   const out: Unit[] = [];
   let cur: Unit | null = null;
   for (const c of seq) {
-    const adjacent =
-      cur && cur.tile === c.tile && cur.cells.some((d) => Math.abs(d.x - c.x) + Math.abs(d.y - c.y) === 1);
+    // Connected cells form one unit whatever their tile: a grass tread and the dirt
+    // under it are one step, and repeating it must repeat both.
+    const adjacent = cur && cur.cells.some((d) => Math.abs(d.x - c.x) + Math.abs(d.y - c.y) === 1);
     if (!cur || !adjacent) {
-      cur = { cells: [], anchor: { x: c.x, y: c.y }, tile: c.tile, shape: new Set() };
+      cur = { cells: [], anchor: { x: c.x, y: c.y }, tile: c.tile, shape: new Set(), tiles: new Map() };
       out.push(cur);
     }
     cur.cells.push(c);
-    cur.shape.add(key(c.x - cur.anchor.x, c.y - cur.anchor.y));
+    const off = key(c.x - cur.anchor.x, c.y - cur.anchor.y);
+    cur.shape.add(off);
+    cur.tiles.set(off, c.tile);
   }
   return out;
 }
@@ -264,14 +286,15 @@ function unitKind(shape: Set<string>): FinishPattern {
  * blocked cell fails the unit. When the reference unit stood on something and
  * this one would float, it is extended down (<= 4 rows) to the ground.
  */
-function placeUnit(v: View, shape: Set<string>, anchor: Point, tile: string, grounded: boolean, skip: Set<string>): Cell[] | null {
+function placeUnit(v: View, ref: Unit, anchor: Point, grounded: boolean, skip: Set<string>): Cell[] | null {
+  const shape = ref.shape;
   const cells: Cell[] = [];
   for (const o of shapeCells(shape)) {
     const x = anchor.x + o.x;
     const y = anchor.y + o.y;
     if (skip.has(key(x, y)) || v.solid(x, y)) continue;
     if (!v.free(x, y)) return null;
-    cells.push({ x, y, tile });
+    cells.push({ x, y, tile: ref.tiles.get(key(o.x, o.y)) ?? ref.tile });
   }
   if (grounded) {
     const all = shapeCells(shape).map((o) => ({ x: anchor.x + o.x, y: anchor.y + o.y }));
@@ -282,7 +305,8 @@ function placeUnit(v: View, shape: Set<string>, anchor: Point, tile: string, gro
       // Reaching the window bottom is fine: the ground is below the window.
       while (y < v.g.h && !v.solid(b.x, y) && !skip.has(key(b.x, y))) {
         if (extra >= 4 || !v.free(b.x, y)) return null;
-        cells.push({ x: b.x, y, tile });
+        // Extend the column below with the tile the unit has under its own bottom cell.
+        cells.push({ x: b.x, y, tile: ref.tiles.get(key(b.x - anchor.x, b.y - anchor.y)) ?? ref.tile });
         extra++;
         y++;
       }
@@ -304,11 +328,12 @@ function unitRepeat(v: View, seq: Cell[], o: DetectOptions, fresh: boolean): Fin
 
   const last = us[m - 1];
   const prev = us[m - 2];
-  const same = (a: Unit, b: Unit) => a.tile === b.tile && sameShape(a.shape, b.shape);
+  const sameTiles = (a: Unit, b: Unit) => [...a.tiles].every(([k, t]) => b.tiles.get(k) === t);
+  const same = (a: Unit, b: Unit) => sameShape(a.shape, b.shape) && sameTiles(a, b);
   let partial: Unit | null = null;
   if (same(last, prev)) {
     if (last.cells.length < 2) return null; // single cells: cellRepeat's job
-  } else if (last.tile === prev.tile && prev.cells.length >= 2 && subShape(last.shape, prev.shape)) {
+  } else if (prev.cells.length >= 2 && subShape(last.shape, prev.shape) && sameTiles(last, prev)) {
     partial = last; // the last unit is still being drawn
   } else return null;
   const full = partial ? us.slice(0, m - 1) : us;
@@ -344,7 +369,7 @@ function unitRepeat(v: View, seq: Cell[], o: DetectOptions, fresh: boolean): Fin
   };
   let placed = 0;
   if (partial) {
-    const rest = placeUnit(v, ref.shape, partial.anchor, ref.tile, grounded, taken);
+    const rest = placeUnit(v, ref, partial.anchor, grounded, taken);
     if (!rest) return null;
     take(rest);
     placed++;
@@ -353,7 +378,7 @@ function unitRepeat(v: View, seq: Cell[], o: DetectOptions, fresh: boolean): Fin
   for (let j = 1; j <= moreUnits - (partial ? 1 : 0); j++) {
     const o = nextOffset(j);
     a = { x: a.x + o.x, y: a.y + o.y };
-    const cells = placeUnit(v, ref.shape, a, ref.tile, grounded, taken);
+    const cells = placeUnit(v, ref, a, grounded, taken);
     if (!cells || !cells.length) break;
     take(cells);
     placed++;
@@ -371,6 +396,151 @@ function unitRepeat(v: View, seq: Cell[], o: DetectOptions, fresh: boolean): Fin
     label: partial
       ? `finish the ${noun} you are drawing${placed > 1 ? ` and add ${placed - 1} more` : ""}`
       : `repeat the ${noun}: ${placed} more`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Filled staircases (skyline)
+// ---------------------------------------------------------------------------
+
+/**
+ * A staircase drawn as filled steps (every step a block of columns standing on
+ * the same base row) is ONE connected mass, so unit repeats cannot see it. Read
+ * the skyline instead: the heights of the columns solid on the base row (the
+ * lowest recent placement), next to the last stroke. If they rise by a constant
+ * r every w columns for at least three steps (the last one may be unfinished,
+ * sideways or upwards), finish that step and add the next ones, filled down to
+ * the base so nothing floats and nothing is built underneath.
+ *
+ * Hollow staircases (treads only) have no columns on the base row beyond the
+ * first tread, so they never qualify here; unitRepeat / cellRepeat own them.
+ */
+function skylineStairs(v: View, seq: Cell[], o: DetectOptions, fresh: boolean): FinishProposal | null {
+  if (seq.length < 2) return null;
+  const last = seq[seq.length - 1];
+  const baseY = Math.max(...seq.map((c) => c.y));
+  if (!v.solid(last.x, baseY)) return null;
+  const heightAt = (x: number): number => {
+    if (!v.solid(x, baseY)) return 0;
+    let y = baseY;
+    while (y > 0 && v.solid(x, y - 1)) y--;
+    return baseY - y + 1;
+  };
+  // The staircase is the run of columns solid on the base row around the last placement.
+  let xe = last.x;
+  while (v.solid(xe + 1, baseY)) xe++;
+  let xs = last.x;
+  while (v.solid(xs - 1, baseY)) xs--;
+  const hs: number[] = [];
+  for (let x = xs; x <= xe; x++) hs.push(heightAt(x));
+
+  interface Fit {
+    w: number;
+    r: number;
+    runs: { h: number; len: number }[];
+  }
+  const fit = (heights: number[]): Fit | null => {
+    if (heights.length < 3) return null;
+    const runs: { h: number; len: number }[] = [];
+    for (const h of heights) {
+      const r = runs[runs.length - 1];
+      if (r && r.h === h) r.len++;
+      else runs.push({ h, len: 1 });
+    }
+    if (runs.length < 3) return null;
+    const r = runs[1].h - runs[0].h;
+    if (r <= 0) return null;
+    for (let i = 1; i < runs.length; i++) if (runs[i].h - runs[i - 1].h !== r) return null;
+    const w = runs[0].len;
+    for (let i = 0; i < runs.length - 1; i++) if (runs[i].len !== w) return null;
+    if (runs[runs.length - 1].len > w) return null;
+    return { w, r, runs };
+  };
+
+  // The staircase is the part rising towards the last stroke: it starts where the skyline last
+  // stops falling (a floor-like prefix to its left is not part of it).
+  const trimFit = (heights: number[]): Fit | null => {
+    let start = 0;
+    for (let i = heights.length - 1; i > 0; i--) {
+      if (heights[i - 1] > heights[i]) {
+        start = i;
+        break;
+      }
+    }
+    return fit(heights.slice(start));
+  };
+  // The last column may still be going up (the person draws columns bottom to top):
+  // then judge the columns before it and complete that one first.
+  let model = trimFit(hs);
+  let inProgress = false;
+  if (!model) {
+    model = trimFit(hs.slice(0, -1));
+    if (!model || last.x !== xe) return null;
+    inProgress = true;
+  }
+  const { w, r, runs } = model;
+  // Tiles: copy the last complete column the person drew, a cap on the top cell and a
+  // body below it (grass over dirt), so the new steps look like theirs.
+  const nameAt = new Map(seq.map((c) => [key(c.x, c.y), c.tile] as const));
+  let capTile = last.tile;
+  let bodyTile = last.tile;
+  for (let x = inProgress ? xe - 1 : xe; x >= xs; x--) {
+    const h = heightAt(x);
+    const cap = nameAt.get(key(x, baseY - h + 1));
+    if (!cap) continue;
+    capTile = cap;
+    bodyTile = (h > 1 ? nameAt.get(key(x, baseY - h + 2)) : undefined) ?? cap;
+    break;
+  }
+  const taken = new Set<string>();
+  const adds: Cell[] = [];
+  const fill = (x: number, height: number): boolean => {
+    for (let y = baseY; y > baseY - height; y--) {
+      if (v.solid(x, y) || taken.has(key(x, y))) continue;
+      if (!v.free(x, y)) return false;
+      adds.push({ x, y, tile: y === baseY - height + 1 ? capTile : bodyTile });
+      taken.add(key(x, y));
+    }
+    return true;
+  };
+  // Column heights still to place, left to right.
+  const targets: number[] = [];
+  const top = runs[runs.length - 1];
+  let height = top.h;
+  let leftInStep = w - top.len; // columns this step still lacks
+  if (inProgress) {
+    // The unfinished column is the next one: it belongs to the current step if that step
+    // is not full yet, otherwise it starts the next step.
+    if (leftInStep > 0) {
+      targets.push(height);
+      leftInStep--;
+    } else {
+      height += r;
+      targets.push(height);
+      leftInStep = w - 1;
+    }
+  }
+  for (let i = 0; i < leftInStep; i++) targets.push(height);
+  const moreSteps = Math.max(1, o.moreCells ?? 3);
+  for (let k = 1; k <= moreSteps; k++) for (let c = 0; c < w; c++) targets.push(height + k * r);
+
+  let x = inProgress ? xe : xe + 1;
+  let placedCols = 0;
+  for (const t of targets) {
+    if (!fill(x, t)) break;
+    x++;
+    placedCols++;
+  }
+  if (!adds.length) return null;
+  const stepsAdded = new Set(targets.slice(0, placedCols)).size;
+  return {
+    pattern: "staircase",
+    adds,
+    entities: [],
+    repeats: runs.length + (inProgress ? 1 : 0),
+    open: false,
+    touchesLast: fresh,
+    label: `finish the staircase: ${stepsAdded} more step${stepsAdded === 1 ? "" : "s"} (${w} wide, rising ${r}), filled to the base`,
   };
 }
 
