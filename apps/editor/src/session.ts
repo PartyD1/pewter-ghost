@@ -60,6 +60,7 @@ import type {
   VerifiedSuggestion,
 } from "./contracts";
 import type { EditorApi } from "./editor/api";
+import { cleanIntent } from "./fill/intent";
 import { BRIEF_VERSION, BriefCache, measureRequestWindow, type Brief } from "./fill/brief";
 import { FillerRegistry, StubFiller, type ActiveFiller } from "./fill/Filler";
 import { requestHash } from "./fill/hash";
@@ -322,6 +323,7 @@ export class FillLoop {
   private placed: { n: number; x: number; y: number }[] = [];
   private placedCount = 0;
   private lastGuess: string | undefined;
+  private intentText = "";
   private patrolOn = false;
   private paused = false;
   private suspended = false;
@@ -436,6 +438,20 @@ export class FillLoop {
     this.syncPatrol();
   }
 
+  /** The builder's stated goal for the level ("" = none). */
+  get intent(): string {
+    return this.intentText;
+  }
+
+  /** Set the goal; answers already in flight were made without it, so they are dropped. */
+  setIntent(raw: string): void {
+    const next = cleanIntent(raw);
+    if (next === this.intentText) return;
+    this.intentText = next;
+    this.briefCache.clear();
+    this.cancel();
+  }
+
   /** Play mode: no fills and no patrol while the knight runs. */
   setPaused(on: boolean): void {
     this.paused = on;
@@ -519,6 +535,7 @@ export class FillLoop {
         frontierX: this.stream.frontier(model)?.x,
         focusX: blocked?.blockedAt.x,
         lastGhosts,
+        intent: this.intentText,
         lastGuess: this.lastGuess,
         historyCount: cfg.historyCount,
       });
