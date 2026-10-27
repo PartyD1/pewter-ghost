@@ -118,9 +118,9 @@ Enemies: ultraslime (5,7) patrols x 0..9.
   "idleMs": 4000
  },
  "knight": {
-  "maxGapStand": 8,
-  "maxGapRun": 11,
-  "maxRise": 6
+  "maxGapStand": 5,
+  "maxGapRun": 7,
+  "maxRise": 4
  },
  "measured": {
   "density": 0,
@@ -145,7 +145,7 @@ Enemies: ultraslime (5,7) patrols x 0..9.
  ],
  "mode": "patrol",
  "previousFailure": {
-  "reason": "gap at x=186 is 10 wide; knight clears 8 standing",
+  "reason": "gap at x=186 is 10 wide; knight clears 4 standing",
   "stage": "agent"
  },
  "blockedAt": {

@@ -59,6 +59,10 @@ describe("metrics and dashboard (G-29)", () => {
     });
     expect(m.ghosts).toBe(3);
     expect(m.acceptance).toEqual({ n: 3, hits: 2, rate: 2 / 3 });
+    // Strict: only the fully accepted ghost counts; the partial one and the drawn-over one do not.
+    expect(m.strictAcceptance).toEqual({ n: 3, hits: 1, rate: 1 / 3 });
+    expect(m.strictByKind.finish).toEqual({ n: 3, hits: 1, rate: 1 / 3 });
+    expect(m.strictByKind.extend.n).toBe(0);
     expect(m.byKind.finish).toMatchObject({ n: 3, hits: 2, outcomes: { accepted: 1, "drawn-over": 1, partial: 1 } });
     expect(m.byBand.map((b) => b.r.n)).toEqual([1, 1, 1]);
     expect(m.byBand[2].r.rate).toBe(1);

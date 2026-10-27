@@ -7,5 +7,5 @@
 - **Rewards cost something.** Put fruit at the end of a climb, a dead end, or beside an enemy (guarded-reward). Do not scatter them.
 - **Enemies need room and fairness.** A slime or ultraslime needs a floor at least 4 tiles wide to patrol (the ~ span). Place it more than 2 tiles (3 or more) from where the knight lands, never on the landing tile itself and never on a 1-3 wide platform. At most two enemies per screen unless the level is clearly about combat. Ultraslimes are faster, so give them 6 or more tiles.
 - **Rests**: a rest (4 or more flat, enemy-free tiles) every two to three screens, and always after the hardest jump of a stretch.
-- **Headroom**: a full jump rises about 6 rows. Under a lower ceiling the jump is shorter, so keep gaps under a ceiling to 2 at most, and leave a ceiling at least 3 rows above any floor the knight runs on.
+- **Headroom**: a full jump rises about 4 rows. Under a lower ceiling the jump is shorter, so keep gaps under a ceiling to 2 at most, and leave a ceiling at least 3 rows above any floor the knight runs on.
 - **Flag**: the goal (F) stands on solid ground. Only suggest one when the person is clearly ending the level.

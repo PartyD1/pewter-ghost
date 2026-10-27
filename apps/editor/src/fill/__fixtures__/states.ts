@@ -142,7 +142,7 @@ export function patrolRightEdge(): FixtureState {
     now: now(),
     mode: "patrol",
     blockedAt: { x: 185, y: 15 },
-    previousFailure: { reason: "gap at x=186 is 10 wide; knight clears 8 standing", stage: "agent" },
+    previousFailure: { reason: "gap at x=186 is 10 wide; knight clears 4 standing", stage: "agent" },
     lastGhosts: [{ kind: "fix", label: "bridge the pit", outcome: "drawn-over" }],
   };
 }

@@ -43,6 +43,7 @@ import { ChromeScene } from "./ui/ChromeScene";
 import { BTN, BTN_PRIMARY, isDialogOpen, openDialog } from "./ui/Dialog";
 import { h } from "./ui/dom";
 import { toggleHelp } from "./ui/HelpOverlay";
+import { openIntentDialog } from "./ui/IntentDialog";
 import { Palette } from "./ui/Palette";
 import { openPlaySettings } from "./ui/PlaySettingsPanel";
 import {
@@ -306,6 +307,8 @@ function confirmNewLevel(): void {
             loadStarter();
             safeRemove(storage, AUTOSAVE_KEY);
             editorScene.events2.emit("level:loaded", { source: "new", warnings: [] });
+            app.loop.setIntent("");
+            if (app.loop.enabled) askIntent();
           },
         }),
       ),
@@ -374,7 +377,19 @@ function command(c: ToolbarCommand): void {
   }
 }
 
+/** The level goal (fill/intent.ts): asked at the start of a level, editable from Help. */
+function askIntent(): void {
+  openIntentDialog({
+    current: app.loop.intent,
+    apply: (text) => {
+      app.loop.setIntent(text);
+      toasts.show(text ? "Goal set. The ghost will aim for it." : "Goal cleared.");
+    },
+  });
+}
+
 const helpLinks = {
+  intent: () => askIntent(),
   share: () => command("share"),
   settings: () => command("settings"),
   reloadSave: () => confirmReload(),
@@ -453,6 +468,13 @@ void whenEditorReady().then((api) => {
     console.error("palette swatches unavailable", err);
   }
   if (restored) toasts.show("Restored your level from the last session.");
+});
+
+// ?intent=<text> sets the goal and skips the question (?intent= alone skips it); otherwise a fresh
+// level with the AI on asks for one before the first block.
+void app.ready.then(() => {
+  if (params.has("intent")) app.loop.setIntent(params.get("intent") ?? "");
+  else if (!restored && app.loop.enabled && !isDialogOpen()) askIntent();
 });
 
 if (import.meta.hot) {

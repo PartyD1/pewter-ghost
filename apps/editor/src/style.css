@@ -295,3 +295,10 @@
   color: #5e5e8a;
   font-size: 11px;
 }
+
+/* Level goal dialog: preset chips wrap over the full width, left-aligned. */
+.pg-dialog-actions.pg-intent-presets {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  margin: 0 0 10px;
+}

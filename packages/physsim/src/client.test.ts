@@ -9,7 +9,7 @@ import { flatLevel, gapLevel, staircaseLevel, wallLevel } from "./fixtures";
 import { AgentRunner, runRequest, validateRequest, type AgentReply, type AgentRequest } from "./protocol";
 import { attachAgentWorker, type WorkerScopeLike } from "./worker";
 
-const IMPOSSIBLE = gapLevel(7, 13);
+const IMPOSSIBLE = gapLevel(7, 9);
 const BEATABLE = staircaseLevel();
 const endOf = (g: { w: number }) => ({ x0: g.w - 1 });
 
@@ -120,7 +120,7 @@ describe("protocol", () => {
     expect(r.blockedAt).toEqual({ x: 7, y: 7 });
     expect(r.reason).toContain("cannot get from (0,7) to column 15");
     expect(r.reason).toContain("Rule check: blocked at (7,7)");
-    expect(r.reason).toContain("climbs at most 6");
+    expect(r.reason).toContain("climbs at most 4");
   }, 60_000);
 
   it("over cap is a fail with timedOut", () => {
@@ -141,13 +141,13 @@ describe("protocol", () => {
     if (!r.ok) return;
     expect(r.found).toBe(false);
     expect(r.nodes).toBe(0);
-    expect(r.reason).toContain("13 empty tiles");
+    expect(r.reason).toContain("9 empty tiles");
   });
 
   it("rules: false skips the rule check; rules options pass through", () => {
     const off = runRequest(req({ rules: false }));
     expect(off.ok && off.rules).toBeUndefined();
-    const g = gapLevel(7, 12);
+    const g = gapLevel(7, 8);
     const ultra = runRequest(req({ grid: g.solid, w: g.w, h: g.h, to: endOf(g), rules: { tier: "ULTRA" } }));
     expect(ultra.ok && ultra.rules?.ok).toBe(true);
   });

@@ -39,6 +39,7 @@ import type {
 import { config as liveConfig } from "../suggest/config";
 import { BRIEF_FRAGMENTS } from "../../../../prompts/bundle";
 import { sha256HexSync } from "./hash";
+import { intentLine } from "./intent";
 import { estimateTokens, type MeasureFn } from "./window";
 import { ExampleLibrary, selectExamples, type ExampleOptions, type ExampleSelection } from "./examples";
 import type { Chunk } from "@measure";
@@ -47,7 +48,10 @@ import type { Chunk } from "@measure";
 export const BRIEF_DYNAMIC_FORMAT = 1;
 
 /** Gap widths whose coin offsets the placement fragment lists (level targets). */
-export const ARC_TABLE_GAPS = [2, 3, 4, 5, 6, 7, 8];
+export const ARC_TABLE_GAPS: number[] = Array.from(
+  { length: Math.max(0, knightLimits().maxGapRun - 1) },
+  (_, i) => i + 2,
+); // 2..maxGapRun: never list a jump the knight cannot make with a run-up
 
 /** Token budgets (estimateTokens: ~4 chars per token). */
 export const BRIEF_BUDGET = {
@@ -238,6 +242,8 @@ export interface BriefContext {
   /** Precomputed measures (skips measuring); `rect` should come with them. */
   measures?: WindowMeasures;
   rect?: Rect;
+  /** The builder's stated goal for the level (fill/intent.ts). Omitted or empty: none given. */
+  intent?: string;
   /** The model's levelGuess from its last answer. */
   lastGuess?: string;
   /** Past ghosts, oldest first (trimmed to `historyCount`). */
@@ -304,6 +310,9 @@ export function buildBrief(ctx: BriefContext = {}): Brief {
   const { m, rect } = measureFor(ctx);
 
   const sections: string[] = [];
+  const intent = intentLine(ctx.intent);
+  if (intent) sections.push(intent);
+  const measuresAt = sections.length;
   if (m && rect) sections.push(describeMeasures(m, rect, knight));
   else sections.push("Drawing so far: not measured for this request.");
   const guess = ctx.lastGuess ? cleanGuess(ctx.lastGuess) : "";
@@ -320,7 +329,7 @@ export function buildBrief(ctx: BriefContext = {}): Brief {
   let h = history;
   while (estimateTokens(text) > maxTokens && h.length > 0) {
     h = h.slice(1);
-    sections[2] = describeHistory(h);
+    sections[measuresAt + 2] = describeHistory(h);
     text = sections.join("\n");
   }
   if (estimateTokens(text) > maxTokens)
@@ -403,6 +412,7 @@ export class BriefCache {
       screenOf(ctx.focusX),
       ctx.screens ?? 2,
       ctx.rect ?? null,
+      ctx.intent ?? "",
       ctx.lastGuess ?? "",
       ctx.lastGhosts ?? [],
       ctx.historyCount ?? liveConfig.historyCount,

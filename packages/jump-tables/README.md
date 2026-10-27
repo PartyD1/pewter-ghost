@@ -6,7 +6,7 @@ Physics Fork's frame-accurate jump solver (`apps/editor/src/player/jumpSolver.ts
 ```ts
 import { knightLimits, canReach, maxGap, arcCells, arcCoins } from "@jump-tables";
 
-knightLimits();          // { maxGapStand: 8, maxGapRun: 11, maxRise: 6 }  (NORMAL tier)
+knightLimits();          // { maxGapStand: 4, maxGapRun: 7, maxRise: 3 }  (NORMAL tier)
 canReach(9, 0);          // 9 empty tiles, same height, full run-up -> true
 canReach(9, 0, false);   // ... from a standstill -> false
 maxGap(-3, true);        // widest gap onto a ledge 3 rows HIGHER (y is down)

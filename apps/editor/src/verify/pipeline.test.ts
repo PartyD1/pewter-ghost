@@ -10,8 +10,8 @@ afterAll(() => agent.dispose());
 const config = { agentCapMs: 300, sendBackIfUnderMs: 500 };
 
 const level = () => modelFrom(groundRows([[0, 19]]));
-/** Lands 13 tiles away: fails (measure: the knight clears 11). */
-const bad = (latencyMs = 100) => sugg({ id: "bad", adds: rect(33, 40, GROUND, H - 1), latencyMs });
+/** Lands 9 tiles away: fails (measure: the knight clears 7). */
+const bad = (latencyMs = 100) => sugg({ id: "bad", adds: rect(29, 36, GROUND, H - 1), latencyMs }); // a 9-wide gap; the knight clears 7
 /** Lands 4 tiles away: passes. */
 const good = (latencyMs = 100) => sugg({ id: "good", adds: rect(24, 31, GROUND, H - 1), latencyMs });
 
@@ -47,7 +47,7 @@ describe("verifyWithSendBack", () => {
     expect(f.fill).toHaveBeenCalledTimes(1);
     const sent = f.requests[0];
     expect(sent.previousFailure?.stage).toBe("measure");
-    expect(sent.previousFailure?.reason).toMatch(/gap at x=20 is 13 wide; the knight clears 11/);
+    expect(sent.previousFailure?.reason).toMatch(/gap at x=20 is 9 wide; the knight clears 7/);
     expect(out.sendBack).toBe(true);
     expect(out.attempts).toBe(2);
     expect(out.verified).toMatchObject({ id: "good", attempts: 2, verified: true });

@@ -13,8 +13,12 @@ import {
   type JumpSituation,
 } from "./jumpSolver";
 import {
+  AIR_ACCEL_PX,
   createMovementState,
   GRAVITY_PX,
+  GROUND_ACCEL_PX,
+  JUMP_VELOCITY_PX,
+  MAX_RUN_SPEED_PX,
   PLAYER_BODY_PX,
   stepMovement,
   TERMINAL_VELOCITY_PX,
@@ -38,14 +42,16 @@ describe("spectrum ordering", () => {
     let prev = solveJump({ runwayTiles: RUNWAYS[0], deltaYTiles: 0 });
     for (const runwayTiles of RUNWAYS.slice(1)) {
       const cur = solveJump({ runwayTiles, deltaYTiles: 0 });
-      // Allow a hair of slack (0.05 tiles ≈ 0.8px): the sweep is discrete,
+      // Allow a hair of slack (0.1 tiles ≈ 1.6px): the sweep is discrete,
       // not analytic, and the fixed-step accumulator means a given takeoff
       // phase lands on slightly different physics-step boundaries at
-      // different runway lengths.
+      // different runway lengths. (0.05 before the feel retune; the
+      // stronger gravity makes each physics step move the body further, so
+      // the quantisation is a little coarser.)
       expect(cur.guaranteedTiles).toBeGreaterThanOrEqual(
-        prev.guaranteedTiles - 0.05,
+        prev.guaranteedTiles - 0.1,
       );
-      expect(cur.ultraTiles).toBeGreaterThanOrEqual(prev.ultraTiles - 0.05);
+      expect(cur.ultraTiles).toBeGreaterThanOrEqual(prev.ultraTiles - 0.1);
       prev = cur;
     }
   });
@@ -61,7 +67,8 @@ describe("spectrum ordering", () => {
   it("runway saturates — beyond top speed more run-up adds nothing", () => {
     const a = solveJump({ runwayTiles: 7, deltaYTiles: 0 });
     const b = solveJump({ runwayTiles: 20, deltaYTiles: 0 });
-    expect(Math.abs(a.ultraTiles - b.ultraTiles)).toBeLessThan(0.1);
+    // 0.15 tiles ≈ 2.4px of phase quantisation (0.1 before the feel retune).
+    expect(Math.abs(a.ultraTiles - b.ultraTiles)).toBeLessThan(0.15);
   });
 });
 
@@ -293,11 +300,12 @@ describe("regression floor vs the old closed form", () => {
    * regression this guards.
    */
   function legacyMaxGap(runwayTiles: number, deltaYDownTiles: number): number {
-    const GROUND_ACCEL_PX = 320;
-    const MAX_RUN = 256;
-    const AIR_ACCEL_PX = 320;
-    const g = 1500;
-    const v0y = -Math.sqrt(2 * g * 6.3 * TILE);
+    // Uses the LIVE constants (they were inlined as 320 / 256 / 320 / 1500 /
+    // 6.3 tiles before the feel retune), so the comparison stays "closed form
+    // vs solver, same physics".
+    const MAX_RUN = MAX_RUN_SPEED_PX;
+    const g = GRAVITY_PX;
+    const v0y = JUMP_VELOCITY_PX;
     const deltaYPx = deltaYDownTiles * TILE;
     const v0x = Math.min(
       Math.sqrt(2 * GROUND_ACCEL_PX * runwayTiles * TILE),

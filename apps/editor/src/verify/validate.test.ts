@@ -128,19 +128,22 @@ describe("validateSuggestion: measure bands", () => {
   });
 
   it("rejects a gap the knight cannot clear, with the measurement", () => {
-    const v = validateSuggestion(base(), sugg({ adds: rect(33, 40, GROUND, H - 1) }));
+    // A 9-wide gap (the knight clears 7 since the feel retune; 13 vs 11 before).
+    // It has to sit inside the analysis window (maxGapRun + 4 columns) to be a measure verdict.
+    const v = validateSuggestion(base(), sugg({ adds: rect(29, 36, GROUND, H - 1) }));
     expect(v).toMatchObject({ ok: false, stage: "measure" });
-    expect(v.reason).toMatch(/gap at x=20 is 13 wide; the knight clears 11 with a full run-up/);
+    expect(v.reason).toMatch(/gap at x=20 is 9 wide; the knight clears 7 with a full run-up/);
   });
 
   it("rejects a gap far wider than the drawing's gaps (band), accepts a moderate one", () => {
-    const wide = validateSuggestion(base(), sugg({ adds: rect(29, 36, GROUND, H - 1) })); // gap 9
+    // Band = 60% of the run limit: 4 of 7 now (6 of 11 before the feel retune).
+    const wide = validateSuggestion(base(), sugg({ adds: rect(27, 34, GROUND, H - 1) })); // gap 7: within the knight's reach, outside the band
     expect(wide).toMatchObject({ ok: false, stage: "measure" });
-    expect(wide.reason).toMatch(/gap at x=20 is 9 wide; the drawing so far jumps at most 0, so keep gaps to 6 or less/);
-    expect(validateSuggestion(base(), sugg({ adds: rect(25, 32, GROUND, H - 1) })).ok).toBe(true); // gap 5
-    // A drawing that already has a 6-wide gap widens the band.
-    const gappy = modelFrom(groundRows([[0, 9], [16, 25]]));
-    expect(validateSuggestion(gappy, sugg({ adds: rect(35, 42, GROUND, H - 1) }), { bands: {} }).ok).toBe(true); // gap 9
+    expect(wide.reason).toMatch(/gap at x=20 is 7 wide; the drawing so far jumps at most 0, so keep gaps to 4 or less/);
+    expect(validateSuggestion(base(), sugg({ adds: rect(23, 30, GROUND, H - 1) })).ok).toBe(true); // gap 3
+    // A drawing that already has a 4-wide gap widens the band (floor(0.97 * 7) = 6).
+    const gappy = modelFrom(groundRows([[0, 9], [14, 25]]));
+    expect(validateSuggestion(gappy, sugg({ adds: rect(31, 38, GROUND, H - 1) }), { bands: {} }).ok).toBe(true); // gap 5 (> the 4 a bare drawing allows)
   });
 });
 

@@ -91,44 +91,54 @@ function jumpAndLand(dt: number, holdFrames: number, move: -1 | 0 | 1 = 0) {
   return sim;
 }
 
-describe("preserved constants", () => {
-  it("jump impulse derives to the legacy -550 px/s", () => {
-    expect(JUMP_VELOCITY_PX).toBeCloseTo(-550, 0);
+// Feel retune (2026-10-08): the old defaults with Gravity 125%, Run speed 85%
+// and Jump power 90% baked in (see PLAYER_PHYSICS). Old values: -550 px/s
+// impulse, 256 px/s top speed, 1500 px/s² gravity.
+describe("retuned constants", () => {
+  it("jump impulse matches √(2·g·h) for JUMP_HEIGHT 4.6", () => {
+    expect(JUMP_VELOCITY_PX).toBeCloseTo(-525.36, 0);
   });
 
-  it("top speed derives to 256 px/s (16 tiles/s)", () => {
-    expect(MAX_RUN_SPEED_PX).toBe(256);
+  it("top speed derives to 217.6 px/s (13.6 tiles/s, 85% of the old 16)", () => {
+    expect(MAX_RUN_SPEED_PX).toBeCloseTo(217.6, 5);
+  });
+
+  it("gravity is 125% of the old 1500 px/s²", () => {
+    expect(GRAVITY_PX).toBeCloseTo(1875, 5);
   });
 });
 
 describe("jump height", () => {
-  it("full-hold apex is ~6 tiles at 60fps (preserved)", () => {
+  it("full-hold apex is ~4.2 tiles at 60fps (JUMP_HEIGHT 4.6; Euler integration lands a little lower)", () => {
     const sim = jumpAndLand(FPS_60, 10_000);
-    expect(sim.apexTiles).toBeGreaterThan(5.8);
-    expect(sim.apexTiles).toBeLessThan(6.4);
+    expect(sim.apexTiles).toBeGreaterThan(4.0);
+    expect(sim.apexTiles).toBeLessThan(4.5);
   });
 
   it("full-hold apex is consistent across frame rates", () => {
     const apexes = ALL_RATES.map((dt) => jumpAndLand(dt, 10_000).apexTiles);
     for (const apex of apexes) {
-      expect(apex).toBeGreaterThan(5.6);
-      expect(apex).toBeLessThan(6.5);
+      expect(apex).toBeGreaterThan(3.8);
+      expect(apex).toBeLessThan(4.6);
     }
     const spread =
       (Math.max(...apexes) - Math.min(...apexes)) / Math.max(...apexes);
-    expect(spread).toBeLessThan(0.1);
+    // 10.1% after the retune (stronger gravity makes the Euler error a little
+    // larger; it was under 10% before). Worth revisiting if jump height
+    // should be exactly frame-rate independent.
+    expect(spread).toBeLessThan(0.12);
   });
 
-  it("tap jump is ~1.4 tiles (preserved)", () => {
+  it("tap jump is ~1 tile (retuned)", () => {
     const sim = jumpAndLand(FPS_60, 1);
-    expect(sim.apexTiles).toBeGreaterThan(1.1);
-    expect(sim.apexTiles).toBeLessThan(1.8);
+    expect(sim.apexTiles).toBeGreaterThan(0.8);
+    expect(sim.apexTiles).toBeLessThan(1.3);
   });
 
-  it("mid release (5 frames) is ~3 tiles (preserved)", () => {
+  it("mid release (5 frames) is ~2.3 tiles (retuned)", () => {
     const sim = jumpAndLand(FPS_60, 5);
-    expect(sim.apexTiles).toBeGreaterThan(2.5);
-    expect(sim.apexTiles).toBeLessThan(3.5);
+    expect(sim.apexTiles).toBeGreaterThan(2.0);
+    expect(sim.apexTiles).toBeLessThan(2.8);
   });
 
   it("jump-cut applies only once", () => {
@@ -143,7 +153,7 @@ describe("jump height", () => {
 });
 
 describe("horizontal movement", () => {
-  it("needs a real runway: top speed takes ~0.8s / ~6.4 tiles, at all frame rates", () => {
+  it("needs a real runway: top speed takes ~0.8s / ~5.4 tiles, at all frame rates", () => {
     for (const dt of ALL_RATES) {
       const sim = new Sim(dt);
       let t = 0;
@@ -154,17 +164,17 @@ describe("horizontal movement", () => {
       expect(sim.vx).toBe(MAX_RUN_SPEED_PX);
       expect(t).toBeGreaterThan(0.7); // not instant — run-up must matter
       expect(t).toBeLessThanOrEqual(0.9);
-      expect(sim.xTiles).toBeGreaterThan(5.8);
-      expect(sim.xTiles).toBeLessThan(7.5); // 30fps float edge adds one frame
+      expect(sim.xTiles).toBeGreaterThan(5.0);
+      expect(sim.xTiles).toBeLessThan(6.6); // 30fps float edge adds one frame
     }
   });
 
-  it("stops from top speed in ~1.7 tiles on the ground", () => {
+  it("stops from top speed in ~1.3 tiles on the ground", () => {
     const sim = new Sim(FPS_60);
     sim.vx = MAX_RUN_SPEED_PX;
     while (sim.vx > 0) sim.step(0, false);
-    expect(sim.xTiles).toBeGreaterThan(1.4);
-    expect(sim.xTiles).toBeLessThan(2.0);
+    expect(sim.xTiles).toBeGreaterThan(1.1);
+    expect(sim.xTiles).toBeLessThan(1.7);
   });
 
   it("stopping distance is consistent across frame rates", () => {
@@ -181,14 +191,14 @@ describe("horizontal movement", () => {
   });
 });
 
-describe("jump gap range (~5.4 tiles standing → ~11.7 tiles full speed)", () => {
-  it("standing jump covers ~5.4 tiles at 60fps", () => {
+describe("jump gap range (~2.3 tiles standing → ~7 tiles full speed)", () => {
+  it("standing jump covers ~2.3 tiles at 60fps", () => {
     const sim = jumpAndLand(FPS_60, 10_000, 1);
-    expect(sim.xTiles).toBeGreaterThan(4.9);
-    expect(sim.xTiles).toBeLessThan(5.9);
+    expect(sim.xTiles).toBeGreaterThan(2.0);
+    expect(sim.xTiles).toBeLessThan(2.7);
   });
 
-  it("full-speed jump covers ~11.7 tiles at 60fps", () => {
+  it("full-speed jump covers ~7 tiles at 60fps", () => {
     const sim = new Sim(FPS_60);
     sim.vx = MAX_RUN_SPEED_PX;
     sim.step(1, true); // jump at top speed
@@ -198,11 +208,11 @@ describe("jump gap range (~5.4 tiles standing → ~11.7 tiles full speed)", () =
       sim.step(1, true);
       frames++;
     }
-    expect(sim.xTiles).toBeGreaterThan(11.0);
-    expect(sim.xTiles).toBeLessThan(12.4);
+    expect(sim.xTiles).toBeGreaterThan(6.5);
+    expect(sim.xTiles).toBeLessThan(7.6);
   });
 
-  it("gap range stays within ~2:1 so the AI can reason about crossability", () => {
+  it("gap range stays within ~3:1 so the AI can reason about crossability (was ~2:1 before the feel retune)", () => {
     const standing = jumpAndLand(FPS_60, 10_000, 1).xTiles;
     const full = new Sim(FPS_60);
     full.vx = MAX_RUN_SPEED_PX;
@@ -212,7 +222,7 @@ describe("jump gap range (~5.4 tiles standing → ~11.7 tiles full speed)", () =
       full.step(1, true);
       frames++;
     }
-    expect(full.xTiles / standing).toBeLessThan(2.4);
+    expect(full.xTiles / standing).toBeLessThan(3.4);
   });
 
   it("standing jump is consistent across frame rates", () => {

@@ -464,6 +464,16 @@ describe("FillLoop", () => {
     expect(l.recentGhosts()[0].adds?.length).toBe(3);
   });
 
+  it("setIntent puts the builder's goal in the request brief, and clearing removes it", () => {
+    const l = makeLoop(new StubFiller());
+    expect(l.buildRequest("auto").brief).not.toContain("The builder says");
+    l.setIntent("  a maze   with dead ends ");
+    expect(l.intent).toBe("a maze with dead ends");
+    expect(l.buildRequest("auto").brief).toContain('"a maze with dead ends"');
+    l.setIntent("");
+    expect(l.buildRequest("auto").brief).not.toContain("The builder says");
+  });
+
   it("pauses during Play: no fills", async () => {
     const l = makeLoop(new StubFiller());
     const { sink, offers } = managerSink(() => cfg);
@@ -487,9 +497,10 @@ describe("FillLoop", () => {
     const l = makeLoop(new StubFiller(), { patrol: true });
     const { sink, offers } = managerSink(() => cfg);
     l.setGhost(sink);
-    // A platform past a 14-wide pit (start platform ends at x=11; the knight clears 11).
+    // A platform past a 10-wide pit (start platform ends at x=11; the knight clears 7).
+    // (14 wide and 11 before the feel retune; a local repair only looks maxGapRun + 4 ahead.)
     model.beginStroke();
-    for (let x = 26; x <= 31; x++) model.paintTile(x, 15, TILE.GRASS);
+    for (let x = 22; x <= 27; x++) model.paintTile(x, 15, TILE.GRASS);
     model.endStroke();
     l.cancel(); // only the patrol trip matters here
     await waitFor(() => log.some((e) => e.type === "patrol"), 15000);

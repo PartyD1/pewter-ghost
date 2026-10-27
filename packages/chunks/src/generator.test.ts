@@ -26,11 +26,25 @@ const arbProfile: fc.Arbitrary<StyleProfile> = fc
   }));
 
 describe("caps", () => {
-  it("jump-table caps agree with the audit's caps.json at NORMAL", () => {
+  // The old test here asserted equality with the audit's caps.json at NORMAL.
+  // That held only for the pre-retune physics the audit measured (gaps 8/10/11,
+  // rise 6); after the 2026-10-08 feel retune the live tables are the truth and
+  // the audit export is history (AUDIT_CAPS stays for the parity suite).
+  it("jump-table caps follow the live tables: a non-decreasing ladder, the knight's rise", () => {
     const c = capsFor("NORMAL");
-    for (const r of [0, 1, 2, 3, 4, 5, 6, 7]) expect(ladderGap(c, r)).toBe(ladderGap(AUDIT_CAPS.NORMAL, r));
-    expect(c.maxStepUp).toBe(AUDIT_CAPS.NORMAL.maxStepUp);
+    let prev = 0;
+    for (const r of [0, 1, 2, 3, 4, 5, 6, 7]) {
+      const g = ladderGap(c, r);
+      expect(g).toBeGreaterThanOrEqual(prev);
+      prev = g;
+    }
+    expect(c.maxStepUp).toBe(knightLimits().maxRise);
     expect(ladderGap(c, 0)).toBe(maxGap(0, false));
+    expect(ladderGap(c, 7)).toBe(knightLimits().maxGapRun);
+  });
+  it("AUDIT_CAPS still holds the audit's old numbers (kept for the history suite)", () => {
+    expect(ladderGap(AUDIT_CAPS.NORMAL, 0)).toBe(8);
+    expect(AUDIT_CAPS.NORMAL.maxStepUp).toBe(6);
   });
 });
 
@@ -147,7 +161,9 @@ describe("profileFromMeasured", () => {
     expect(typicalGap([0, 0, 1, 0, 0], 11)).toBe(6);
     expect(typicalGap([0, 0, 0, 0, 0], 11)).toBeNull();
     const p = profileFromMeasured({ ...base, gapHist: [0, 0, 1, 0, 0], verticality: 0.5, rewardSpacing: 5, pressure: 0.5 }, knight);
-    expect(p.gap).toEqual([5, 7]);
+    // Typical gap ~4 (half of the run limit 7), clamped by the standing limit 5: [3, 5].
+    // (Was [5, 7] when the run limit was 11 and the standing limit 8.)
+    expect(p.gap).toEqual([3, 5]);
     expect(p.rise[1]).toBeGreaterThan(1);
     expect(p.kinds.filter((k) => k === "step").length).toBe(2);
     expect(p.kinds).toContain("coin_row");

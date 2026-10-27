@@ -59,10 +59,12 @@ describe("measureWindow numbers", () => {
   it("gap histogram uses maxGapRun", () => {
     const { maxGapRun } = knightLimits();
     const m = full(GAP_RUN.rows);
-    // three gaps of 3: 3 / 11 = 0.27 -> bin 1
-    expect(3 / maxGapRun).toBeGreaterThanOrEqual(0.2);
-    expect(3 / maxGapRun).toBeLessThan(0.4);
-    expect(m.gapHist).toEqual([0, 1, 0, 0, 0]);
+    // three gaps of 3: 3 / maxGapRun picks the bin (3 / 11 = 0.27 -> bin 1 before
+    // the feel retune; 3 / 7 = 0.43 -> bin 2 now). Derived, so it follows the knight.
+    const bin = Math.min(4, Math.floor(3 / maxGapRun / 0.2));
+    const expected = [0, 0, 0, 0, 0];
+    expected[bin] = 1;
+    expect(m.gapHist).toEqual(expected);
     expect(m.counts.gaps).toBe(3);
     expect(m.counts.lethal).toBe(3);
   });
@@ -88,7 +90,11 @@ describe("measureWindow numbers", () => {
 
   it("rise histogram and verticality for a staircase", () => {
     const m = full(STAIRCASE.rows);
-    expect(m.riseHist).toEqual([1, 0, 0, 0, 0]); // 1/6 per step
+    // 1 / maxRise per step picks the bin (1/6 -> bin 0 before the retune; 1/3 -> bin 1 now).
+    const rb = Math.min(4, Math.floor(1 / knightLimits().maxRise / 0.2));
+    const riseExpected = [0, 0, 0, 0, 0];
+    riseExpected[rb] = 1;
+    expect(m.riseHist).toEqual(riseExpected);
     expect(m.verticality).toBe(0.5); // dy 1 per column moved
     expect(m.gapHist).toEqual([0, 0, 0, 0, 0]);
   });

@@ -51,7 +51,9 @@ const PLAYER_KEY_CODES = [
 ];
 const INVULNERABLE_MS = 1000;
 const RESPAWN_DELAY_MS = 700;
-const STOMP_BOUNCE_PX = -360;
+// Was -360 when the Jump power slider (then defaulting to 1) scaled it; the
+// feel retune baked in 90% (-360 * 0.9), so the bounce keeps the same feel.
+const STOMP_BOUNCE_PX = -324;
 const FALL_MARGIN_PX = 3 * TILE_PX;
 
 type Knight = Phaser.Types.Physics.Arcade.SpriteWithDynamicBody & { isFalling?: boolean };
