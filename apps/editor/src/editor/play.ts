@@ -4,7 +4,7 @@
  *
  * - Reaching the flag ends Play with reachedGoal = true.
  * - Deaths (health gone or a fall) are counted; the knight respawns at the
- *   start and enemies/collectables reset.
+ *   last checkpoint touched (else the start) and enemies/collectables reset.
  * - Play settings (G-37) scale gravity, run speed, jump and enemy aggression;
  *   they apply live and are saved with the level.
  * - Emits play.start / play.end through the injected logger.
@@ -23,6 +23,7 @@ import { Slime } from "../entities/Slime";
 import { UltraSlime } from "../entities/UltraSlime";
 import type { EditorLogger, PlayResult } from "./api";
 import type { CameraController } from "./camera";
+import { CheckpointTracker } from "./checkpoints";
 import { ASSET, DEPTH, ENTITY_FRAME, FRAME, TILE_PX } from "./constants";
 import {
   enemyTuning,
@@ -53,6 +54,8 @@ const INVULNERABLE_MS = 1000;
 const RESPAWN_DELAY_MS = 700;
 const STOMP_BOUNCE_PX = -360;
 const FALL_MARGIN_PX = 3 * TILE_PX;
+/** Alpha of a checkpoint the knight has not activated (the active one is opaque). */
+const CHECKPOINT_IDLE_ALPHA = 0.45;
 
 type Knight = Phaser.Types.Physics.Arcade.SpriteWithDynamicBody & { isFalling?: boolean };
 
@@ -101,6 +104,7 @@ export class PlayController implements EnemyHost {
   private signText: string | undefined;
   private signs: Phaser.GameObjects.Image[] = [];
   private goalReached = false;
+  private checkpoints = new CheckpointTracker({ x: 0, y: 0 }, []);
   private startedAt = 0;
   private _tuning: EnemyTuning = enemyTuning(1);
   private unsubscribeSettings: (() => void) | null = null;
@@ -155,8 +159,12 @@ export class PlayController implements EnemyHost {
     this.elapsedMs = 0;
     this.startedAt = this.clock();
     this.entities = model.entities.map((e) => ({ ...e, patrol: e.patrol ? [e.patrol[0], e.patrol[1]] : undefined }));
+    this.checkpoints = new CheckpointTracker(model.start, this.entities);
 
     renderer.setEditView(false);
+    // Side walls at the level's edges (the knight collides with world bounds).
+    scene.physics.world.setBounds(0, 0, renderer.widthPx, renderer.heightPx);
+    scene.physics.world.setBoundsCollision(true, true, false, false);
     this.applySettings();
     this.unsubscribeSettings = this.deps.settings.subscribe(() => this.applySettings());
 
@@ -303,12 +311,14 @@ export class PlayController implements EnemyHost {
         this.enemyGroup!.add(enemy);
         enemy.body.setAllowGravity(true);
         this.enemies.push(enemy);
-      } else if (COLLECTABLE_KINDS.has(e.kind) || e.kind === "flag") {
+      } else if (COLLECTABLE_KINDS.has(e.kind) || e.kind === "flag" || e.kind === "checkpoint") {
         const img = this.pickups!.create(e.x * TILE_PX + TILE_PX / 2, e.y * TILE_PX + TILE_PX / 2, ASSET.tiles, ENTITY_FRAME[e.kind]) as Phaser.Physics.Arcade.Image;
         img.setDepth(DEPTH.entities);
         img.setData("kind", e.kind);
+        img.setData("id", e.id);
         const body = img.body as Phaser.Physics.Arcade.StaticBody;
-        if (e.kind === "flag") body.setSize(8, 16, true);
+        if (e.kind === "checkpoint") img.setAlpha(this.checkpoints.isActive(e.id) ? 1 : CHECKPOINT_IDLE_ALPHA);
+        if (e.kind === "flag" || e.kind === "checkpoint") body.setSize(8, 16, true);
         else body.setSize(10, 10, true);
         if (e.kind === "coin") this.coinsTotal++;
       } else if (e.kind === "sign") {
@@ -358,9 +368,21 @@ export class PlayController implements EnemyHost {
       this.goalReached = true;
       return;
     }
+    if (kind === "checkpoint") {
+      // Stays in the world; activating it only moves the respawn point.
+      if (this.checkpoints.activate(o.getData("id") as string)) this.showActiveCheckpoint();
+      return;
+    }
     if (kind === "coin") this.coins++;
     if (kind === "fruit") this.health = Math.min(MAX_HEALTH, this.health + 1);
     o.destroy();
+  }
+
+  private showActiveCheckpoint(): void {
+    for (const o of (this.pickups?.getChildren() ?? []) as Phaser.Physics.Arcade.Image[]) {
+      if (o.getData("kind") !== "checkpoint") continue;
+      o.setAlpha(this.checkpoints.isActive(o.getData("id") as string) ? 1 : CHECKPOINT_IDLE_ALPHA);
+    }
   }
 
   private damage(n: number): void {
@@ -383,7 +405,7 @@ export class PlayController implements EnemyHost {
     if (!knight) return;
     this.dyingMs = -1;
     this.invulnerableMs = 0;
-    const st = this.deps.model.start;
+    const st = this.checkpoints.respawn;
     knight.body.enable = true;
     knight.body.setAllowGravity(true);
     knight.body.reset(st.x * TILE_PX + TILE_PX / 2, st.y * TILE_PX + TILE_PX / 2);

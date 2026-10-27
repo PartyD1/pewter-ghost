@@ -6,9 +6,9 @@ import { scriptedSession } from "./__fixtures__/scriptedSession";
 describe("LogEvent schemas", () => {
   it("cover every event type in the contract", () => {
     expect(new Set(LOG_EVENT_TYPES)).toEqual(
-      new Set(["session", "place", "erase", "fill.call", "ghost.show", "ghost.end", "patrol", "play.start", "play.end", "undo", "redo", "save"]),
+      new Set(["session", "place", "erase", "fill.call", "ghost.show", "ghost.end", "patrol", "play.start", "play.end", "undo", "redo", "save", "variant", "timing"]),
     );
-    expect(Object.keys(eventSchemas)).toHaveLength(12);
+    expect(Object.keys(eventSchemas)).toHaveLength(14);
   });
 
   it("accept every event in the scripted session (strict)", () => {

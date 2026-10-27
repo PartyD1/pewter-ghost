@@ -197,7 +197,7 @@ describe("responseSchema", () => {
     const props = responseSchema.properties as Record<string, { enum?: string[]; items?: { properties: Record<string, { enum?: string[] }> } }>;
     expect(props.kind.enum).toEqual(["finish", "extend", "fix"]);
     expect(props.adds.items!.properties.tile.enum).toEqual(["grass", "dirt", "block", "grass_half", "question"]);
-    expect(props.entities.items!.properties.kind.enum).toEqual(["coin", "fruit", "slime", "ultraslime", "flag", "sign"]);
+    expect(props.entities.items!.properties.kind.enum).toEqual(["coin", "fruit", "slime", "ultraslime", "flag", "sign", "checkpoint"]);
   });
 });
 

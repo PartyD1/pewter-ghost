@@ -15,13 +15,13 @@ const finite = () => z.number().finite();
 const nonNeg = () => z.number().finite().min(0);
 const int = () => z.number().int();
 
-const fillerName = z.enum(["llm", "algo", "stub", "jev"]);
+const fillerName = z.enum(["llm", "algo", "markov", "stub", "jev"]);
 const fillMode = z.enum(["auto", "requested", "patrol", "tidy"]);
 const suggestionKind = z.enum(["finish", "extend", "fix"]);
 const verdictStage = z.enum(["shape", "measure", "repeat", "rules", "agent"]);
 const shownBecause = z.enum(["now", "pause", "longPause", "requested", "patrol"]);
 const ghostOutcome = z.enum(["accepted", "partial", "esc", "drawn-over", "replaced", "timeout", "pending"]);
-const entityKind = z.enum(["coin", "fruit", "slime", "ultraslime", "flag", "sign"]);
+const entityKind = z.enum(["coin", "fruit", "slime", "ultraslime", "flag", "sign", "checkpoint"]);
 const author = z.union([z.literal(0), z.literal(1), z.literal(2)]);
 const point = z.object({ x: finite(), y: finite() });
 const tileValue = z.union([
@@ -114,6 +114,28 @@ function build(mode: Mode) {
   const redo = obj({ type: z.literal("redo"), t: nonNeg(), what });
   const save = obj({ type: z.literal("save"), t: nonNeg(), snapshotId: z.string().min(1) });
 
+  const variant = obj({
+    type: z.literal("variant"),
+    t: nonNeg(),
+    filler: z.union([fillerName, z.literal("none")]),
+    timing: z.enum(["llm", "cdhf", "jev"]),
+  });
+
+  const timing = obj({
+    type: z.literal("timing"),
+    t: nonNeg(),
+    policy: z.enum(["llm", "cdhf", "jev"]),
+    stage: z.enum(["gate", "show", "jev"]),
+    decision: z.enum(["skip", "show", "suggest", "wait", "error"]),
+    p: z.number().min(0).max(1).optional(),
+    entropy: nonNeg().optional(),
+    suggestionId: z.string().min(1).optional(),
+    mode: fillMode.optional(),
+    features: z.record(z.string(), finite()).optional(),
+    latencyMs: nonNeg().optional(),
+    why: z.string().optional(),
+  });
+
   const variants = {
     session,
     place,
@@ -127,6 +149,8 @@ function build(mode: Mode) {
     undo,
     redo,
     save,
+    variant,
+    timing,
   } as const;
 
   const union = z.discriminatedUnion("type", [
@@ -142,6 +166,8 @@ function build(mode: Mode) {
     undo,
     redo,
     save,
+    variant,
+    timing,
   ]);
   return { variants, union };
 }

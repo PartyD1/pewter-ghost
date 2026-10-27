@@ -65,7 +65,9 @@ export type EntityKind =
   | "slime"
   | "ultraslime"
   | "flag"
-  | "sign";
+  | "sign"
+  /** Respawn point in Play (editor/checkpoints.ts). */
+  | "checkpoint";
 
 export const COLLECTABLE_KINDS: ReadonlySet<EntityKind> = new Set(["coin", "fruit"]);
 export const ENEMY_KINDS: ReadonlySet<EntityKind> = new Set(["slime", "ultraslime"]);
@@ -244,7 +246,7 @@ export interface Suggestion {
 /** A suggestion that has passed validation and playability. The manager accepts only these. */
 export type VerifiedSuggestion = Suggestion & { verified: true; __verified: true };
 
-export type FillerName = "llm" | "algo" | "stub" | "jev";
+export type FillerName = "llm" | "algo" | "markov" | "stub" | "jev";
 
 export interface Filler {
   readonly name: FillerName;
@@ -340,7 +342,100 @@ export type LogEvent =
   | { type: "play.start"; t: number }
   | { type: "play.end"; t: number; reachedGoal: boolean; deaths: number }
   | { type: "undo" | "redo"; t: number; what: "own" | "ghost" | "mixed" }
-  | { type: "save"; t: number; snapshotId: string };
+  | { type: "save"; t: number; snapshotId: string }
+  | VariantEvent
+  | TimingEvent;
+
+/**
+ * The filler or timing policy was switched mid-session (dev variant switch,
+ * ui/VariantSwitch.ts). Events after it run under the new pair; the session
+ * event holds the pair the session started with.
+ */
+export interface VariantEvent {
+  type: "variant";
+  t: number;
+  filler: FillerName | "none";
+  timing: TimingPolicyName;
+}
+
+// ---------------------------------------------------------------------------
+// Timing policies (suggest/timing): when a verified ghost may appear
+// ---------------------------------------------------------------------------
+
+/**
+ * Which policy decides when ghosts appear (config.timing):
+ *  - "llm": the filler's own call (act + stated confidence, ConfidenceTimer);
+ *  - "cdhf": an acceptance predictor gates calls and shows (Mozannar et al. 2023);
+ *  - "jev": a cheap model polled every few seconds says suggest / wait.
+ */
+export type TimingPolicyName = "llm" | "cdhf" | "jev";
+
+/**
+ * One timing decision. Logged for every shown ghost under every policy
+ * (stage "show", with the features, so any condition trains the predictor),
+ * for every CDHF call skipped before the model ("gate"), and for every Jev
+ * verdict ("jev").
+ */
+export interface TimingEvent {
+  type: "timing";
+  t: number;
+  policy: TimingPolicyName;
+  stage: "gate" | "show" | "jev";
+  decision: "skip" | "show" | "suggest" | "wait" | "error";
+  /** Predicted acceptance (CDHF) or the Jev's stated probability. */
+  p?: number;
+  /** Shannon entropy (bits) of the CDHF context-only prediction. */
+  entropy?: number;
+  suggestionId?: string;
+  mode?: FillMode;
+  /** Feature vector the prediction used (suggest/timing/features.ts names). */
+  features?: Record<string, number>;
+  /** Jev round trip. */
+  latencyMs?: number;
+  why?: string;
+}
+
+/** What the Jev sees each poll (window-relative like a FillRequest). */
+export interface JevRequest {
+  grid: string;
+  origin: Point;
+  size: { w: number; h: number };
+  recent: RecentPlacement[];
+  activity: {
+    idleMs: number;
+    placements2s: number;
+    placements10s: number;
+    eraseShare: number;
+    dismissRun: number;
+    acceptRate5: number;
+  };
+  /** The verified ghost waiting for its moment, if any (anchor window-relative). */
+  held: { kind: SuggestionKind; label: string; confidence: number; cells: number; anchor: Point } | null;
+  /** A ghost is on screen now. */
+  showing: boolean;
+  lastGhosts: GhostHistoryItem[];
+}
+
+export interface JevVerdict {
+  suggest: boolean;
+  /** 0..1, how sure a ghost now would be welcome. */
+  p: number;
+  why: string;
+}
+
+/** POST /when (Authorization: Bearer <session token>) */
+export interface ProxyWhenBody {
+  sessionId: string;
+  request: JevRequest;
+}
+
+export interface ProxyWhenResponse {
+  verdict: JevVerdict | null;
+  latencyMs: number;
+  model: string;
+  promptVersion: string;
+  error?: string;
+}
 
 // ---------------------------------------------------------------------------
 // Prompt rendering (owned by fill/prompt.ts; used by the proxy and eval)
@@ -396,7 +491,7 @@ export interface ProxyLogBody {
 /** GET /session?token=...  -> per-token condition and config overrides */
 export interface ProxySessionResponse {
   sessionId: string;
-  condition: "llm" | "algo" | "none" | "stub";
+  condition: "llm" | "algo" | "markov" | "none" | "stub";
   overrides: Record<string, unknown>;
 }
 

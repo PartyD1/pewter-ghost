@@ -8,6 +8,7 @@ import {
   gridFromRows,
   gridToRows,
   isStandable,
+  makeSolid,
   settleStart,
   surfaces,
   toUint8Grid,
@@ -56,6 +57,15 @@ describe("grid helpers", () => {
     expect(isStandable(g, 6, 0)).toBe(true); // on the floating slab
     expect(isStandable(g, 0, 4)).toBe(false); // bottom row has nothing below
     expect(isStandable(g, -1, 2)).toBe(false);
+  });
+
+  it("treats columns beside the level as solid walls, rows above and below as empty", () => {
+    const g = gridFromRows(ROWS);
+    const s = makeSolid(g);
+    expect(s(-1, 0)).toBe(true);
+    expect(s(g.w, 3)).toBe(true);
+    expect(s(0, -1)).toBe(false);
+    expect(s(0, g.h)).toBe(false);
   });
 
   it("settles a start onto the surface below, or above when inside a block", () => {

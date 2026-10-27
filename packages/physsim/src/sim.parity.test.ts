@@ -5,11 +5,14 @@
  * (validate_engine.cjs, 6e-14 px). This test keeps that guarantee in CI
  * without a browser: it replays inputs through a harness built from Phaser's
  * real modules — World.computeVelocity, GetTilesWithin with the layer's
- * collision filter, CalculateFacesWithin, TileIntersectsBody and
- * SeparateTile — driving a stand-in Body that keeps Body.update's cached
- * deltas. Every frame must match the agent's `frame()` exactly.
+ * collision filter, CalculateFacesWithin, TileIntersectsBody, SeparateTile
+ * and Body.checkWorldBounds (Play's side walls: world bounds = the level,
+ * collision left/right only) — driving a stand-in Body that keeps
+ * Body.update's cached deltas. Every frame must match the agent's `frame()`
+ * exactly.
  */
 import { describe, expect, it } from "vitest";
+import ArcadeBody from "phaser/src/physics/arcade/Body.js";
 import World from "phaser/src/physics/arcade/World.js";
 import SeparateTile from "phaser/src/physics/arcade/tilemap/SeparateTile.js";
 import TileIntersectsBody from "phaser/src/physics/arcade/tilemap/TileIntersectsBody.js";
@@ -65,6 +68,10 @@ class EngineBody {
   customSeparateY = false;
   overlapX = 0;
   overlapY = 0;
+  /** checkWorldBounds: the level rectangle, with play.ts's setBoundsCollision(true, true, false, false). */
+  customBoundsRectangle = { x: 0, y: 0, right: 0, bottom: 0 };
+  world = { checkCollision: { up: false, down: false, left: true, right: true } };
+  worldBounce = null;
   _dx = 0;
   _dy = 0;
   get x() {
@@ -152,6 +159,7 @@ const WORLD = { gravity: { x: 0, y: GRAVITY_PX } };
 function engineReplay(grid: SolidGrid, start: { x: number; y: number }, inputs: readonly Input[]): number[][] {
   const layer = engineLayer(grid);
   const body = new EngineBody();
+  body.customBoundsRectangle = { x: 0, y: 0, right: grid.w * T, bottom: grid.h * T };
   body.position = { x: start.x * T + (T - BW) / 2, y: (start.y + 1) * T - BH };
   let down = !!grid.solid[(start.y + 1) * grid.w + start.x];
   const ms = createMovementState();
@@ -172,6 +180,8 @@ function engineReplay(grid: SolidGrid, start: { x: number; y: number }, inputs: 
     body.position.y += body.velocity.y * DT;
     body._dx = body.position.x - body.prev.x;
     body._dy = body.position.y - body.prev.y;
+    // End of Body.update: collideWorldBounds (configurePlayerSprite)
+    ArcadeBody.prototype.checkWorldBounds.call(body);
     // Collider -> collideSpriteVsTilemapLayer (orthogonal world->tile at scale 1)
     const wx = body.x - T;
     const wy = body.y - T;
@@ -277,6 +287,36 @@ describe("agent physics == Phaser 3.90 Arcade", () => {
       const inputs = randomInputs(seed, 400);
       const { d } = maxDiff(replay(grid, { x: 0, y: 7 }, inputs), engineReplay(grid, { x: 0, y: 7 }, inputs));
       expect(d).toBeLessThan(1e-9);
+    }
+  });
+
+  it("matches against the level's side walls, and never leaves the level sideways", () => {
+    // Open floor touching both edges, a ledge at each edge and a pit next to
+    // the left one: the knight runs, jumps and falls into both walls.
+    const grid = gridFromRows([
+      "............",
+      "............",
+      "##........##",
+      "............",
+      "............",
+      "............",
+      "............",
+      "..#.........",
+      "#.##########",
+      "#.##########",
+    ]);
+    for (let seed = 200; seed < 230; seed++) {
+      const inputs = randomInputs(seed, 500).map((i, n) => (n % 160 < 80 ? { ...i, move: -1 as const } : i));
+      for (const start of [{ x: 0, y: 1 }, { x: 11, y: 1 }, { x: 5, y: 7 }]) {
+        const sim = replay(grid, start, inputs);
+        const eng = engineReplay(grid, start, inputs);
+        const { d, frame } = maxDiff(sim, eng);
+        expect(d, `seed ${seed} start ${start.x}: divergence at frame ${frame}`).toBeLessThan(1e-9);
+        for (const row of sim) {
+          expect(row[0]).toBeGreaterThanOrEqual(0);
+          expect(row[0] + BW).toBeLessThanOrEqual(grid.w * T);
+        }
+      }
     }
   });
 

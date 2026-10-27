@@ -94,6 +94,62 @@ export function upstreamFromEnv(env: ProviderEnv, fetchImpl?: typeof fetch): Ups
   });
 }
 
+export interface JevEnv extends ProviderEnv {
+  /** gemini | openrouter | bayleaf | local; unset = the fill provider. */
+  JEV_PROVIDER?: string;
+  JEV_MODEL?: string;
+  /** local only: an OpenAI-compatible server (default Ollama's). */
+  JEV_BASE_URL?: string;
+  /** local only, optional (Ollama and llama.cpp ignore it). */
+  JEV_API_KEY?: string;
+}
+
+export const JEV_PROVIDERS = [...PROVIDERS, "local"] as const;
+/**
+ * The Jev-like stand-in until TypeSafe's Jev is reachable: Liquid's LFM2.5
+ * 2.6B, a compact open-weights model with structured output, free on
+ * OpenRouter (20 requests/min, 50/day; 1000/day after $10 of credits).
+ * The same weights run locally (JEV_PROVIDER=local).
+ */
+export const JEV_OPENROUTER_DEFAULT_MODEL = "liquid/lfm-2.5-2.6b:free";
+export const JEV_LOCAL_BASE_URL = "http://localhost:11434/v1";
+
+/**
+ * The upstream behind /when (the Jev timing model). Unset JEV_PROVIDER and
+ * JEV_MODEL = null (use the /fill upstream). JEV_PROVIDER picks the provider
+ * independently of the fill one, each with its own key var; "local" is any
+ * OpenAI-compatible server at JEV_BASE_URL (Ollama, llama.cpp, LM Studio).
+ * Throws UpstreamError("config") like upstreamFromEnv.
+ */
+export function jevUpstreamFromEnv(env: JevEnv, fetchImpl?: typeof fetch): Upstream | null {
+  const named = env.JEV_PROVIDER?.trim().toLowerCase();
+  let model = env.JEV_MODEL?.trim();
+  if (!named && !model) return null;
+  if (named && !(JEV_PROVIDERS as readonly string[]).includes(named))
+    throw new UpstreamError("config", `unknown JEV_PROVIDER "${named}" (use ${JEV_PROVIDERS.join(", ")})`);
+  const timeout = Number(env.PROXY_UPSTREAM_TIMEOUT_MS);
+  if (named === "local") {
+    if (!model) throw new UpstreamError("config", "JEV_PROVIDER=local needs JEV_MODEL (the model name your local server uses)");
+    return new OpenRouterUpstream({
+      provider: "local",
+      apiKey: env.JEV_API_KEY || "local",
+      baseUrl: (env.JEV_BASE_URL?.trim() || JEV_LOCAL_BASE_URL).replace(/\/+$/, ""),
+      model,
+      fetch: fetchImpl,
+      timeoutMs: Number.isFinite(timeout) && timeout > 0 ? timeout : undefined,
+      logprobs: env.PROXY_LOGPROBS !== "0",
+      reasoning: reasoningFromEnv(env),
+    });
+  }
+  const provider = (named as Provider | undefined) ?? providerFromEnv(env);
+  if (!model && provider === "openrouter") model = JEV_OPENROUTER_DEFAULT_MODEL;
+  if (!model) throw new UpstreamError("config", `JEV_PROVIDER=${provider} needs JEV_MODEL`);
+  return upstreamFromEnv(
+    { ...env, LLM_PROVIDER: provider, VITE_LLM_MODEL_NAME: model, GEMINI_MODEL: model, OPENROUTER_MODEL: model, BAYLEAF_MODEL: model },
+    fetchImpl,
+  );
+}
+
 /** OpenRouter's `reasoning` object from PROXY_REASONING_EFFORT / PROXY_THINKING_BUDGET; null = not sent. */
 export function reasoningFromEnv(env: ProviderEnv): Record<string, unknown> | null {
   const effort = env.PROXY_REASONING_EFFORT?.trim();

@@ -235,7 +235,7 @@ function sugg(id, over) {
     let st = await strip();
     assert(/^staircase · \d+ tiles · Tab to keep$/.test(st.main), `first-ghost teaching line ("${st.main}")`);
     assert(st.guess === "Ghost thinks: parkour", `level guess shown ("${st.guess}")`);
-    assert(!/stub|llm|algo|jev/i.test(await page.locator("#ghost-status").innerText()), "strip never names the filler");
+    assert(!/stub|llm|algo|markov|jev/i.test(await page.locator("#ghost-status").innerText()), "strip never names the filler");
     assert((await tileAt(12, 15)) === 0, "showing does not change the level");
     fs.mkdirSync(path.dirname(shot), { recursive: true });
     await page.screenshot({ path: shot });

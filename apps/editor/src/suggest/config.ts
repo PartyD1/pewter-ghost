@@ -1,3 +1,6 @@
+import type { TimingPolicyName } from "../contracts";
+import type { CdhfWeights } from "./timing/model";
+
 /**
  * Every tunable number lives here (build plan §12). Code reads `config`;
  * a study build or a launcher token may override fields via `applyOverrides`.
@@ -50,7 +53,7 @@ export interface GhostConfig {
   /** Model id used by the proxy (informational on the client). */
   model: string;
   /** Which filler is active. "none" = human-only editing. */
-  filler: "llm" | "algo" | "stub" | "none";
+  filler: "llm" | "algo" | "markov" | "stub" | "none";
   /** Suggestion kinds enabled. */
   kinds: { finish: boolean; extend: boolean; fix: boolean };
   /** Confidence source (G-27). */
@@ -116,6 +119,31 @@ export interface GhostConfig {
   /** Window of the tidy call, centred on the recent placements. */
   tidyCols: number;
   tidyRows: number;
+
+  // --- Timing policy (suggest/timing) ------------------------------------------
+  /**
+   * Who decides when a verified ghost appears: "llm" (the filler's act and
+   * confidence through ConfidenceTimer, the default), "cdhf" (acceptance
+   * predictor, Mozannar et al. 2023) or "jev" (a cheap model polled every
+   * jevIntervalMs). The same filler and verifier run under all three.
+   */
+  timing: TimingPolicyName;
+  /** CDHF stage 2: show a held ghost once P(accept | context, ghost) reaches this (t2). */
+  cdhfShowAbove: number;
+  /** CDHF stage 1: skip an auto/tidy call when P(accept | context) is below this (t1)... */
+  cdhfGateBelow: number;
+  /** ...and the prediction's entropy (bits) is below this (t_r), i.e. stage 1 is sure. */
+  cdhfGateEntropy: number;
+  /** Trained weights (eval `timing --train`); null = the built-in prior (suggest/timing/model.ts). */
+  cdhfWeights: CdhfWeights | null;
+  /** Jev poll period while editing (3000 keeps a free OpenRouter model under its 20 requests/min). */
+  jevIntervalMs: number;
+  /** A Jev verdict older than this no longer counts. */
+  jevMaxAgeMs: number;
+  /** Give up on one Jev call after this many ms. */
+  jevTimeoutMs: number;
+  /** Stop polling after this much idle time with no ghost held or shown. */
+  jevIdleStopMs: number;
 }
 
 export const DEFAULT_CONFIG: GhostConfig = {
@@ -158,6 +186,15 @@ export const DEFAULT_CONFIG: GhostConfig = {
   tidyIdleMs: 1200,
   tidyCols: 32,
   tidyRows: 14,
+  timing: "llm",
+  cdhfShowAbove: 0.3,
+  cdhfGateBelow: 0.12,
+  cdhfGateEntropy: 0.55,
+  cdhfWeights: null,
+  jevIntervalMs: 3000,
+  jevMaxAgeMs: 5000,
+  jevTimeoutMs: 2500,
+  jevIdleStopMs: 20000,
 };
 
 export const config: GhostConfig = structuredClone(DEFAULT_CONFIG);

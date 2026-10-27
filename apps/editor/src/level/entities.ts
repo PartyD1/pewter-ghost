@@ -20,6 +20,8 @@ export const ENTITY_KINDS: readonly EntityKind[] = [
   "ultraslime",
   "flag",
   "sign",
+  // Appended last: share codes store a kind as its index in this list.
+  "checkpoint",
 ];
 
 export const isEntityKind = (k: unknown): k is EntityKind =>

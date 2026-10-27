@@ -9,3 +9,4 @@
 - **Rests**: a rest (4 or more flat, enemy-free tiles) every two to three screens, and always after the hardest jump of a stretch.
 - **Headroom**: a full jump rises about 6 rows. Under a lower ceiling the jump is shorter, so keep gaps under a ceiling to 2 at most, and leave a ceiling at least 3 rows above any floor the knight runs on.
 - **Flag**: the goal (F) stands on solid ground. Only suggest one when the person is clearly ending the level.
+- **Checkpoint** (C): stands on solid ground, on a rest right after a hard stretch, so a death does not replay it. At most one every two screens, never on a landing tile or beside an enemy.

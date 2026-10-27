@@ -60,6 +60,8 @@ import {
 import { openShareDialog } from "./ui/ShareDialog";
 import { Toasts } from "./ui/Toast";
 import { Toolbar, type ToolbarCommand } from "./ui/Toolbar";
+import { variantsEnabled, VariantSwitch } from "./ui/VariantSwitch";
+import { TIMING_POLICIES } from "./suggest/timing/policy";
 
 export { registerGhostStarter, whenEditorReady, getEditorApi } from "./editor/api";
 export type { EditorApi, GhostStarter } from "./editor/api";
@@ -393,6 +395,25 @@ chrome.onSuggest((lvl) => {
   chrome.setSuggestLevel(lvl);
   app.loop.refresh();
 });
+
+// Dev variant switch: filler and timing policy, live (never shown to participants).
+const variants: VariantSwitch = new VariantSwitch(chrome.variantGroup, {
+  onFiller: (filler) => (app.setVariant({ filler }), refreshVariants()),
+  onTiming: (timing) => (app.setVariant({ timing }), refreshVariants()),
+});
+const refreshVariants = (): void =>
+  variants.update({
+    filler: app.loop.activeFiller,
+    timing: app.timing.policy,
+    fillers: app.fillerChoices,
+    timings: TIMING_POLICIES,
+    unavailable: app.timing.jevReady ? {} : { jev: "needs the proxy: npm run dev" },
+  });
+if (variantsEnabled(location.search, { devBuild: import.meta.env.DEV, automated: navigator.webdriver === true })) {
+  variants.show(true);
+  refreshVariants();
+  void app.ready.then(refreshVariants);
+}
 let playing = false;
 const refreshToolbar = () =>
   toolbar.update({ mode: modes.mode, effective: modes.effective, canUndo: model.canUndo, canRedo: model.canRedo, playing });

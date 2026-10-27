@@ -26,7 +26,7 @@ npm run eval -- help   # offline eval suite (eval/README.md)
 
 `levels/` is not in the root vite/tsconfig yet: use `npx tsx levels/build.ts [--check]`, `npx vitest run --config levels/vitest.config.ts` and `npx tsc --noEmit -p levels` (see `levels/README.md`).
 
-URL switches for manual testing: `/?filler=stub&dev=1` (deterministic, no network), `/?filler=none` (human-only), `/?token=dev&callTimeoutMs=4000` (model via local proxy). Dev reloads start a fresh level; `?restore=1` brings back the autosave.
+URL switches for manual testing: `/?filler=stub&dev=1` (deterministic, no network; `dev=1` or `variants=1` also shows the live filler / timing switch, which a dev build shows anyway unless `?token=` is set), `/?filler=none` (human-only), `/?token=dev&callTimeoutMs=4000` (model via local proxy), `&timing=cdhf|jev` (timing policy; default `llm`, see `suggest/timing/policy.ts`). Dev reloads start a fresh level; `?restore=1` brings back the autosave.
 
 ## Architecture
 

@@ -50,7 +50,11 @@ export interface PlayerControllerHooks {
 export function configurePlayerSprite(player: ControllablePlayer): void {
   player.setScale(1);
   player.setSize(PLAYER_BODY_PX.width, PLAYER_BODY_PX.height).setOffset(3, 1);
-  player.setCollideWorldBounds(false);
+  // The level's left and right edges are walls: the scene sets the world
+  // bounds to the level and turns off their top and bottom (play.ts), so the
+  // knight can still jump above the level and fall out of the bottom.
+  // physsim's frame() clamps the same way.
+  player.setCollideWorldBounds(true);
   player.setDrag(0, 0);
   // Engine-level safety net; normal movement is capped by stepMovement.
   player.setMaxVelocity(MAX_RUN_SPEED_PX, TERMINAL_VELOCITY_PX);
