@@ -51,7 +51,7 @@ export function buildComputedContext(req: FillRequest, opts: ContextOptions = {}
     }
   }
 
-  return { anomaly, reachability, lines };
+  return { anomaly: anomaly ?? undefined, reachability, lines };
 }
 
 /** One block for renderUserMessage. */

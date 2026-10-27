@@ -24,7 +24,7 @@ describe("detectAnomalies", () => {
         [x, y],
         [x + 1, y],
       ] as [number, number][];
-    const steps = [...tread(4, FLOOR - 1), ...tread(6, FLOOR - 2), ...tread(8, FLOOR - 3), [10, FLOOR - 3]];
+    const steps: [number, number][] = [...tread(4, FLOOR - 1), ...tread(6, FLOOR - 2), ...tread(8, FLOOR - 3), [10, FLOOR - 3]];
     const grid = gridOf(steps, "grass");
     const recent = paint(steps, "grass");
     const a = detectAnomalies(grid, recent);

@@ -45,7 +45,7 @@ function score(p: FinishProposal | undefined): number {
   );
 }
 
-function cloneGrid(g: DetectGrid, clear: Point): DetectGrid {
+function cloneGrid(g: DetectGrid, clear: Point[]): DetectGrid {
   const tiles = g.tiles instanceof Uint8Array ? Uint8Array.from(g.tiles as Uint8Array) : Uint8Array.from(g.tiles);
   for (const p of clear) {
     if (p.x >= 0 && p.y >= 0 && p.x < g.w && p.y < g.h) tiles[p.y * g.w + p.x] = 0;
