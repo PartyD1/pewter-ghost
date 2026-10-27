@@ -464,6 +464,16 @@ describe("FillLoop", () => {
     expect(l.recentGhosts()[0].adds?.length).toBe(3);
   });
 
+  it("setIntent puts the builder's goal in the request brief, and clearing removes it", () => {
+    const l = makeLoop(new StubFiller());
+    expect(l.buildRequest("auto").brief).not.toContain("The builder says");
+    l.setIntent("  a maze   with dead ends ");
+    expect(l.intent).toBe("a maze with dead ends");
+    expect(l.buildRequest("auto").brief).toContain('"a maze with dead ends"');
+    l.setIntent("");
+    expect(l.buildRequest("auto").brief).not.toContain("The builder says");
+  });
+
   it("pauses during Play: no fills", async () => {
     const l = makeLoop(new StubFiller());
     const { sink, offers } = managerSink(() => cfg);
