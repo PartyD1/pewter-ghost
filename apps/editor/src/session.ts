@@ -30,7 +30,7 @@
  * after the `session` event.
  *
  * Config precedence: DEFAULT_CONFIG ← URL params (?filler=, ?proxy=,
- * ?callTimeoutMs=) ← GET /session overrides (launcher token, G-33). The
+ * ?callTimeoutMs=, ?timing=) ← GET /session overrides (launcher token, G-33). The
  * status strip never names the filler. filler "none" = human-only editing: no
  * calls, no patrol, no ghosts. "llm" needs a session token (?token=); without
  * one the session runs as "none" (the proxy would refuse every call).
@@ -39,6 +39,11 @@
  *   FillLoop     — Phaser-free orchestration (Node-testable).
  *   PewterApp    — boot glue: session token, config, EventLog, fillers,
  *                  agent, and the Phaser ghost session once the editor is ready.
+ *
+ * Timing (config.timing, suggest/timing/policy.ts): the TimingPolicy is the
+ * manager's Timer ("llm" confidence, "cdhf" acceptance predictor, "jev" polled
+ * cheap model), the loop's call gate (CDHF stage 1 skips an auto/tidy call
+ * before it starts) and, for "jev", a poller that may `nudge` the loop.
  */
 import {
   AgentClient,
@@ -62,6 +67,7 @@ import type {
 import type { EditorApi } from "./editor/api";
 import { BRIEF_VERSION, BriefCache, measureRequestWindow, type Brief } from "./fill/brief";
 import { FillerRegistry, StubFiller, type ActiveFiller } from "./fill/Filler";
+import { MarkovFiller } from "./fill/MarkovFiller";
 import { requestHash } from "./fill/hash";
 import {
   CANCELLED,
@@ -90,6 +96,8 @@ import { EventLog, setActiveLog } from "./research/log";
 import { fetchSession, readTokenFromUrl, type SessionInfo } from "./research/session";
 import { applyOverrides, config as liveConfig, DEFAULT_CONFIG, type GhostConfig } from "./suggest/config";
 import type { ManagerListeners, OfferOptions, OfferResult } from "./suggest/SuggestionManager";
+import { ProxyJevClient } from "./suggest/timing/jev";
+import { isTimingPolicy, TimingPolicy } from "./suggest/timing/policy";
 import {
   Patrol,
   patrolRequest,
@@ -106,11 +114,12 @@ import type { RecentGhost } from "./verify/validate";
 // Config resolution (G-33)
 // ---------------------------------------------------------------------------
 
-const FILLER_VALUES: readonly GhostConfig["filler"][] = ["llm", "algo", "stub", "none"];
+const FILLER_VALUES: readonly GhostConfig["filler"][] = ["llm", "algo", "markov", "stub", "none"];
 
 /**
- * Config overrides from the page URL: ?filler=stub|llm|none|algo,
- * ?proxy=<url>, ?callTimeoutMs=<ms>, ?tidyIdleMs=<ms> (0 = no tidy calls).
+ * Config overrides from the page URL: ?filler=stub|llm|markov|none|algo,
+ * ?proxy=<url>, ?callTimeoutMs=<ms>, ?tidyIdleMs=<ms> (0 = no tidy calls),
+ * ?timing=llm|cdhf|jev.
  * Unknown or malformed values are ignored.
  */
 export function urlOverrides(search: string | URLSearchParams): Partial<GhostConfig> {
@@ -124,6 +133,8 @@ export function urlOverrides(search: string | URLSearchParams): Partial<GhostCon
   if (p.has("callTimeoutMs") && Number.isFinite(timeout) && timeout > 0) out.callTimeoutMs = Math.round(timeout);
   const tidy = Number(p.get("tidyIdleMs"));
   if (p.has("tidyIdleMs") && Number.isFinite(tidy) && tidy >= 0) out.tidyIdleMs = Math.round(tidy);
+  const timing = p.get("timing");
+  if (isTimingPolicy(timing)) out.timing = timing;
   return out;
 }
 
@@ -253,6 +264,11 @@ export interface FillLoopOptions {
   patrol?: boolean;
   /** Called after every finished fill (tests, dev tools). */
   onOutcome?: (o: FillOutcome) => void;
+  /**
+   * May a call in this mode start now? (TimingPolicy.gate: CDHF stage 1.)
+   * False skips the call before a request is built; the gate logs why.
+   */
+  gate?: (mode: FillMode) => boolean;
 }
 
 /** One finished trip through the loop. */
@@ -456,6 +472,19 @@ export class FillLoop {
 
   private get halted(): boolean {
     return this.paused || this.suspended;
+  }
+
+  /** Calls can start now: a filler is active and nothing (Play, suspend) halts the loop. */
+  get running(): boolean {
+    return this.enabled && !this.halted;
+  }
+
+  /**
+   * One auto call if nothing is in flight (the Jev said "suggest" during a
+   * pause with no ghost ready). It is an ordinary auto call, gate included.
+   */
+  nudge(): void {
+    if (this.running && this.trips.size === 0) void this.run("auto");
   }
 
   /** Ctrl+Space with nothing held: ask now. */
@@ -674,6 +703,7 @@ export class FillLoop {
   private async run(mode: FillMode, blocked?: PatrolBlocked): Promise<FillOutcome | null> {
     const filler = this.o.registry.active;
     if (!filler || this.disposed || this.halted) return null;
+    if (this.o.gate && !this.o.gate(mode)) return null;
     // Calls to a filler that is no longer active are cancelled. Calls to this
     // one keep running (speculation); FillScheduler caps them at maxInFlight.
     for (const [f, s] of this.schedulers) if (f !== filler) s.cancel();
@@ -935,12 +965,14 @@ export interface RegistryOptions {
 
 /**
  * The fillers this session can use. LLM only with a token (the proxy refuses
- * calls without one); "algo" is a later work item (G-34) and is not registered,
- * so a token assigned "algo" runs as "none" for now.
+ * calls without one); "markov" (fill/MarkovFiller.ts) always, it makes no
+ * calls; "algo" is a later work item (G-34) and is not registered, so a token
+ * assigned "algo" runs as "none" for now.
  */
 export function buildRegistry(cfg: GhostConfig, o: RegistryOptions): FillerRegistry {
   const reg = new FillerRegistry();
   reg.register(new StubFiller());
+  reg.register(new MarkovFiller());
   if (o.token) reg.register(new LLMFiller({ sessionId: o.sessionId, token: o.token, fetch: o.fetch }));
   reg.useConfig(cfg);
   return reg;
@@ -991,6 +1023,8 @@ export class PewterApp {
   readonly agent: LoopAgent;
   readonly registry = new FillerRegistry();
   readonly loop: FillLoop;
+  /** When ghosts appear (config.timing): the ghost manager's Timer and the loop's call gate. */
+  readonly timing: TimingPolicy;
   readonly ready: Promise<SessionInfo>;
   eventLog: EventLog | null = null;
   session: SessionInfo | null = null;
@@ -1007,12 +1041,20 @@ export class PewterApp {
     const url = urlOverrides(search);
     applyOverrides(resolveConfig(url, null));
     this.agent = o.agent ?? new AgentClient();
+    this.timing = new TimingPolicy({ config: () => liveConfig, clock: this.clock, log: this.sessionLog.log });
+    this.cleanups.push(
+      o.model.onPlacement((e) => this.timing.placement(e)),
+      o.model.subscribe((ch) => {
+        if (ch.source === "load") this.timing.reset();
+      }),
+    );
     this.loop = new FillLoop({
       model: o.model,
       agent: this.agent,
       registry: this.registry,
       log: this.sessionLog.log,
       clock: this.clock,
+      gate: (mode) => this.timing.gate(mode),
     });
     const params = new URLSearchParams(search);
     const explicit = params.get("token")?.trim() || readTokenFromUrl() || null;
@@ -1042,6 +1084,10 @@ export class PewterApp {
     this.session = info;
 
     const reg = buildRegistry(cfg, { sessionId: info.sessionId, token: info.fromProxy ? info.token : null, fetch: this.o.fetch });
+    if (info.fromProxy && info.token) {
+      const token = info.token;
+      this.timing.setJevClient(new ProxyJevClient({ sessionId: info.sessionId, token, proxyUrl: () => liveConfig.proxyUrl, fetch: this.o.fetch }));
+    }
     for (const n of reg.names()) this.registry.register(reg.get(n)!);
     const active = this.registry.useConfig(liveConfig);
     if (active !== cfg.filler) console.info(`session: filler "${cfg.filler}" is not available here; running "${active}"`);
@@ -1063,14 +1109,22 @@ export class PewterApp {
   attachEditor(api: EditorApi, start: (api: EditorApi, opts: GhostSessionOptions) => GhostSession): () => void {
     const ghost = start(api, {
       onRequest: () => void this.loop.request(),
-      listeners: this.loop.managerListeners,
+      listeners: mergeListeners(this.loop.managerListeners, this.timing.listeners),
       enabled: () => this.loop.enabled,
+      timer: this.timing,
     });
     this.ghost = ghost;
     this.loop.setGhost(ghost);
     const offs = [
       api.on("play:start", () => this.loop.setPaused(true)),
       api.on("play:end", () => this.loop.setPaused(false)),
+      this.timing.attach({
+        request: () => this.loop.buildRequest("auto"),
+        held: () => ghost.manager.waiting,
+        showing: () => ghost.manager.shown !== null,
+        active: () => this.loop.running,
+        nudge: () => this.loop.nudge(),
+      }),
     ];
     return () => {
       for (const off of offs) off();
@@ -1092,11 +1146,28 @@ export class PewterApp {
 
   dispose(): void {
     this.loop.dispose();
+    this.timing.dispose();
     for (const c of this.cleanups.splice(0)) c();
     (this.agent as Partial<{ dispose(): void }>).dispose?.();
     this.eventLog?.close();
     setActiveLog(null);
   }
+}
+
+/** Both listener sets, called in order (the loop's first). */
+export function mergeListeners(a: ManagerListeners, b: ManagerListeners): ManagerListeners {
+  type Fn = (...args: unknown[]) => void;
+  const out: Record<string, Fn> = {};
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]) as Set<keyof ManagerListeners>;
+  for (const k of keys) {
+    const fa = a[k] as Fn | undefined;
+    const fb = b[k] as Fn | undefined;
+    out[k] = (...args) => {
+      fa?.(...args);
+      fb?.(...args);
+    };
+  }
+  return out as ManagerListeners;
 }
 
 export type { PatrolReport };

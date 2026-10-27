@@ -84,6 +84,9 @@ describe("config resolution (G-33)", () => {
     expect(urlOverrides("?filler=stub&dev=1&token=abc")).toEqual({ filler: "stub" });
     expect(urlOverrides("?filler=gpt&proxy=javascript:alert(1)&callTimeoutMs=-5&tidyIdleMs=-1")).toEqual({});
     expect(urlOverrides("?tidyIdleMs=0")).toEqual({ tidyIdleMs: 0 });
+    expect(urlOverrides("?timing=cdhf")).toEqual({ timing: "cdhf" });
+    expect(urlOverrides("?timing=jev")).toEqual({ timing: "jev" });
+    expect(urlOverrides("?timing=whenever")).toEqual({});
     expect(urlOverrides("?filler=none&proxy=http://127.0.0.1:9000/&callTimeoutMs=4000")).toEqual({
       filler: "none",
       proxyUrl: "http://127.0.0.1:9000",
@@ -160,7 +163,10 @@ describe("FillLoop", () => {
     agent.dispose();
   });
 
-  function makeLoop(filler: Filler | null, opts: { patrol?: boolean; clock?: () => number; agent?: FillLoopOptions["agent"] } = {}) {
+  function makeLoop(
+    filler: Filler | null,
+    opts: { patrol?: boolean; clock?: () => number; agent?: FillLoopOptions["agent"]; gate?: FillLoopOptions["gate"] } = {},
+  ) {
     const registry = new FillerRegistry();
     registry.register(new StubFiller());
     if (filler) registry.register(filler);
@@ -174,11 +180,41 @@ describe("FillLoop", () => {
       clock: opts.clock,
       patrol: opts.patrol ?? false,
       onOutcome: (o) => outcomes.push(o),
+      gate: opts.gate,
     });
     l.refresh();
     loop = l;
     return l;
   }
+
+  it("a closed gate (CDHF stage 1) skips auto calls before any request; requests still go through", async () => {
+    const asked: string[] = [];
+    const l = makeLoop(new StubFiller(), { gate: (mode) => (asked.push(mode), mode !== "auto") });
+    const { sink } = managerSink(() => cfg);
+    l.setGhost(sink);
+    drawStairs(model);
+    await sleep(30);
+    expect(asked.filter((m) => m === "auto").length).toBeGreaterThan(0);
+    expect(log.filter((e) => e.type === "fill.call")).toHaveLength(0);
+    expect(l.stats.requests).toBe(0);
+    const out = await l.request();
+    expect(out?.mode).toBe("requested");
+    expect(log.filter((e) => e.type === "fill.call")).toHaveLength(1);
+  });
+
+  it("nudge makes one auto call only when nothing is in flight", async () => {
+    const l = makeLoop(new StubFiller());
+    l.setGhost(managerSink(() => cfg).sink);
+    expect(l.running).toBe(true);
+    l.nudge();
+    l.nudge(); // the first is still in flight
+    await waitFor(() => outcomes.length > 0);
+    expect(l.stats.requests).toBe(1);
+    l.setPaused(true);
+    expect(l.running).toBe(false);
+    l.nudge();
+    expect(l.stats.requests).toBe(1);
+  });
 
   it("stub: three stair steps -> a verified ghost reaches the manager; everything is logged", async () => {
     const l = makeLoop(new StubFiller());
@@ -1004,6 +1040,20 @@ describe("PewterApp boot", () => {
     expect(events[0]).toMatchObject({ type: "session", filler: "stub", sessionId: info.sessionId });
     expect(events[1].type).toBe("undo");
     expect(fetches).toHaveLength(0); // no token: nothing asked of the proxy
+    app.dispose();
+    agent.dispose();
+  });
+
+  it("?timing= picks the policy and the session event records it; placements feed its activity", async () => {
+    const model = starterModel();
+    const agent = new AgentClient({ worker: null });
+    const app = new PewterApp({ model, search: "?filler=stub&timing=cdhf", agent, fetch: (async () => { throw new Error("offline"); }) as unknown as typeof fetch, eventLog: { autoStart: false } });
+    await app.ready;
+    expect(app.timing.policy).toBe("cdhf");
+    const ev = app.eventLog!.events()[0] as Extract<LogEvent, { type: "session" }>;
+    expect((ev.config as { timing: string }).timing).toBe("cdhf");
+    drawStairs(model);
+    expect(app.timing.activity.snapshot().placements10s).toBe(3);
     app.dispose();
     agent.dispose();
   });

@@ -16,7 +16,7 @@ import { sha256Hex } from "../../apps/editor/src/research/hash";
 import { isSafeSessionId } from "./store";
 
 export type Condition = ProxySessionResponse["condition"];
-export const CONDITIONS: readonly Condition[] = ["llm", "algo", "none", "stub"];
+export const CONDITIONS: readonly Condition[] = ["llm", "algo", "markov", "none", "stub"];
 
 export interface TokenInfo {
   token: string;

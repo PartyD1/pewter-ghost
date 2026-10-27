@@ -17,7 +17,19 @@ npx tsx eval/src/cli.ts calibrate --logs proxy/.data/logs      # G-27
 npx tsx eval/src/cli.ts matrix --models gemini-2.5-flash-lite,gemini-3.7-flash   # G-28
 npx tsx eval/src/cli.ts dashboard --levels levels/saved        # G-29 -> eval/dashboard/index.html
 npx tsx eval/src/cli.ts export --format gemini                 # G-38 -> eval/data/export/finetune-gemini.jsonl
+npx tsx eval/src/cli.ts timing --logs proxy/.data/logs --train # G-36: llm vs cdhf vs jev -> eval/reports/timing.md
 ```
+
+`timing` compares the three timing policies (`config.timing`). Live per
+condition: ghosts shown and kept, keep rate, kept per minute, fill calls and
+Jev polls, calls the CDHF gate skipped, calls per kept ghost. Retrospective, on
+every shown automatic ghost (the `timing` show events carry features under all
+policies): AUC of the LLM's stated confidence, the CDHF prior, the Jev's last
+verdict and, with `--train`, CDHF weights fitted on 70% of sessions and scored
+on the rest; then the paper's counterfactual table (hide below t2: share
+hidden, share of those rejected, keep rate of the rest) and a suggested
+`cdhfShowAbove`. `--train` writes `eval/runs/cdhf-weights.json`, the value for
+a `cdhfWeights` token override.
 
 Live calls need `VITE_LLM_API_KEY` (or `GEMINI_API_KEY`, or a `.env` at the
 project root). The key is only ever reported as set / not set. Calls go

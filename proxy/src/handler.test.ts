@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import type { LogEvent, ProxyFillResponse, ProxySessionResponse, Recording } from "../../apps/editor/src/contracts";
+import type { LogEvent, ProxyFillResponse, ProxySessionResponse, ProxyWhenResponse, Recording } from "../../apps/editor/src/contracts";
+import { jevRequestProblem, parseJevVerdict, renderJevPrompt } from "../../apps/editor/src/suggest/timing/jevPrompt";
 import { canonicalJson, sha256Hex } from "../../apps/editor/src/research/hash";
 import { createHandler, fillRequestProblem, originAllowList, type HandlerDeps } from "./handler";
 import { StaticTokenStore, type TokenFile } from "./sessions";
-import { MemoryStore, logKey, recordingKey, rejectedLogKey } from "./store";
+import { MemoryStore, jevKey, logKey, recordingKey, rejectedLogKey } from "./store";
 import { FakeUpstream, GOOD_ANSWER, fakeParse, fakeRender, sampleRequest, timeoutUpstream } from "./__fixtures__/fakes";
 
 const TOKENS: TokenFile = {
@@ -430,5 +431,59 @@ describe("fillRequestProblem", () => {
     expect(fillRequestProblem(sampleRequest({ mode: "wild" as never }))).toMatch(/mode/);
     expect(fillRequestProblem({ ...sampleRequest(), origin: { x: "1" } })).toMatch(/origin/);
     expect(fillRequestProblem({ ...sampleRequest(), size: { w: 0, h: 1 } })).toMatch(/size/);
+  });
+});
+
+describe("POST /when (Jev)", () => {
+  const jevRequest = () => ({
+    grid: "   0123\n 0 ....\n",
+    origin: { x: 10, y: 4 },
+    size: { w: 24, h: 12 },
+    recent: [],
+    activity: { idleMs: 900, placements2s: 0, placements10s: 4, eraseShare: 0, dismissRun: 0, acceptRate5: 0.5 },
+    held: { kind: "finish", label: "close the box", confidence: 0.8, cells: 4, anchor: { x: 2, y: 1 } },
+    showing: false,
+    lastGhosts: [],
+  });
+  const whenDeps = (upstream?: FakeUpstream): Partial<HandlerDeps> => ({
+    when: { render: renderJevPrompt, parse: parseJevVerdict, problem: jevRequestProblem, upstream },
+  });
+
+  it("asks the Jev upstream at temperature 0, answers the verdict and records the exchange", async () => {
+    const jev = new FakeUpstream(() => ({ texts: ['{"suggest": true, "p": 0.8, "why": "paused after box"}'], model: "jev-lite" }));
+    const { handler, store, upstream } = setup(whenDeps(jev));
+    const res = await handler(post("/when", { sessionId: "p01", request: jevRequest() }));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as ProxyWhenResponse;
+    expect(body).toMatchObject({ verdict: { suggest: true, p: 0.8, why: "paused after box" }, model: "jev-lite" });
+    expect(body.promptVersion).toMatch(/^jev\.v1-/);
+    expect(jev.calls[0]).toMatchObject({ temperature: 0, samples: 1 });
+    expect(upstream.calls).toHaveLength(0); // the fill upstream is not used
+    const lines = store.lines<{ verdict: unknown; request: unknown }>(jevKey("p01"));
+    expect(lines).toHaveLength(1);
+    expect(lines[0].request).toEqual(jevRequest());
+  });
+
+  it("falls back to the fill upstream; garbage and upstream failure answer 200 with verdict null", async () => {
+    const { handler, upstream } = setup({ ...whenDeps(), upstream: new FakeUpstream(() => ({ texts: ["not json"], model: "m" })) });
+    const body = (await (await handler(post("/when", { sessionId: "p01", request: jevRequest() }))).json()) as ProxyWhenResponse;
+    expect(upstream.calls).toHaveLength(1);
+    expect(body.verdict).toBeNull();
+    expect(body.error).toMatch(/parse/);
+    const t = setup(whenDeps(timeoutUpstream()));
+    const b2 = (await (await t.handler(post("/when", { sessionId: "p01", request: jevRequest() }))).json()) as ProxyWhenResponse;
+    expect(b2).toMatchObject({ verdict: null, error: "upstream timeout" });
+  });
+
+  it("checks auth, condition, session and shape; 404 when not configured", async () => {
+    const { handler } = setup(whenDeps());
+    expect((await handler(post("/when", { sessionId: "p01", request: jevRequest() }, null))).status).toBe(401);
+    // Timing is independent of the filler: an algo session may poll, a human-only one may not.
+    expect((await handler(post("/when", { sessionId: "p02", request: jevRequest() }, "tok_algo_abc"))).status).toBe(200);
+    expect((await handler(post("/when", { sessionId: "p03", request: jevRequest() }, "tok_none_abc"))).status).toBe(403);
+    expect((await handler(post("/when", { sessionId: "p02", request: jevRequest() }))).status).toBe(403);
+    expect((await handler(post("/when", { sessionId: "p01", request: { ...jevRequest(), showing: 1 } }))).status).toBe(400);
+    const bare = setup();
+    expect((await bare.handler(post("/when", { sessionId: "p01", request: jevRequest() }))).status).toBe(404);
   });
 });

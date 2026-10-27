@@ -136,6 +136,8 @@ export function r2Objects(r2: R2BucketLike): ObjectStoreLike {
 export const recordingKey = (sessionId: string) => `recordings/${sessionId}.jsonl`;
 export const logKey = (sessionId: string) => `logs/${sessionId}.jsonl`;
 export const rejectedLogKey = (sessionId: string) => `logs/${sessionId}.rejected.jsonl`;
+/** Every /when (Jev) exchange: request, verdict, latency. */
+export const jevKey = (sessionId: string) => `jev/${sessionId}.jsonl`;
 
 /** Session ids become file/object names: letters, digits, dot, dash, underscore; no "..". */
 export function isSafeSessionId(id: unknown): id is string {

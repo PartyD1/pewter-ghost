@@ -25,7 +25,7 @@ import { EMPTY_GLYPH, gridRows, PATROL_GLYPH } from "./window";
 
 export type { Filler, FillerName } from "../contracts";
 
-export const FILLER_NAMES: readonly FillerName[] = ["llm", "algo", "stub", "jev"];
+export const FILLER_NAMES: readonly FillerName[] = ["llm", "algo", "markov", "stub", "jev"];
 export const isFillerName = (v: unknown): v is FillerName =>
   typeof v === "string" && (FILLER_NAMES as readonly string[]).includes(v);
 

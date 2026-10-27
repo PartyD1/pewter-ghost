@@ -43,6 +43,7 @@ export function scriptedSession(sessionId = "p01"): LogEvent[] {
       verdictStage: "ok",
     },
     { type: "ghost.show", t: 1950, suggestionId: "g1", kind: "extend", confidence: 0.82, shownBecause: "now", cells: 4, label: "continue ledge" },
+    { type: "timing", t: 1950, policy: "llm", stage: "show", decision: "show", p: 0.41, suggestionId: "g1", features: { idleSec: 0.3, confidence: 0.32 } },
     { type: "ghost.end", t: 3950, suggestionId: "g1", outcome: "accepted", dwellMs: 2000, acceptedCells: 4 },
     {
       type: "fill.call",
