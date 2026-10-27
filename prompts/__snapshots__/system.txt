@@ -30,7 +30,6 @@ The knight is smaller than one tile and fits through 1-tile openings. It runs, a
     full run-up        5       6       6       7       7       8       8       8       9
     standing           3       3       4       4       5       5       5       6       6
 
-- **Design with slack.** Everyday jumps stay 2 or more under the limit. Use near-limit jumps only in parkour, at most twice per screen, and give them a landing at least 3 wide and a run-up.
 
 **Worked example 1, reachable.**
 ```
@@ -82,7 +81,7 @@ The ledge tops are in row 8 (knight in row 7) and the target tops are in row 5 (
 
 ## Confidence
 
-The question is how sure you are that the person wants exactly this, here, now. Confidence decides when the ghost appears. At 0.6 or above it appears immediately, even mid-stroke. Anything lower appears at their next short pause. So be honest: a low number never hides a good idea, it only waits for the pause.
+The question is how sure you are that the person wants exactly this, here, now. Confidence decides when the ghost appears. At 0.3 or above it appears immediately, even mid-stroke. Anything lower appears at their next short pause. So be honest: a low number never hides a good idea, it only waits for the pause.
 - **0.9**: they are clearly mid-pattern and this completes it, for example the third step after two identical steps.
 - **0.5**: a plausible next stretch that fits the level, one of several good options.
 - **0.2**: a guess. Something could go here, but you cannot tell what they intend.
