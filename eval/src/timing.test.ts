@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { LogEvent, TimingPolicyName } from "../../apps/editor/src/contracts";
 import { isLogEvent } from "../../apps/editor/src/research/schema";
 import type { SessionLog } from "./logs";
-import { analyseTiming, chooseT2, counterfactuals, policyStats, sessionPolicy, splitBySession, timingExamples, timingMarkdown } from "./timing";
+import { analyseTiming, chooseT2, counterfactuals, policySegments, policyStats, sessionPolicy, splitBySession, timingExamples, timingMarkdown } from "./timing";
 
 /**
  * A session of n automatic ghosts. Ghost i has confidence c_i; it is kept
@@ -58,6 +58,25 @@ describe("timing comparison", () => {
     expect(jev.callsPerKept).toBe(4);
     expect(cdhf.gated).toBe(3);
     expect(llm.minutes).toBeGreaterThan(0.9);
+  });
+
+  it("cuts a session at each variant switch and counts each piece under its policy", () => {
+    const a = session("a", "llm", 4);
+    const b = session("b", "cdhf", 4);
+    // One session: llm for a's ghosts, then switched to cdhf for b's (shifted later).
+    const later = b.events.slice(1).map((e) => ({ ...e, t: e.t + 30_000 }));
+    const mixed: SessionLog = { ...a, events: [...a.events, { type: "variant", t: 30_000, filler: "markov", timing: "cdhf" }, ...later] };
+    expect(policySegments(mixed).map((g) => [g.policy, g.events.length])).toEqual([
+      ["llm", a.events.length],
+      ["cdhf", later.length + 1],
+    ]);
+    const stats = policyStats([mixed]);
+    expect(stats.map((s) => [s.policy, s.sessions, s.shown])).toEqual([
+      ["llm", 1, 4],
+      ["cdhf", 1, 4],
+    ]);
+    expect(stats[1].gated).toBe(2);
+    expect(new Set(timingExamples([mixed]).map((e) => e.policy))).toEqual(new Set(["llm", "cdhf"]));
   });
 
   it("examples: automatic shows with a decided outcome; requested shows are left out", () => {

@@ -1058,6 +1058,30 @@ describe("PewterApp boot", () => {
     agent.dispose();
   });
 
+  it("setVariant switches filler and timing live, logs each change once, and offers only fillers it has", async () => {
+    const model = starterModel();
+    const agent = new AgentClient({ worker: null });
+    const app = new PewterApp({ model, search: "?filler=stub", agent, fetch: (async () => { throw new Error("offline"); }) as unknown as typeof fetch, eventLog: { autoStart: false } });
+    await app.ready;
+    expect(app.fillerChoices).toEqual(["markov", "stub", "none"]); // no token: no LLM
+    expect(app.setVariant({ filler: "markov" })).toEqual({ filler: "markov", timing: "llm" });
+    expect(app.loop.activeFiller).toBe("markov");
+    expect(app.setVariant({ timing: "cdhf" })).toEqual({ filler: "markov", timing: "cdhf" });
+    expect(app.timing.policy).toBe("cdhf");
+    app.setVariant({ timing: "cdhf" }); // no change: not logged again
+    expect(app.setVariant({ filler: "llm" }).filler).toBe("none"); // not registered here
+    expect(app.loop.enabled).toBe(false);
+    const variants = app.eventLog!.events().filter((e) => e.type === "variant");
+    expect(variants).toMatchObject([
+      { filler: "markov", timing: "llm" },
+      { filler: "markov", timing: "cdhf" },
+      { filler: "none", timing: "cdhf" },
+    ]);
+    for (const e of variants) expect(validateEvent(e, { strict: true }).ok).toBe(true);
+    app.dispose();
+    agent.dispose();
+  });
+
   it("with a token: GET /session decides the condition (none beats ?filler=stub)", async () => {
     const model = starterModel();
     const agent = new AgentClient({ worker: null });

@@ -160,6 +160,11 @@ export class TimingPolicy implements Timer {
     onEnd: (_s, outcome, _dwell, _accepted, t) => this.activity.ghostEnded(outcome, t),
   };
 
+  /** A Jev client is set (the session came from the proxy). Without one "jev" holds ghosts until asked. */
+  get jevReady(): boolean {
+    return this.client !== null;
+  }
+
   /** The Jev behind the poller (null = none; a "jev" session then holds ghosts until asked). */
   setJevClient(client: JevClient | null): void {
     this.client = client;

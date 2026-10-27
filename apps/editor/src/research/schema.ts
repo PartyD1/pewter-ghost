@@ -114,6 +114,13 @@ function build(mode: Mode) {
   const redo = obj({ type: z.literal("redo"), t: nonNeg(), what });
   const save = obj({ type: z.literal("save"), t: nonNeg(), snapshotId: z.string().min(1) });
 
+  const variant = obj({
+    type: z.literal("variant"),
+    t: nonNeg(),
+    filler: z.union([fillerName, z.literal("none")]),
+    timing: z.enum(["llm", "cdhf", "jev"]),
+  });
+
   const timing = obj({
     type: z.literal("timing"),
     t: nonNeg(),
@@ -142,6 +149,7 @@ function build(mode: Mode) {
     undo,
     redo,
     save,
+    variant,
     timing,
   } as const;
 
@@ -158,6 +166,7 @@ function build(mode: Mode) {
     undo,
     redo,
     save,
+    variant,
     timing,
   ]);
   return { variants, union };

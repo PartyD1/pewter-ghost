@@ -61,6 +61,7 @@ import type {
   LogEvent,
   PlacementEvent,
   Suggestion,
+  TimingPolicyName,
   VerdictStage,
   VerifiedSuggestion,
 } from "./contracts";
@@ -1132,6 +1133,35 @@ export class PewterApp {
       ghost.dispose();
       if (this.ghost === ghost) this.ghost = null;
     };
+  }
+
+  /** Fillers this session can switch to (dev variant switch): the registered ones, then "none". */
+  get fillerChoices(): GhostConfig["filler"][] {
+    const have = new Set<string>(this.registry.names());
+    return FILLER_VALUES.filter((f) => f === "none" || have.has(f));
+  }
+
+  /**
+   * Switch the filler and/or the timing policy mid-session (dev variant
+   * switch, ui/VariantSwitch.ts). Calls in flight are cancelled and the
+   * ghost (shown or held) is cleared, so nothing from the old pair appears
+   * under the new one; a change is logged as a `variant` event. A filler
+   * this session lacks runs as "none". Returns the pair now running.
+   */
+  setVariant(v: { filler?: GhostConfig["filler"]; timing?: TimingPolicyName }): { filler: ActiveFiller; timing: TimingPolicyName } {
+    const before = { filler: this.loop.activeFiller, timing: this.timing.policy };
+    const patch: Partial<GhostConfig> = {};
+    if (v.filler !== undefined) patch.filler = v.filler;
+    if (isTimingPolicy(v.timing)) patch.timing = v.timing;
+    applyOverrides(patch);
+    this.loop.refresh();
+    const now = { filler: this.loop.activeFiller, timing: this.timing.policy };
+    if (now.filler === before.filler && now.timing === before.timing) return now;
+    this.loop.cancel();
+    this.ghost?.manager.reset();
+    this.timing.jev?.clear();
+    this.sessionLog.log({ type: "variant", t: this.clock(), ...now });
+    return now;
   }
 
   /** Send pending log events now (Save task). */

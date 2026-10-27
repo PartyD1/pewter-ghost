@@ -3,7 +3,8 @@
  *
  * Two views, both from proxy/.data/logs:
  *
- *  1. Live, per condition (session.config.timing: llm | cdhf | jev): ghosts
+ *  1. Live, per condition (session.config.timing: llm | cdhf | jev, cut at
+ *     each `variant` switch, policySegments): ghosts
  *     shown and kept per minute, keep / dismiss rates, model calls per minute
  *     (fill and Jev), calls the CDHF gate skipped. This is the comparison of
  *     the three policies as people experienced them.
@@ -67,10 +68,25 @@ export interface Counterfactual {
 
 const isTiming = (e: LogEvent): e is TimingEvent => e.type === "timing";
 
+const asPolicy = (t: unknown): TimingPolicyName => (t === "cdhf" || t === "jev" ? t : "llm");
+
+/** The policy a session started with (session.config.timing). */
 export function sessionPolicy(s: SessionLog): TimingPolicyName {
   const head = s.events.find((e) => e.type === "session") as Extract<LogEvent, { type: "session" }> | undefined;
-  const t = head?.config?.timing;
-  return t === "cdhf" || t === "jev" ? t : "llm";
+  return asPolicy(head?.config?.timing);
+}
+
+/**
+ * A session's events cut at each `variant` event (the dev switch): each piece
+ * runs under one policy. A session never switched is one piece.
+ */
+export function policySegments(s: SessionLog): { policy: TimingPolicyName; events: LogEvent[] }[] {
+  const out: { policy: TimingPolicyName; events: LogEvent[] }[] = [{ policy: sessionPolicy(s), events: [] }];
+  for (const e of s.events) {
+    if (e.type === "variant") out.push({ policy: asPolicy(e.timing), events: [] });
+    out[out.length - 1].events.push(e);
+  }
+  return out.filter((g) => g.events.length > 0);
 }
 
 function minutes(events: readonly LogEvent[]): number {
@@ -92,11 +108,9 @@ const median = (xs: number[]) => {
 };
 
 export function policyStats(sessions: readonly SessionLog[]): PolicyStats[] {
-  const by = new Map<TimingPolicyName, SessionLog[]>();
-  for (const s of sessions) {
-    const p = sessionPolicy(s);
-    by.set(p, [...(by.get(p) ?? []), s]);
-  }
+  const by = new Map<TimingPolicyName, { sessionId: string; events: LogEvent[] }[]>();
+  for (const s of sessions)
+    for (const g of policySegments(s)) by.set(g.policy, [...(by.get(g.policy) ?? []), { sessionId: s.sessionId, events: g.events }]);
   const out: PolicyStats[] = [];
   for (const policy of ["llm", "cdhf", "jev"] as const) {
     const ss = by.get(policy);
@@ -128,7 +142,7 @@ export function policyStats(sessions: readonly SessionLog[]): PolicyStats[] {
     }
     out.push({
       policy,
-      sessions: ss.length,
+      sessions: new Set(ss.map((g) => g.sessionId)).size,
       minutes: mins,
       fillCalls,
       jevPolls,
@@ -150,7 +164,6 @@ export function policyStats(sessions: readonly SessionLog[]): PolicyStats[] {
 export function timingExamples(sessions: readonly SessionLog[]): TimingExample[] {
   const out: TimingExample[] = [];
   for (const s of sessions) {
-    const policy = sessionPolicy(s);
     const ends = new Map<string, 0 | 1>();
     for (const e of s.events) {
       if (e.type !== "ghost.end") continue;
@@ -162,6 +175,8 @@ export function timingExamples(sessions: readonly SessionLog[]): TimingExample[]
       if (!isTiming(e)) continue;
       if (e.stage === "jev" && e.p !== undefined) jevP = e.p;
       if (e.stage !== "show" || !e.features || !e.suggestionId) continue;
+      // Each show event names the policy it ran under (sessions may switch).
+      const policy = e.policy;
       if (e.why === "requested" || e.why === "patrol") continue;
       const y = ends.get(e.suggestionId);
       if (y === undefined) continue;

@@ -343,7 +343,20 @@ export type LogEvent =
   | { type: "play.end"; t: number; reachedGoal: boolean; deaths: number }
   | { type: "undo" | "redo"; t: number; what: "own" | "ghost" | "mixed" }
   | { type: "save"; t: number; snapshotId: string }
+  | VariantEvent
   | TimingEvent;
+
+/**
+ * The filler or timing policy was switched mid-session (dev variant switch,
+ * ui/VariantSwitch.ts). Events after it run under the new pair; the session
+ * event holds the pair the session started with.
+ */
+export interface VariantEvent {
+  type: "variant";
+  t: number;
+  filler: FillerName | "none";
+  timing: TimingPolicyName;
+}
 
 // ---------------------------------------------------------------------------
 // Timing policies (suggest/timing): when a verified ghost may appear
