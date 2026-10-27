@@ -3,7 +3,7 @@
  *
  * Two views, both from proxy/.data/logs:
  *
- *  1. Live, per condition (session.config.timing: llm | cdhf | jev, cut at
+ *  1. Live, per condition (session.config.timing: llm | cdhf | jev | always, cut at
  *     each `variant` switch, policySegments): ghosts
  *     shown and kept per minute, keep / dismiss rates, model calls per minute
  *     (fill and Jev), calls the CDHF gate skipped. This is the comparison of
@@ -68,7 +68,7 @@ export interface Counterfactual {
 
 const isTiming = (e: LogEvent): e is TimingEvent => e.type === "timing";
 
-const asPolicy = (t: unknown): TimingPolicyName => (t === "cdhf" || t === "jev" ? t : "llm");
+const asPolicy = (t: unknown): TimingPolicyName => (t === "cdhf" || t === "jev" || t === "always" ? t : "llm");
 
 /** The policy a session started with (session.config.timing). */
 export function sessionPolicy(s: SessionLog): TimingPolicyName {
@@ -112,7 +112,7 @@ export function policyStats(sessions: readonly SessionLog[]): PolicyStats[] {
   for (const s of sessions)
     for (const g of policySegments(s)) by.set(g.policy, [...(by.get(g.policy) ?? []), { sessionId: s.sessionId, events: g.events }]);
   const out: PolicyStats[] = [];
-  for (const policy of ["llm", "cdhf", "jev"] as const) {
+  for (const policy of ["llm", "cdhf", "jev", "always"] as const) {
     const ss = by.get(policy);
     if (!ss) continue;
     let mins = 0;

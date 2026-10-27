@@ -10,6 +10,9 @@
  *         Stage 2 CdhfTimer: show once P(accept | context, ghost) >= cdhfShowAbove.
  *   jev   JevPoller asks a cheap model every jevIntervalMs; JevTimer shows a
  *         held ghost while the latest fresh verdict is "suggest".
+ *   always Every verified ghost shows at once (a no-timing baseline). The
+ *         manager's own rules (one slot, cool-downs, dismiss streak) still apply,
+ *         and a filler that declines (act: false) still makes no ghost.
  *
  * Under every policy each shown ghost is logged as a `timing` event with its
  * feature vector and the CDHF prediction, so sessions run as "llm" are
@@ -29,7 +32,7 @@ import { contextFeatures, fullFeatures, roundFeatures } from "./features";
 import { JevPoller, type JevClient, type JevPollerOptions } from "./jev";
 import { entropyBits, isCdhfWeights, predict, PRIOR_WEIGHTS, type CdhfWeights } from "./model";
 
-export const TIMING_POLICIES: readonly TimingPolicyName[] = ["llm", "cdhf", "jev"];
+export const TIMING_POLICIES: readonly TimingPolicyName[] = ["llm", "cdhf", "jev", "always"];
 export const isTimingPolicy = (v: unknown): v is TimingPolicyName =>
   typeof v === "string" && (TIMING_POLICIES as readonly string[]).includes(v);
 
@@ -96,6 +99,8 @@ export class TimingPolicy implements Timer {
         return this.cdhf.decide(s, ctx);
       case "jev":
         return this.jevTimer.decide(s, ctx);
+      case "always":
+        return { when: "now", why: "always" };
       default:
         return this.confidence.decide(s, ctx);
     }

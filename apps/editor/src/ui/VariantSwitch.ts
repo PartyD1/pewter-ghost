@@ -25,12 +25,14 @@ export const TIMING_LABELS: Record<TimingPolicyName, string> = {
   llm: "LLM decides",
   cdhf: "CDHF",
   jev: "Jev",
+  always: "Always",
 };
 
 export const TIMING_HINTS: Record<TimingPolicyName, string> = {
   llm: "The filler's own act and confidence decide when a ghost shows",
   cdhf: "An acceptance predictor gates calls and shows (Mozannar et al. 2023)",
   jev: "A small model is asked every few seconds whether to suggest",
+  always: "Every verified ghost shows at once",
 };
 
 /** Is the variant switch shown for this page? */

@@ -299,6 +299,13 @@ describe("TimingPolicy", () => {
     expect(policy.decide(makeSuggestion({ confidence: 0.9 }), { ...ctx(cfg, 0), showNowAbove: 0.75 }).why).toBe("confidence>=showNow");
   });
 
+  it("always shows every verified ghost now, whatever its confidence, and never gates a call", () => {
+    const { policy, cfg } = setup({ timing: "always" });
+    expect(policy.name).toBe("timing:always");
+    for (const confidence of [0, 0.2, 0.9]) expect(policy.decide(makeSuggestion({ confidence }), ctx(cfg, 0))).toEqual({ when: "now", why: "always" });
+    expect(policy.gate("auto")).toBe(true);
+  });
+
   it("cdhf gate skips auto calls when stage 1 is sure of a reject, never requests or patrol", () => {
     const sure: CdhfWeights = { version: "x", trainedOn: 0, context: { bias: -5, w: {} }, full: { bias: 0, w: {} } };
     const { policy, events } = setup({ timing: "cdhf", cdhfWeights: sure });

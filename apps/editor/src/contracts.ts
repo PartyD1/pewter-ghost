@@ -366,9 +366,10 @@ export interface VariantEvent {
  * Which policy decides when ghosts appear (config.timing):
  *  - "llm": the filler's own call (act + stated confidence, ConfidenceTimer);
  *  - "cdhf": an acceptance predictor gates calls and shows (Mozannar et al. 2023);
- *  - "jev": a cheap model polled every few seconds says suggest / wait.
+ *  - "jev": a cheap model polled every few seconds says suggest / wait;
+ *  - "always": every verified ghost shows at once (no timing; a baseline).
  */
-export type TimingPolicyName = "llm" | "cdhf" | "jev";
+export type TimingPolicyName = "llm" | "cdhf" | "jev" | "always";
 
 /**
  * One timing decision. Logged for every shown ghost under every policy

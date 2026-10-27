@@ -118,13 +118,13 @@ function build(mode: Mode) {
     type: z.literal("variant"),
     t: nonNeg(),
     filler: z.union([fillerName, z.literal("none")]),
-    timing: z.enum(["llm", "cdhf", "jev"]),
+    timing: z.enum(["llm", "cdhf", "jev", "always"]),
   });
 
   const timing = obj({
     type: z.literal("timing"),
     t: nonNeg(),
-    policy: z.enum(["llm", "cdhf", "jev"]),
+    policy: z.enum(["llm", "cdhf", "jev", "always"]),
     stage: z.enum(["gate", "show", "jev"]),
     decision: z.enum(["skip", "show", "suggest", "wait", "error"]),
     p: z.number().min(0).max(1).optional(),

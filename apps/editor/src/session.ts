@@ -120,7 +120,7 @@ const FILLER_VALUES: readonly GhostConfig["filler"][] = ["llm", "algo", "markov"
 /**
  * Config overrides from the page URL: ?filler=stub|llm|markov|none|algo,
  * ?proxy=<url>, ?callTimeoutMs=<ms>, ?tidyIdleMs=<ms> (0 = no tidy calls),
- * ?timing=llm|cdhf|jev.
+ * ?timing=llm|cdhf|jev|always.
  * Unknown or malformed values are ignored.
  */
 export function urlOverrides(search: string | URLSearchParams): Partial<GhostConfig> {

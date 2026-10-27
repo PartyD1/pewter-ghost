@@ -86,6 +86,7 @@ describe("config resolution (G-33)", () => {
     expect(urlOverrides("?tidyIdleMs=0")).toEqual({ tidyIdleMs: 0 });
     expect(urlOverrides("?timing=cdhf")).toEqual({ timing: "cdhf" });
     expect(urlOverrides("?timing=jev")).toEqual({ timing: "jev" });
+    expect(urlOverrides("?timing=always")).toEqual({ timing: "always" });
     expect(urlOverrides("?timing=whenever")).toEqual({});
     expect(urlOverrides("?filler=none&proxy=http://127.0.0.1:9000/&callTimeoutMs=4000")).toEqual({
       filler: "none",
