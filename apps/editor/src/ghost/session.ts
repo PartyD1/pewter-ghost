@@ -15,7 +15,7 @@
  * code can fire a "requested" fill.
  */
 import Phaser from "phaser";
-import { type GhostOutcome, type Point, type ShownBecause, type Suggestion, type VerifiedSuggestion } from "../contracts";
+import { type EntityKind, type GhostOutcome, type Point, type ShownBecause, type Suggestion, type VerifiedSuggestion } from "../contracts";
 import type { EditorApi } from "../editor/api";
 import type { EditorScene } from "../editor/EditorScene";
 import type { GhostConfig } from "../suggest/config";
@@ -349,6 +349,10 @@ export class GhostSession {
         shownBecause: because,
         cells: ghostCells(s).length,
         label: s.label,
+        // The proposal itself, so a replay can draw what the person saw.
+        adds: s.adds.map((a) => [a.x, a.y, a.tile] as [number, number, number]),
+        removes: s.removes.map((r) => [r.x, r.y] as [number, number]),
+        entities: s.entities.map((e) => [e.kind, e.x, e.y] as [EntityKind, number, number]),
       });
     this.devEvent(`shown "${s.label}" (${because})`);
     this.refresh();
