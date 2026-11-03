@@ -182,6 +182,17 @@
   margin: 6px 0 0;
   flex-wrap: wrap;
 }
+/* Dev variant switch (ui/VariantSwitch.ts): two switches, each under a small
+   label in the heading's colour. */
+.pg-variant-group .pg-suggest-switch {
+  margin: 2px 0 6px;
+}
+.pg-variant-label {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: rgba(180, 170, 220, 0.6);
+}
 
 /* --- Dialogs: the old panel's glass ------------------------------------- */
 /* NEW: the backdrop (the old app had no dialogs): the page colour #08080f at 45%. */

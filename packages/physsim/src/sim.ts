@@ -5,7 +5,8 @@
  * - Player movement: the knight's own pure `stepMovement` (@app/player/playerPhysics).
  * - Body integration + tile collision: a line-by-line re-implementation of
  *   Phaser 3.90 Arcade (Body.update / World.computeVelocity /
- *   collideSpriteVsTilemapLayer / SeparateTile / TileCheckX|Y), fixed 1/60
+ *   collideSpriteVsTilemapLayer / SeparateTile / TileCheckX|Y, and
+ *   checkWorldBounds for the level's side walls), fixed 1/60
  *   step, TILE_BIAS 16, tile faces computed like CalculateFacesWithin. The
  *   audit matched trajectories in the real game to 6e-14 px; sim.test.ts
  *   re-checks the separation against Phaser's own SeparateTile.
@@ -273,7 +274,26 @@ export function frame(L: Level, b: Body, move: -1 | 0 | 1, jumpHeld: boolean): v
   b.y += vy * DT;
   b.dx = b.x - px;
   b.dy = b.y - py;
+  worldBounds(L, b);
   collide(L, b);
+}
+
+/**
+ * Body.checkWorldBounds with the level's sides as walls (play.ts: world
+ * bounds = the level, collision left/right only, bounce 0). It runs at the
+ * end of Body.update, after the deltas are cached, so tile separation still
+ * sees the unclamped dx. Above and below the level stay open.
+ */
+function worldBounds(L: Level, b: Body): void {
+  if (b.x < 0) {
+    b.x = 0;
+    b.vx *= -0;
+    b.left = true;
+  } else if (b.x + BW > L.W * T) {
+    b.x = L.W * T - BW;
+    b.vx *= -0;
+    b.right = true;
+  }
 }
 
 /**

@@ -259,7 +259,7 @@ function checkShape(
     const other = entityAt(e);
     if (other && !removeKeys.has(key(e))) return fail(`cell ${fmtP(e)} already holds a ${other.kind}`);
     if (e.x === snap.start.x && e.y === snap.start.y) return fail(`the ${e.kind} at ${fmtP(e)} is on the knight's start`);
-    if ((ENEMY_KINDS.has(e.kind) || e.kind === "flag" || e.kind === "sign") && !solidAfter(e.x, e.y + 1))
+    if ((ENEMY_KINDS.has(e.kind) || e.kind === "flag" || e.kind === "sign" || e.kind === "checkpoint") && !solidAfter(e.x, e.y + 1))
       return fail(`the ${e.kind} at ${fmtP(e)} has no ground under it; put it on a surface (the cell above a solid tile)`);
     if (e.kind === "flag" && ++flags > 1) return fail(`the level already has a goal flag; there can be only one`);
   }

@@ -48,6 +48,7 @@ export const PALETTE_ITEMS: readonly PaletteItem[] = [
   entity("ultraslime", "Ultra slime", "enemies", "Chases when near, bursts after a flash"),
   entity("flag", "Goal flag", "markers", "One per level: reaching it wins"),
   entity("sign", "Sign", "markers", "Shows its text in Play"),
+  entity("checkpoint", "Checkpoint", "markers", "Touch it in Play: after a death the knight comes back here"),
   { id: "start", label: "Start", group: "markers", frame: FRAME.START, action: { kind: "start" }, hint: "Where the knight starts" },
   { id: "eraser", label: "Eraser", group: "tools", frame: -1, action: "erase", hint: "Erase mode (3)" },
 ];

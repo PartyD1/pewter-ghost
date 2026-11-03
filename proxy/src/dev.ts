@@ -15,7 +15,8 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { renderFillPrompt, parseModelAnswer } from "@app/fill/prompt";
-import { modelFromEnv, providerFromEnv, upstreamFromEnv } from "./provider";
+import { jevRequestProblem, parseJevVerdict, renderJevPrompt } from "@app/suggest/timing/jevPrompt";
+import { jevUpstreamFromEnv, modelFromEnv, providerFromEnv, upstreamFromEnv } from "./provider";
 import { createHandler, originAllowList } from "./handler";
 import { FileStore } from "./node/fileStore";
 import { FileTokenStore } from "./node/fileTokens";
@@ -61,12 +62,19 @@ async function main(): Promise<void> {
       },
     };
   }
+  let jevUpstream: Upstream | undefined;
+  try {
+    jevUpstream = jevUpstreamFromEnv(env) ?? undefined;
+  } catch (e) {
+    log(`WARNING: JEV_MODEL: ${e instanceof Error ? e.message : String(e)}; /when uses the fill model`);
+  }
   const open = env.PROXY_OPEN === "1";
   const tokensFile = path.join(DATA_DIR, "tokens.json");
   const handler = createHandler({
     render: renderFillPrompt,
     parse: parseModelAnswer,
     upstream,
+    when: { render: renderJevPrompt, parse: parseJevVerdict, problem: jevRequestProblem, upstream: jevUpstream },
     store: new FileStore(DATA_DIR),
     tokens: new FileTokenStore(tokensFile, open, log),
     allowOrigin: originAllowList(env.PROXY_ALLOWED_ORIGINS),
@@ -75,7 +83,7 @@ async function main(): Promise<void> {
   const port = Number(env.PROXY_PORT) || 8787;
   const host = env.PROXY_HOST || "127.0.0.1";
   await startServer(handler, port, host, { onError: log });
-  log(`listening on http://${host}:${port}  provider=${safeProvider(env)}  model=${upstream.model}  tokens=${path.relative(projectRoot, tokensFile)}${open ? "  OPEN (token 'dev' accepted)" : ""}`);
+  log(`listening on http://${host}:${port}  provider=${safeProvider(env)}  model=${upstream.model}  jev=${jevUpstream?.model ?? upstream.model}  tokens=${path.relative(projectRoot, tokensFile)}${open ? "  OPEN (token 'dev' accepted)" : ""}`);
 }
 
 function safeProvider(env: NodeJS.ProcessEnv): string {

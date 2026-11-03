@@ -55,6 +55,16 @@ function drawStartMarker(ctx: CanvasRenderingContext2D, x: number): void {
   ctx.fillRect(x + 2, 14, 6, 2);
 }
 
+/** Swap red and blue in the reddish pixels of one frame (red cloth -> blue; pole and outline stay). */
+function recolorBlue(ctx: CanvasRenderingContext2D, x: number): void {
+  const img = ctx.getImageData(x, 0, TILE_PX, TILE_PX);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i] > d[i + 1] + 40 && d[i] > d[i + 2] + 40) [d[i], d[i + 2]] = [d[i + 2], d[i]];
+  }
+  ctx.putImageData(img, x, 0);
+}
+
 /** Build `pg-tiles` (the composite) and `pg-tiles-ghost`. Safe to call twice. */
 export function buildTextures(scene: Phaser.Scene): void {
   const textures = scene.textures;
@@ -72,6 +82,7 @@ export function buildTextures(scene: Phaser.Scene): void {
       else if ("kenney" in src) {
         const [c, r] = src.kenney;
         ctx.drawImage(kenney, c * KENNEY_PX, r * KENNEY_PX, KENNEY_PX, KENNEY_PX, dx, 0, TILE_PX, TILE_PX);
+        if (src.blue) recolorBlue(ctx, dx);
       } else drawStartMarker(ctx, dx);
     }
     canvas.refresh();

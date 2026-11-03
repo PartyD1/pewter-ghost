@@ -11,7 +11,8 @@ export type {
 } from "./SuggestionManager";
 export { SessionThresholds } from "./thresholds";
 export type { ThresholdChange, ThresholdChangeReason } from "./thresholds";
-export { ConfidenceTimer, JevTimer, JevTimerNotConfiguredError } from "./timers";
+export { CdhfTimer, ConfidenceTimer, JevTimer, JevTimerNotConfiguredError } from "./timers";
+export { TimingPolicy } from "./timing/policy";
 export type { Timer, TimerContext, TimerDecision, ShowWhen } from "./timers";
 export { FakeClock, performanceClock } from "./fakeClock";
 export type { Clock } from "./fakeClock";

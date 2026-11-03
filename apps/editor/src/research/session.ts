@@ -8,7 +8,7 @@ import type { ProxySessionResponse } from "../contracts";
 import { DEFAULT_CONFIG, type GhostConfig } from "../suggest/config";
 
 export type Condition = ProxySessionResponse["condition"];
-const CONDITIONS: readonly Condition[] = ["llm", "algo", "none", "stub"];
+const CONDITIONS: readonly Condition[] = ["llm", "algo", "markov", "none", "stub"];
 
 /** Config fields a token may never override from the server. */
 const SERVER_LOCKED = new Set<keyof GhostConfig>(["proxyUrl"]);

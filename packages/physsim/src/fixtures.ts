@@ -107,11 +107,18 @@ export const FIXTURES: Fixture[] = [
   fx("gap 4, standing", gapLevel(0, 4), true, true, "NORMAL maxGapStand is 5"),
   fx("gap 5, standing", gapLevel(0, 5), true, true, "NORMAL maxGapStand is 5"),
   fx(
-    "gap 7, standing",
-    gapLevel(0, 7),
+    "gap 6, standing",
+    gapLevel(0, 6),
     true,
     false,
-    "rule-checker false negative: the tables' standing jump starts at rest on the edge; the agent runs across the 1-tile ledge and jumps in coyote time",
+    "ULTRA reach: NORMAL maxGapStand is 5; the agent runs across the 1-tile ledge and jumps in coyote time",
+  ),
+  fx(
+    "gap 7, standing",
+    gapLevel(0, 7),
+    false,
+    false,
+    "impossible from standing: the level's left edge is a wall, so there is no run-up",
   ),
   fx("gap 7, full run-up", gapLevel(7, 7), true, true, "NORMAL maxGapRun is 7"),
   fx(

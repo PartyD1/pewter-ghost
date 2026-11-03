@@ -56,7 +56,7 @@ describe("fetchSession", () => {
     });
   });
 
-  it.each(["llm", "algo", "none", "stub"] as const)("condition %s comes through", async (c) => {
+  it.each(["llm", "algo", "markov", "none", "stub"] as const)("condition %s comes through", async (c) => {
     const { f } = jsonFetch(200, { sessionId: "s", condition: c, overrides: {} });
     const s = await fetchSession({ token: "t", fetch: f });
     expect(s.condition).toBe(c);

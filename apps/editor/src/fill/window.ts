@@ -65,6 +65,7 @@ export const ENTITY_GLYPH: Record<EntityKind, string> = {
   ultraslime: "U",
   flag: "F",
   sign: "!",
+  checkpoint: "C",
 };
 export const EMPTY_GLYPH = ".";
 export const PATROL_GLYPH = "~";
@@ -77,7 +78,7 @@ export const OUTSIDE_GLYPH = "/";
 
 export const LEGEND =
   "Legend: . empty | G grass D dirt B block H half-block Q ?-block (person's) | g d b h q same tiles accepted from Ghost | " +
-  "o coin * fruit S slime U ultraslime ~ enemy patrol F flag ! sign @ knight start";
+  "o coin * fruit S slime U ultraslime ~ enemy patrol F flag ! sign C checkpoint @ knight start";
 
 // ---------------------------------------------------------------------------
 // Coordinates

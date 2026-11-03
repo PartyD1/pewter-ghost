@@ -24,7 +24,7 @@ const GROUPS: readonly { list: string; items: readonly string[] }[] = [
   { list: "blocks-list-collectables", items: ["coin", "fruit"] },
   { list: "blocks-list-terrain", items: ["grass_half", "dirt", "grass", "question"] },
   { list: "blocks-list-enemies", items: ["slime", "ultraslime"] },
-  { list: "blocks-list-markers", items: ["start", "flag", "sign"] },
+  { list: "blocks-list-markers", items: ["start", "flag", "checkpoint", "sign"] },
 ];
 
 /** The old block names (title / aria-label) and icon classes (old UIScene.ts:632-641). */

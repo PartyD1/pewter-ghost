@@ -67,7 +67,8 @@ jobs:
           retention-days: 7
 
   e2e:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest is now 26.04, which Playwright 1.56 cannot install Chromium on.
+    runs-on: ubuntu-24.04
     needs: check
     timeout-minutes: 20
     steps:

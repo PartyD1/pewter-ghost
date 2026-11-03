@@ -180,6 +180,7 @@ const GLYPH_ENTITY: Record<string, EntityKind> = {
   U: "ultraslime",
   F: "flag",
   "!": "sign",
+  C: "checkpoint",
 };
 
 /**

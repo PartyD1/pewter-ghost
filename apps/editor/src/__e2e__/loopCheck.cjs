@@ -133,7 +133,7 @@ function killServer(child) {
     });
     note(`session ${JSON.stringify(info)}`);
     assert(info.filler === (LLM ? "llm" : "stub"), `active filler is ${LLM ? "llm" : "stub"} (main.ts started the loop)`);
-    assert(!/stub|llm|algo|jev/i.test(await page.locator("#ghost-status").innerText()), "status strip never names the filler");
+    assert(!/stub|llm|algo|markov|jev/i.test(await page.locator("#ghost-status").innerText()), "status strip never names the filler");
 
     const tileAt = (x, y) => G(([x, y]) => window.__pewter.model.tileAt(x, y), [x, y]);
     const authorAt = (x, y) => G(([x, y]) => window.__pewter.model.authorAt(x, y), [x, y]);

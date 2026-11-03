@@ -62,7 +62,7 @@ import { describeStructure } from "./structure";
 // ---------------------------------------------------------------------------
 
 export const TILE_NAMES: readonly TileName[] = ["grass", "dirt", "block", "grass_half", "question"];
-export const ENTITY_KIND_NAMES: readonly EntityKind[] = ["coin", "fruit", "slime", "ultraslime", "flag", "sign"];
+export const ENTITY_KIND_NAMES: readonly EntityKind[] = ["coin", "fruit", "slime", "ultraslime", "flag", "sign", "checkpoint"];
 export const KIND_NAMES: readonly SuggestionKind[] = ["finish", "extend", "fix"];
 
 /** Output key order: label and guess before the cells (the model commits to an idea, then draws it); confidence last. */

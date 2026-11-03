@@ -21,7 +21,7 @@ describe("labels and captions", () => {
 
 describe("sanitizeGuess", () => {
   it("never reveals the filler or condition", () => {
-    for (const w of ["stub", "LLM", "algo", "jev", "none", " Gemini "]) expect(sanitizeGuess(w)).toBeNull();
+    for (const w of ["stub", "LLM", "algo", "Markov", "jev", "none", " Gemini "]) expect(sanitizeGuess(w)).toBeNull();
     expect(sanitizeGuess("")).toBeNull();
     expect(sanitizeGuess(undefined)).toBeNull();
   });
@@ -68,6 +68,6 @@ describe("stripText", () => {
       stripText({ mode: "showing", ghost: { label: "steps", kind: "finish" }, ordinal: 1, guess: sanitizeGuess("stub") }),
       stripText({ mode: "quiet", guess: sanitizeGuess("llm") }),
     ];
-    for (const t of all) expect(`${t.main} ${t.guess ?? ""}`).not.toMatch(/\b(stub|llm|algo|jev)\b/i);
+    for (const t of all) expect(`${t.main} ${t.guess ?? ""}`).not.toMatch(/\b(stub|llm|algo|markov|jev)\b/i);
   });
 });

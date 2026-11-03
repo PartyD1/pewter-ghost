@@ -10,7 +10,8 @@
  *   PROXY_UPSTREAM_TIMEOUT_MS, PROXY_THINKING_BUDGET, PROXY_LOGPROBS
  */
 import { renderFillPrompt, parseModelAnswer } from "@app/fill/prompt";
-import { upstreamFromEnv, type ProviderEnv } from "./provider";
+import { jevRequestProblem, parseJevVerdict, renderJevPrompt } from "@app/suggest/timing/jevPrompt";
+import { jevUpstreamFromEnv, upstreamFromEnv, type JevEnv } from "./provider";
 import { createHandler, originAllowList, type ProxyHandler } from "./handler";
 import {
   ChainTokenStore,
@@ -24,7 +25,7 @@ import {
 import { ChunkedObjectStore, kvObjects, MemoryStore, r2Objects, type KVNamespaceLike, type ProxyStore, type R2BucketLike } from "./store";
 import { UpstreamError, type Upstream } from "./upstream";
 
-export interface WorkerEnv extends ProviderEnv {
+export interface WorkerEnv extends JevEnv {
   PEWTER_KV?: KVNamespaceLike;
   PEWTER_R2?: R2BucketLike;
   PROXY_TOKENS?: string;
@@ -65,6 +66,12 @@ export function buildWorkerHandler(env: WorkerEnv): ProxyHandler {
       },
     };
   }
+  let jevUpstream: Upstream | undefined;
+  try {
+    jevUpstream = jevUpstreamFromEnv(env) ?? undefined;
+  } catch (e) {
+    console.error(`[proxy] JEV_MODEL: ${e instanceof Error ? e.message : String(e)}; /when uses the fill model`);
+  }
   let store: ProxyStore;
   if (env.PEWTER_R2) store = new ChunkedObjectStore(r2Objects(env.PEWTER_R2));
   else if (env.PEWTER_KV) store = new ChunkedObjectStore(kvObjects(env.PEWTER_KV));
@@ -87,6 +94,7 @@ export function buildWorkerHandler(env: WorkerEnv): ProxyHandler {
     render: renderFillPrompt,
     parse: parseModelAnswer,
     upstream,
+    when: { render: renderJevPrompt, parse: parseJevVerdict, problem: jevRequestProblem, upstream: jevUpstream },
     store,
     tokens: new ChainTokenStore(stores),
     allowOrigin: originAllowList(env.ALLOWED_ORIGINS),

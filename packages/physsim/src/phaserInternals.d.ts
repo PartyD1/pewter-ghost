@@ -44,3 +44,13 @@ declare module "phaser/src/tilemaps/components/CalculateFacesWithin.js" {
   ) => void;
   export default CalculateFacesWithin;
 }
+
+declare module "phaser/src/physics/arcade/Body.js" {
+  const Body: {
+    prototype: {
+      /** Clamps `this.position` to `this.customBoundsRectangle` on the axes `this.world.checkCollision` enables. */
+      checkWorldBounds(this: unknown): boolean;
+    };
+  };
+  export default Body;
+}

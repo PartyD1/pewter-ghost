@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { buildOpenRouterBody, extractChatLogprob, extractChatText, OpenRouterUpstream, toJsonSchema } from "./openrouter";
-import { modelFromEnv, providerFromEnv, reasoningFromEnv, upstreamFromEnv } from "./provider";
+import { JEV_LOCAL_BASE_URL, JEV_OPENROUTER_DEFAULT_MODEL, jevUpstreamFromEnv, modelFromEnv, providerFromEnv, reasoningFromEnv, upstreamFromEnv } from "./provider";
 import { GeminiUpstream } from "./gemini";
 import { UpstreamError } from "./upstream";
 import { GOOD_ANSWER, fakeRender, sampleRequest } from "./__fixtures__/fakes";
@@ -223,5 +223,37 @@ describe("provider selection", () => {
     expect(bl.model).toBe("openrouter:z-ai/glm-5.3-flash");
     await bl.generate({ prompt, temperature: 0, samples: 1 });
     expect((m.calls[0].init.headers as Record<string, string>).Authorization).toBe("Bearer campus");
+  });
+});
+
+describe("Jev upstream selection (/when)", () => {
+  it("is null with nothing set: /when uses the fill upstream", () => {
+    expect(jevUpstreamFromEnv({ GEMINI_API_KEY: "AIzaTEST" })).toBeNull();
+  });
+
+  it("JEV_PROVIDER=openrouter defaults to the free LFM2.5 2.6B, independent of the fill provider", () => {
+    const up = jevUpstreamFromEnv({ GEMINI_API_KEY: "AIzaTEST", OPENROUTER_API_KEY: KEY, JEV_PROVIDER: "openrouter" }) as OpenRouterUpstream;
+    expect(up).toBeInstanceOf(OpenRouterUpstream);
+    expect(up.model).toBe(JEV_OPENROUTER_DEFAULT_MODEL);
+    expect(up.url).toBe("https://openrouter.ai/api/v1/chat/completions");
+    const named = jevUpstreamFromEnv({ OPENROUTER_API_KEY: KEY, JEV_PROVIDER: "openrouter", JEV_MODEL: "google/gemma-4-26b-a4b-it:free" })!;
+    expect(named.model).toBe("google/gemma-4-26b-a4b-it:free");
+  });
+
+  it("JEV_MODEL alone keeps the fill provider; gemini needs a model", () => {
+    expect(jevUpstreamFromEnv({ GEMINI_API_KEY: "AIzaTEST", JEV_MODEL: "gemini-lite" })!.model).toBe("gemini-lite");
+    expect(() => jevUpstreamFromEnv({ GEMINI_API_KEY: "AIzaTEST", JEV_PROVIDER: "gemini" })).toThrow(/JEV_MODEL/);
+    expect(() => jevUpstreamFromEnv({ JEV_PROVIDER: "jev-cloud" })).toThrow(/JEV_PROVIDER/);
+  });
+
+  it("local talks to an OpenAI-compatible server (Ollama by default) and needs a model", async () => {
+    expect(() => jevUpstreamFromEnv({ JEV_PROVIDER: "local" })).toThrow(/JEV_MODEL/);
+    const m = mockFetch(() => okResponse('{"suggest":true,"p":0.8,"why":"x"}'));
+    const up = jevUpstreamFromEnv({ JEV_PROVIDER: "local", JEV_MODEL: "lfm2.5:2.6b" }, m.fetch) as OpenRouterUpstream;
+    expect(up.url).toBe(`${JEV_LOCAL_BASE_URL}/chat/completions`);
+    await up.generate({ prompt, temperature: 0, samples: 1 });
+    expect(m.calls[0].body.model).toBe("lfm2.5:2.6b");
+    const lm = jevUpstreamFromEnv({ JEV_PROVIDER: "local", JEV_MODEL: "m", JEV_BASE_URL: "http://127.0.0.1:1234/v1/" }) as OpenRouterUpstream;
+    expect(lm.url).toBe("http://127.0.0.1:1234/v1/chat/completions");
   });
 });

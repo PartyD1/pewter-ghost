@@ -123,3 +123,17 @@ export function wheelIntent(e: WheelLike, levelFitsVertically: boolean): WheelIn
 
 /** Ease used by the nudge tween. */
 export const easeOutCubic = (t: number): number => 1 - Math.pow(1 - clamp(t, 0, 1), 3);
+
+/**
+ * Scroll (world px, one axis) nudged so the world origin lands on a whole
+ * screen pixel. Phaser draws a point at screen `origin - zoom * (scroll +
+ * origin - world)`, with `origin` = half the viewport on that axis; at the
+ * default zoom 2.25 a tile is 36 screen px, so every tile edge then lands on
+ * a whole pixel too. Canvas draws tiles at fractional positions with
+ * anti-aliased edges, which shows as seams between tiles and a soft ground.
+ */
+export function snapScroll(scroll: number, zoom: number, origin: number): number {
+  if (!(zoom > 0)) return scroll;
+  const screenOrigin = Math.round(origin - zoom * (scroll + origin));
+  return (origin - screenOrigin) / zoom - origin;
+}

@@ -15,7 +15,7 @@ const MAX_LABEL = 40;
 const MAX_GUESS = 40;
 
 /** Words that would reveal the condition or the engine; never shown as a guess. */
-const HIDDEN_WORDS = new Set(["stub", "llm", "algo", "algorithm", "jev", "none", "model", "ai", "gemini", "test", "unknown", "n/a", "null"]);
+const HIDDEN_WORDS = new Set(["stub", "llm", "algo", "algorithm", "markov", "jev", "none", "model", "ai", "gemini", "test", "unknown", "n/a", "null"]);
 
 const KIND_WORD: Record<SuggestionKind, string> = { finish: "finish", extend: "next stretch", fix: "fix" };
 

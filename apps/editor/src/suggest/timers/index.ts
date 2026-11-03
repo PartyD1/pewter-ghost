@@ -1,3 +1,4 @@
 export type { Timer, TimerContext, TimerDecision, ShowWhen } from "./Timer";
 export { ConfidenceTimer } from "./ConfidenceTimer";
-export { JevTimer, JevTimerNotConfiguredError } from "./JevTimer";
+export { CdhfTimer } from "./CdhfTimer";
+export { JevTimer, JevTimerNotConfiguredError, type TimedVerdict } from "./JevTimer";

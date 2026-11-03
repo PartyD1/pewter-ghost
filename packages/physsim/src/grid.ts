@@ -71,10 +71,13 @@ export function goalColumns(goal: GoalSpec, hint?: Point): [number, number] | nu
   return [r.x0 ?? -Infinity, r.x1 ?? Infinity];
 }
 
-/** Grid accessor with out-of-bounds = empty (the level has no world-bounds collision). */
+/**
+ * Grid accessor. Columns left and right of the level are solid (Play's side
+ * walls, sim.ts worldBounds); rows above and below it are empty.
+ */
 export function makeSolid(grid: SolidGrid): (x: number, y: number) => boolean {
   const { w, h, solid } = grid;
-  return (x, y) => x >= 0 && y >= 0 && x < w && y < h && !!solid[y * w + x];
+  return (x, y) => x < 0 || x >= w || (y >= 0 && y < h && !!solid[y * w + x]);
 }
 
 /** True when (x, y) is empty and has a solid tile directly below. */

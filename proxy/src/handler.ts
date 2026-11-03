@@ -7,6 +7,8 @@
  *   GET  /session?token=<t>           token in query or Bearer -> ProxySessionResponse
  *   POST /fill   Bearer <t>           ProxyFillBody -> ProxyFillResponse
  *   POST /log    Bearer <t> | ?token= ProxyLogBody  -> { ok, accepted, rejected }
+ *   POST /when   Bearer <t>           ProxyWhenBody -> ProxyWhenResponse (the Jev
+ *                                     timing model; 404 when deps.when is absent)
  *
  * /fill renders the prompt with the injected renderer, calls the upstream,
  * parses each sample with the injected parser (garbage -> null), and appends a
@@ -16,10 +18,14 @@
  */
 import type {
   FillRequest,
+  JevRequest,
+  JevVerdict,
   ModelAnswer,
   ProxyFillBody,
   ProxyFillResponse,
   ProxyLogBody,
+  ProxyWhenBody,
+  ProxyWhenResponse,
   Recording,
   RenderedPrompt,
 } from "../../apps/editor/src/contracts";
@@ -33,7 +39,7 @@ import {
   type TokenInfo,
   type TokenStore,
 } from "./sessions";
-import { isSafeSessionId, logKey, recordingKey, rejectedLogKey, type ProxyStore } from "./store";
+import { isSafeSessionId, jevKey, logKey, recordingKey, rejectedLogKey, type ProxyStore } from "./store";
 import { UpstreamError, type Upstream, type UpstreamResult } from "./upstream";
 
 export interface HandlerDeps {
@@ -52,6 +58,20 @@ export interface HandlerDeps {
   logRate?: RateLimitConfig;
   /** /session limit per token (default 30/min, burst 10). */
   sessionRate?: RateLimitConfig;
+  /**
+   * POST /when, the Jev timing model: its prompt, parser, the request check
+   * and an upstream (default: the /fill upstream; JEV_MODEL picks a cheaper one).
+   */
+  when?: {
+    render: (req: JevRequest) => RenderedPrompt;
+    parse: (raw: unknown) => JevVerdict | null;
+    problem: (req: unknown) => string | null;
+    upstream?: Upstream;
+  };
+  /** /when limit per token (default 90/min, burst 30: a poll every 1.5 s with slack). */
+  whenRate?: RateLimitConfig;
+  /** Conditions whose tokens may call /when (default every filler but "none": timing is independent of the filler). */
+  whenConditions?: readonly TokenInfo["condition"][];
   /** CORS: which browser origins may call (default: localhost / 127.0.0.1 on any port). */
   allowOrigin?: (origin: string) => boolean;
   /** Conditions whose tokens may call /fill (default ["llm"]). */
@@ -107,8 +127,10 @@ export function createHandler(deps: HandlerDeps): ProxyHandler {
   const fillLimiter = new TokenBucketLimiter(deps.fillRate ?? { capacity: 120, perMinute: 120 });
   const logLimiter = new TokenBucketLimiter(deps.logRate ?? { capacity: 30, perMinute: 60 });
   const sessionLimiter = new TokenBucketLimiter(deps.sessionRate ?? { capacity: 10, perMinute: 30 });
+  const whenLimiter = new TokenBucketLimiter(deps.whenRate ?? { capacity: 30, perMinute: 90 });
   const allowOrigin = deps.allowOrigin ?? allowLocalhost;
   const fillConditions = deps.fillConditions ?? ["llm"];
+  const whenConditions = deps.whenConditions ?? ["llm", "algo", "markov", "stub"];
   const temps = deps.temperature ?? { one: 0.2, two: 0.7 };
   const maxFill = deps.maxFillBodyBytes ?? 256 * 1024;
   const maxLog = deps.maxLogBodyBytes ?? 2 * 1024 * 1024;
@@ -246,6 +268,60 @@ export function createHandler(deps: HandlerDeps): ProxyHandler {
     return json(200, response);
   }
 
+  async function when(request: Request, url: URL, ctx?: HandlerContext): Promise<Response> {
+    const jev = deps.when;
+    if (!jev) throw new HttpError(404, "not found");
+    const info = await authenticate(request, url, false);
+    if (!whenConditions.includes(info.condition)) throw new HttpError(403, "when is not enabled for this session");
+    limit(whenLimiter, info);
+    const body = (await readJson(request, maxFill)) as Partial<ProxyWhenBody> | null;
+    if (!body || typeof body !== "object") throw new HttpError(400, "body must be an object");
+    const sessionId = body.sessionId;
+    if (!isSafeSessionId(sessionId)) throw new HttpError(400, "bad sessionId");
+    if (!sessionBelongsTo(info, sessionId)) throw new HttpError(403, "sessionId does not belong to this token");
+    const shapeErr = jev.problem(body.request);
+    if (shapeErr) throw new HttpError(400, `bad request: ${shapeErr}`);
+    const req = body.request as JevRequest;
+    let prompt: RenderedPrompt;
+    try {
+      prompt = jev.render(req);
+    } catch (e) {
+      throw new HttpError(400, `cannot render prompt: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    const upstream = jev.upstream ?? deps.upstream;
+    const t0 = now();
+    let result: UpstreamResult | null = null;
+    let error: string | undefined;
+    try {
+      result = await upstream.generate({ prompt, temperature: 0, samples: 1 });
+    } catch (e) {
+      error = e instanceof UpstreamError ? (e.kind === "timeout" ? "upstream timeout" : e.message) : `upstream failed: ${e instanceof Error ? e.message : String(e)}`;
+      report(`when ${sessionId}: ${error}`);
+    }
+    const latencyMs = Math.max(0, now() - t0);
+    const text = result?.texts[0] ?? null;
+    let verdict: JevVerdict | null = null;
+    if (text != null) {
+      try {
+        verdict = jev.parse(JSON.parse(stripFence(text))) ?? null;
+      } catch {
+        verdict = null;
+      }
+      if (!verdict && !error) error = "verdict failed to parse";
+    } else if (!error) error = result?.sampleErrors?.[0] ?? "no verdict";
+    const response: ProxyWhenResponse = {
+      verdict,
+      latencyMs,
+      model: result?.model ?? upstream.model,
+      promptVersion: prompt.promptVersion,
+    };
+    if (error) response.error = error;
+    const line: Record<string, unknown> = { t: new Date(now()).toISOString(), sessionId, request: req, ...response };
+    if (!verdict && text != null) line.raw = text;
+    await persist(ctx, "jev", deps.store.append(jevKey(sessionId), JSON.stringify(line) + "\n"));
+    return json(200, response);
+  }
+
   function parseSample(text: string | null): ModelAnswer | null {
     if (text == null) return null;
     let raw: unknown;
@@ -324,6 +400,9 @@ export function createHandler(deps: HandlerDeps): ProxyHandler {
         case "/fill":
           res = await fill(request, url, ctx);
           break;
+        case "/when":
+          res = await when(request, url, ctx);
+          break;
         default:
           res = await log(request, url, ctx);
           break;
@@ -342,6 +421,7 @@ const ROUTES: Record<string, "GET" | "POST"> = {
   "/session": "GET",
   "/fill": "POST",
   "/log": "POST",
+  "/when": "POST",
 };
 
 function corsHeaders(origin: string | null, allow: (o: string) => boolean): Record<string, string> | null {

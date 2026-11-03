@@ -24,7 +24,7 @@ test("boots with the replayed proxy and no console errors", async ({ page }) => 
   const strip = await ed.strip();
   expect(strip?.main).toBe("quiet · Ctrl+Space to ask");
   // The condition is never shown to the person.
-  expect(await page.locator("#ghost-status").innerText()).not.toMatch(/stub|llm|algo|jev/i);
+  expect(await page.locator("#ghost-status").innerText()).not.toMatch(/stub|llm|algo|markov|jev/i);
 
   const events = await ed.events();
   expect(events[0]).toMatchObject({ type: "session", sessionId: "e2e-smoke", filler: "llm" });

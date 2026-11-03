@@ -67,6 +67,23 @@ describe("physics primitives", () => {
     expect(hit).toBe(true);
     expect(b.x + 10).toBeLessThanOrEqual(5 * T + 1e-9);
   });
+
+  it("the level's left and right edges are walls (Play's world bounds), not drops", () => {
+    const L = new Level(flatLevel(8));
+    for (const [cellX, move, flag] of [[0, -1, "left"], [7, 1, "right"]] as const) {
+      const b = spawnBody(cellX, 7, L);
+      let hit = false;
+      // Jump into the wall twice, then keep pushing on the ground.
+      for (let i = 0; i < 120; i++) {
+        frame(L, b, move, i < 60 && i % 30 < 10);
+        hit ||= b[flag];
+        expect(b.x).toBeGreaterThanOrEqual(0);
+        expect(b.x + 10).toBeLessThanOrEqual(8 * T);
+      }
+      expect(hit).toBe(true);
+      expect(bodyCell(b)).toEqual({ x: cellX, y: 7 });
+    }
+  });
 });
 
 describe("agent on the audit's validation fixtures", () => {

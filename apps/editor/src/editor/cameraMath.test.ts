@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clampCenter, easeOutCubic, fitZoom, nudgeTarget, screenToWorld, wheelIntent, zoomAround, zoomLimits } from "./cameraMath";
+import { clampCenter, easeOutCubic, fitZoom, nudgeTarget, screenToWorld, snapScroll, wheelIntent, zoomAround, zoomLimits } from "./cameraMath";
 
 const level = { w: 3200, h: 320 };
 const vp = { w: 1280, h: 720 };
@@ -66,5 +66,31 @@ describe("camera math", () => {
     expect(easeOutCubic(1)).toBe(1);
     expect(easeOutCubic(0.5)).toBeGreaterThan(0.5);
     expect(easeOutCubic(2)).toBe(1);
+  });
+});
+
+describe("snapScroll (whole-pixel tiles while the camera follows)", () => {
+  const zoom = 2.25;
+  const origin = 464; // half the 928 px canvas
+  const screenX = (world: number, scroll: number) => origin - zoom * (scroll + origin - world);
+
+  it("puts every tile edge on a whole screen pixel at the default zoom", () => {
+    for (const scroll of [0, 12.3, 123.456, 999.99, -257.7]) {
+      const s = snapScroll(scroll, zoom, origin);
+      expect(Math.abs(s - scroll)).toBeLessThanOrEqual(0.5 / zoom + 1e-9);
+      for (const tile of [0, 1, 17, 199]) {
+        const x = screenX(tile * 16, s);
+        expect(Math.abs(x - Math.round(x))).toBeLessThan(1e-6);
+      }
+    }
+  });
+
+  it("leaves an already aligned scroll alone (the editor's own view at zoom 2.25)", () => {
+    const aligned = -2000 / 9; // -222.2...: origin - 2.25 * (scroll + origin) = -80, a whole pixel
+    expect(snapScroll(aligned, zoom, origin)).toBeCloseTo(aligned, 9);
+  });
+
+  it("ignores a zero zoom", () => {
+    expect(snapScroll(12.3, 0, origin)).toBe(12.3);
   });
 });

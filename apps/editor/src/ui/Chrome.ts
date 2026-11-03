@@ -18,6 +18,8 @@
  *   buttons, not the old chat input).
  * - After Markers, as one more palette group: "Ghost", the one-line status
  *   (#ghost-status) and the suggestions switch (old .pt-tab buttons).
+ * - Dev only, after Ghost: "Variant (dev)" (#pg-variant-group, hidden unless
+ *   ui/VariantSwitch.ts variantsEnabled), the filler and timing switches.
  * - Notices (#pg-toasts) are the old temporary message at the panel's foot,
  *   where the old chat log showed it (ui/Toast.ts).
  * - Toolbar: "✕ Deselect" is gone (no selection boxes); "? Help" is the
@@ -84,6 +86,13 @@ export const PANEL_HTML = `
                 <button class="pt-tab active" type="button" role="radio" data-suggest="all">All</button>
               </div>
             </div>
+            <div id="pg-variant-group" class="pt-blocks-group pg-variant-group" hidden>
+              <h4 class="pt-blocks-heading">Variant (dev)</h4>
+              <span class="pg-variant-label">Ghost</span>
+              <div class="pt-tabs-inline pg-suggest-switch" role="radiogroup" aria-label="Ghost filler" data-variant="filler"></div>
+              <span class="pg-variant-label">Timing</span>
+              <div class="pt-tabs-inline pg-suggest-switch" role="radiogroup" aria-label="Timing policy" data-variant="timing"></div>
+            </div>
           </div>
           <div id="pg-toasts" class="pg-toasts" role="status" aria-live="polite"></div>
         </div>
@@ -146,6 +155,8 @@ export class Chrome {
   readonly signText: HTMLInputElement;
   /** The "Sign text" group (shown while the Sign brush is on). */
   readonly signGroup: HTMLElement;
+  /** The dev variant switch group (ui/VariantSwitch.ts). */
+  readonly variantGroup: HTMLElement;
 
   constructor() {
     this.panelNode = fromHTML(PANEL_HTML);
@@ -154,6 +165,7 @@ export class Chrome {
     this.toastSlot = this.panel("#pg-toasts");
     this.signText = this.panel<HTMLInputElement>("#pg-sign-text");
     this.signGroup = this.panel("#pg-sign-group");
+    this.variantGroup = this.panel("#pg-variant-group");
   }
 
   panel<T extends HTMLElement = HTMLElement>(sel: string): T {

@@ -26,6 +26,7 @@ import { chooseCell, DEFAULT_TARGETS, judgeCell, matrixConfigs, matrixMarkdown, 
 import { computeMetrics, type SurveyAnswer } from "./metrics";
 import { compareReport, headline, runReport } from "./report";
 import { DEFAULT_RUN_CONFIG, runSuite } from "./run";
+import { analyseTiming, timingMarkdown } from "./timing";
 import type { EvalCase, RunConfig, RunResult } from "./types";
 
 export const HELP = `Pewter Ghost offline suite
@@ -40,6 +41,7 @@ Commands
   matrix      G-28: models x window sizes (with and without the summary line)
   dashboard   G-29: static HTML from session logs and saved levels -> eval/dashboard/index.html
   export      G-38: (request, accepted answer) pairs as JSONL for fine-tuning
+  timing      G-36: llm vs cdhf vs jev timing from session logs; --train fits CDHF weights
   help        this text
 
 Requests (run, compare, calibrate, matrix)
@@ -63,6 +65,8 @@ compare: compare <runA> <runB> (saved runs in eval/runs), or --a-... / --b-... s
 matrix:  --models m1,m2 --windows 16x10,24x12,32x14 --summary-modes both|on|off
          --target-play 0.6 --target-coords 0.8 --target-schema 0.95 --target-p50 1000
 dashboard: --logs <dir> --recordings <dir> --levels <dir> (subfolders = groups) --survey <json> --out <html>
+timing:  --logs <dir> --train (write eval/runs/cdhf-weights.json for config.cdhfWeights)
+         --min-rejected 0.9 (share of hidden ghosts that must have been rejected) --report timing
 export:  --logs <dir> --recordings <dir> [--run <name>] --format gemini|openai|raw --system full|none --include-partial --out <file>
 `;
 
@@ -331,6 +335,31 @@ async function cmdExport(c: Ctx): Promise<number> {
   return 0;
 }
 
+async function cmdTiming(c: Ctx): Promise<number> {
+  const logs = list(c.flags, "logs").map((x) => c.abs(x));
+  const sessions = loadSessions(logs.length ? logs : [c.p("proxy/.data/logs")]);
+  const date = (c.deps.now ?? (() => new Date()))().toISOString().slice(0, 10);
+  const a = analyseTiming(sessions, {
+    train: bool(c.flags, "train"),
+    minRejected: num(c.flags, "min-rejected", { min: 0, max: 1 }),
+    version: `trained-${date}`,
+  });
+  const f = c.report(str(c.flags, "report") ?? "timing", timingMarkdown(a));
+  const pc = (v: number) => (Number.isFinite(v) ? `${Math.round(v * 100)}%` : "n/a");
+  const f2 = (v: number | undefined) => (v !== undefined && Number.isFinite(v) ? v.toFixed(2) : "n/a");
+  for (const s of a.stats) c.deps.log(`  ${s.policy}: ${s.sessions} session(s), ${s.shown} shown, keep ${pc(s.keepRate)}, ${s.fillCalls + s.jevPolls} call(s)`);
+  c.deps.log(`  ${a.examples} labelled ghost(s); AUC confidence ${f2(a.auc.confidence)}, prior ${f2(a.auc.prior)}, trained ${f2(a.auc.trained)}`);
+  if (bool(c.flags, "train")) {
+    if (a.weights) {
+      const wf = c.p("eval/runs", "cdhf-weights.json");
+      write(wf, JSON.stringify(a.weights, null, 1) + "\n");
+      c.deps.log(`weights ${path.relative(c.deps.root, wf)} (pass as the cdhfWeights override)`);
+    } else c.deps.log("not enough labelled ghosts to train (need 10)");
+  }
+  c.deps.log(`report ${path.relative(c.deps.root, f)}`);
+  return 0;
+}
+
 async function cmdSeed(c: Ctx): Promise<number> {
   const cases = await buildSeedCases();
   const out = c.abs(str(c.flags, "out") ?? "eval/data/seed.jsonl");
@@ -363,6 +392,7 @@ export async function main(argv: readonly string[], deps: CliDeps): Promise<numb
     dashboard: cmdDashboard,
     export: cmdExport,
     seed: cmdSeed,
+    timing: cmdTiming,
   };
   const fn = commands[cmd];
   if (!fn) {
