@@ -302,6 +302,8 @@ export type LogEvent =
       model: string;
       filler: FillerName | "none";
       config: Record<string, unknown>;
+      /** Replay log version (absent in logs from before the replay work). */
+      replay?: number;
     }
   | ({ type: "place" | "erase" } & PlacementEvent)
   | {
@@ -329,6 +331,10 @@ export type LogEvent =
       shownBecause: ShownBecause;
       cells: number;
       label: string;
+      /** The proposed cells, so a replay can draw the ghost (replay log v1+). Level coordinates. */
+      adds?: [x: number, y: number, tile: number][];
+      removes?: [x: number, y: number][];
+      entities?: [kind: EntityKind, x: number, y: number][];
     }
   | {
       type: "ghost.end";
@@ -344,7 +350,47 @@ export type LogEvent =
   | { type: "undo" | "redo"; t: number; what: "own" | "ghost" | "mixed" }
   | { type: "save"; t: number; snapshotId: string }
   | VariantEvent
-  | TimingEvent;
+  | TimingEvent
+  | ReplayEvent;
+
+/** Current replay log version (`session.replay`). */
+export const REPLAY_VERSION = 1;
+
+/** A level snapshot with its two big arrays run-length encoded (research/rle.ts). */
+export interface PackedSnapshot extends Omit<LevelSnapshot, "cells" | "authors"> {
+  cells: number[];
+  authors: number[];
+  packed: true;
+}
+
+/**
+ * Raw interaction events for session replay. Times are ms since session start
+ * (the same clock as every other event). Pointer positions are canvas pixels;
+ * the replay maps them to tiles with the nearest `camera` event.
+ */
+export type ReplayEvent =
+  | {
+      /** A batch of pointer-move samples: sample i is at t + dt[i], pixel (x[i], y[i]). */
+      type: "pointer.path";
+      t: number;
+      dt: number[];
+      x: number[];
+      y: number[];
+    }
+  | { type: "pointer.btn"; t: number; x: number; y: number; down: boolean; button: number }
+  | { type: "pointer.edge"; t: number; inside: boolean }
+  | { type: "wheel"; t: number; x: number; y: number; dx: number; dy: number; ctrl: boolean }
+  | { type: "key"; t: number; code: string; down: boolean }
+  | { type: "focus"; t: number; focused: boolean }
+  | { type: "camera"; t: number; x: number; y: number; w: number; h: number; zoom: number }
+  | { type: "tool"; t: number; mode: string; brush: string }
+  | {
+      /** Whole level at `t`: at session start, after a load, and every checkpoint. */
+      type: "snapshot";
+      t: number;
+      reason: "start" | "load" | "checkpoint";
+      level: PackedSnapshot;
+    };
 
 /**
  * The filler or timing policy was switched mid-session (dev variant switch,
