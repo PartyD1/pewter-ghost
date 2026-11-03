@@ -21,7 +21,13 @@ export default defineConfig({
       { find: /^@chunks\/(.*)$/, replacement: r("./packages/chunks/src/") + "$1" },
     ],
   },
-  build: { outDir: r("./dist"), emptyOutDir: true, target: "es2022" },
+  build: {
+    outDir: r("./dist"),
+    emptyOutDir: true,
+    target: "es2022",
+    // Two pages: the editor and the session replay viewer (replay.html).
+    rollupOptions: { input: { main: r("./apps/editor/index.html"), replay: r("./apps/editor/replay.html") } },
+  },
   worker: { format: "es" },
   server: { port: 5173, strictPort: false },
   test: {
