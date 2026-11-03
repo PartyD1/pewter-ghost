@@ -20,8 +20,10 @@ import type { LogEvent } from "../contracts";
 
 /** The slice of an EventTarget the recorder uses. */
 export interface ListenTarget {
-  addEventListener(type: string, fn: (e: never) => void, opts?: boolean | { capture?: boolean; passive?: boolean }): void;
-  removeEventListener(type: string, fn: (e: never) => void, opts?: boolean | { capture?: boolean }): void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- real EventTargets take typed events
+  addEventListener(type: string, fn: (e: any) => void, opts?: boolean | { capture?: boolean; passive?: boolean }): void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  removeEventListener(type: string, fn: (e: any) => void, opts?: boolean | { capture?: boolean }): void;
 }
 
 export interface CanvasLike extends ListenTarget {
@@ -93,22 +95,22 @@ export class InputRecorder {
     if (this.started) return;
     this.started = true;
     const { win, canvas, doc } = this.o;
-    const on = <T extends ListenTarget>(t: T, type: string, fn: (e: never) => void, opts?: { capture?: boolean; passive?: boolean }) => {
+    const on = <T extends ListenTarget>(t: T, type: string, fn: (e: any) => void, opts?: { capture?: boolean; passive?: boolean }) => {
       t.addEventListener(type, fn, opts);
       this.offs.push(() => t.removeEventListener(type, fn, opts));
     };
     // Capture phase on window: the editor stops propagation on some canvas events.
-    on(win, "pointermove", ((e: PointerLike) => this.move(e)) as (e: never) => void, { capture: true });
-    on(win, "pointerdown", ((e: PointerLike) => this.button(e, true)) as (e: never) => void, { capture: true });
-    on(win, "pointerup", ((e: PointerLike) => this.button(e, false)) as (e: never) => void, { capture: true });
-    on(canvas, "pointerenter", (() => this.edge(true)) as (e: never) => void);
-    on(canvas, "pointerleave", (() => this.edge(false)) as (e: never) => void);
-    on(win, "wheel", ((e: WheelLike) => this.wheel(e)) as (e: never) => void, { capture: true, passive: true });
-    on(win, "keydown", ((e: KeyLike) => this.key(e, true)) as (e: never) => void, { capture: true });
-    on(win, "keyup", ((e: KeyLike) => this.key(e, false)) as (e: never) => void, { capture: true });
-    on(win, "blur", (() => this.setFocus(false)) as (e: never) => void);
-    on(win, "focus", (() => this.setFocus(this.docVisible())) as (e: never) => void);
-    if (doc) on(doc, "visibilitychange", (() => this.setFocus(this.docVisible())) as (e: never) => void);
+    on(win, "pointermove", ((e: PointerLike) => this.move(e)), { capture: true });
+    on(win, "pointerdown", ((e: PointerLike) => this.button(e, true)), { capture: true });
+    on(win, "pointerup", ((e: PointerLike) => this.button(e, false)), { capture: true });
+    on(canvas, "pointerenter", (() => this.edge(true)));
+    on(canvas, "pointerleave", (() => this.edge(false)));
+    on(win, "wheel", ((e: WheelLike) => this.wheel(e)), { capture: true, passive: true });
+    on(win, "keydown", ((e: KeyLike) => this.key(e, true)), { capture: true });
+    on(win, "keyup", ((e: KeyLike) => this.key(e, false)), { capture: true });
+    on(win, "blur", (() => this.setFocus(false)));
+    on(win, "focus", (() => this.setFocus(this.docVisible())));
+    if (doc) on(doc, "visibilitychange", (() => this.setFocus(this.docVisible())));
     // Initial state, so a replay knows whether the first stretch was attended.
     this.focused = this.docVisible() && (doc?.hasFocus?.() ?? true);
     this.emit({ type: "focus", t: this.o.clock(), focused: this.focused });

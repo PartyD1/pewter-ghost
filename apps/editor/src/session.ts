@@ -65,6 +65,7 @@ import type {
   VerdictStage,
   VerifiedSuggestion,
 } from "./contracts";
+import { REPLAY_VERSION } from "./contracts";
 import type { EditorApi } from "./editor/api";
 import { BRIEF_VERSION, BriefCache, measureRequestWindow, type Brief } from "./fill/brief";
 import { FillerRegistry, StubFiller, type ActiveFiller } from "./fill/Filler";
@@ -94,6 +95,7 @@ import type { DevFillInfo } from "./ghost/devOverlay";
 import type { GhostSession, GhostSessionOptions } from "./ghost/session";
 import type { LevelModel } from "./level/LevelModel";
 import { EventLog, setActiveLog } from "./research/log";
+import { startReplayRecording } from "./research/replayRecording";
 import { fetchSession, readTokenFromUrl, type SessionInfo } from "./research/session";
 import { applyOverrides, config as liveConfig, DEFAULT_CONFIG, type GhostConfig } from "./suggest/config";
 import type { ManagerListeners, OfferOptions, OfferResult } from "./suggest/SuggestionManager";
@@ -221,6 +223,7 @@ export function sessionEvent(
     model: cfg.model,
     filler: info.filler,
     config: structuredClone(cfg) as unknown as Record<string, unknown>,
+    replay: REPLAY_VERSION,
   };
 }
 
@@ -1117,6 +1120,8 @@ export class PewterApp {
     this.ghost = ghost;
     this.loop.setGhost(ghost);
     const offs = [
+      // Raw input, camera and level snapshots for session replay (research/replayRecording.ts).
+      startReplayRecording(api, this.sessionLog.log, this.clock),
       api.on("play:start", () => this.loop.setPaused(true)),
       api.on("play:end", () => this.loop.setPaused(false)),
       this.timing.attach({
