@@ -487,3 +487,103 @@ describe("POST /when (Jev)", () => {
     expect((await bare.handler(post("/when", { sessionId: "p01", request: jevRequest() }))).status).toBe(404);
   });
 });
+
+describe("GET /replay (researcher read API)", () => {
+  const SECRET = "lab-secret-123";
+  const get = (path: string, secret: string | null = SECRET, headers: Record<string, string> = {}) =>
+    new Request(BASE + path, { method: "GET", headers: { ...(secret ? { Authorization: `Bearer ${secret}` } : {}), ...headers } });
+  const withLogs = async (h: ReturnType<typeof setup>) => {
+    await h.store.append(logKey("p01"), '{"type":"focus","t":1,"focused":true}\n{"type":"key","t":2,"code":"KeyZ","down":true}\n');
+    await h.store.append(logKey("p02"), '{"type":"focus","t":1,"focused":true}\n');
+    await h.store.append(rejectedLogKey("p01"), '{"error":"x"}\n');
+    await h.store.append(recordingKey("p01"), '{"requestHash":"x"}\n');
+  };
+
+  it("is off (503) until a read password is configured", async () => {
+    const { handler } = setup();
+    expect((await handler(get("/replay/sessions"))).status).toBe(503);
+  });
+
+  it("lists sessions that have a log (not rejected-event files or recordings)", async () => {
+    const h = setup({ readSecret: SECRET });
+    await withLogs(h);
+    const res = await h.handler(get("/replay/sessions"));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ sessions: [{ sessionId: "p01" }, { sessionId: "p02" }] });
+  });
+
+  it("serves one session's log as JSONL, uncached", async () => {
+    const h = setup({ readSecret: SECRET });
+    await withLogs(h);
+    const res = await h.handler(get("/replay/sessions/p01"));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("application/x-ndjson");
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect((await res.text()).trim().split("\n")).toHaveLength(2);
+  });
+
+  it("404 for an unknown session, 400 for a bad or malicious id", async () => {
+    const h = setup({ readSecret: SECRET });
+    await withLogs(h);
+    expect((await h.handler(get("/replay/sessions/nope"))).status).toBe(404);
+    expect((await h.handler(get("/replay/sessions/..%2F..%2Fetc%2Fpasswd"))).status).toBe(400);
+    expect((await h.handler(get("/replay/sessions/%E0%A4%A"))).status).toBe(400);
+    expect((await h.handler(get("/replay/sessions/p01.rejected"))).status).toBe(404);
+  });
+
+  it("needs the read password: wrong, missing, and a participant token are all refused", async () => {
+    const h = setup({ readSecret: SECRET });
+    await withLogs(h);
+    expect((await h.handler(get("/replay/sessions", "wrong"))).status).toBe(401);
+    expect((await h.handler(get("/replay/sessions", null))).status).toBe(401);
+    expect((await h.handler(get("/replay/sessions/p01", "tok_llm_abc"))).status).toBe(401);
+    expect((await h.handler(get(`/replay/sessions/p01?token=${SECRET}`, null))).status).toBe(401);
+  });
+
+  it("locks a client out after repeated wrong passwords, even for the right one, then recovers", async () => {
+    const h = setup({ readSecret: SECRET, readFailRate: { capacity: 3, perMinute: 3 } });
+    await withLogs(h);
+    const ip = { "cf-connecting-ip": "203.0.113.9" };
+    for (let i = 0; i < 3; i++) expect((await h.handler(get("/replay/sessions", "bad", ip))).status).toBe(401);
+    const locked = await h.handler(get("/replay/sessions", SECRET, ip));
+    expect(locked.status).toBe(429);
+    expect(locked.headers.get("retry-after")).toBe("60");
+    // Another client is unaffected.
+    expect((await h.handler(get("/replay/sessions", SECRET, { "cf-connecting-ip": "198.51.100.7" }))).status).toBe(200);
+    h.advance(61_000);
+    expect((await h.handler(get("/replay/sessions", SECRET, ip))).status).toBe(200);
+  });
+
+  it("rate-limits reads per client", async () => {
+    const h = setup({ readSecret: SECRET, readRate: { capacity: 2, perMinute: 2 } });
+    await withLogs(h);
+    expect((await h.handler(get("/replay/sessions"))).status).toBe(200);
+    expect((await h.handler(get("/replay/sessions"))).status).toBe(200);
+    expect((await h.handler(get("/replay/sessions"))).status).toBe(429);
+  });
+
+  it("is GET only, and answers CORS for an allowed origin (the viewer page)", async () => {
+    const h = setup({ readSecret: SECRET, allowOrigin: originAllowList("https://lab.github.io") });
+    expect((await h.handler(new Request(BASE + "/replay/sessions", { method: "POST" }))).status).toBe(405);
+    const pre = await h.handler(new Request(BASE + "/replay/sessions", { method: "OPTIONS", headers: { origin: "https://lab.github.io" } }));
+    expect(pre.status).toBe(204);
+    expect(pre.headers.get("access-control-allow-headers")).toContain("Authorization");
+    const res = await h.handler(get("/replay/sessions", SECRET, { origin: "https://lab.github.io" }));
+    expect(res.headers.get("access-control-allow-origin")).toBe("https://lab.github.io");
+    const other = await h.handler(get("/replay/sessions", SECRET, { origin: "https://evil.example" }));
+    expect(other.headers.get("access-control-allow-origin")).toBeNull();
+  });
+
+  it("serves exactly what /log stored: a recorded session round-trips", async () => {
+    const h = setup({ readSecret: SECRET });
+    const events: LogEvent[] = [
+      { type: "focus", t: 0, focused: true },
+      { type: "pointer.path", t: 5, dt: [0, 16], x: [1, 2], y: [3, 4] },
+      { type: "key", t: 9, code: "KeyZ", down: true },
+    ];
+    const logged = await h.handler(post("/log", { sessionId: "p01", events }));
+    expect(((await logged.json()) as { accepted: number }).accepted).toBe(3);
+    const text = await (await h.handler(get("/replay/sessions/p01"))).text();
+    expect(text.trim().split("\n").map((l) => JSON.parse(l))).toEqual(events);
+  });
+});
