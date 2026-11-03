@@ -31,7 +31,8 @@ describe("knightLimits", () => {
   it("returns a contracts.KnightLimits for the design tier", () => {
     const k: KnightLimits = knightLimits();
     expect(DESIGN_TIER).toBe("NORMAL");
-    expect(k).toEqual({ maxGapStand: 8, maxGapRun: 11, maxRise: 6 });
+    // Retuned 2026-10-08 (was 8 / 11 / 6): Gravity 125%, Run speed 85%, Jump power 90%.
+    expect(k).toEqual({ maxGapStand: 5, maxGapRun: 7, maxRise: 4 });
   });
 
   it("agrees with the fork's movementFacts for every tier", () => {
@@ -57,7 +58,7 @@ describe("knightLimits", () => {
   it("returns a fresh object (callers may mutate it)", () => {
     const a = knightLimits();
     a.maxGapRun = 99;
-    expect(knightLimits().maxGapRun).toBe(11);
+    expect(knightLimits().maxGapRun).toBe(7);
   });
 });
 
@@ -179,12 +180,13 @@ describe("impossibleGap", () => {
 describe("canJump (standing cells)", () => {
   it("converts cell positions to gap and dy", () => {
     const from = { x: 10, y: 15 };
-    expect(canJump(from, { x: 10 + 1 + 11, y: 15 })).toBe(true); // 11 empty columns
-    expect(canJump(from, { x: 10 + 1 + 12, y: 15 })).toBe(false);
-    expect(canJump(from, { x: 11, y: 15 - 6 })).toBe(true); // straight up 6, adjacent
-    expect(canJump(from, { x: 11, y: 15 - 7 })).toBe(false);
-    expect(canJump(from, { x: 10 - 9, y: 15 }, false)).toBe(true); // leftward, 8 empty, standing
-    expect(canJump(from, { x: 10 - 10, y: 15 }, false)).toBe(false);
+    expect(canJump(from, { x: 10 + 1 + 7, y: 15 })).toBe(true); // 7 empty columns
+    expect(canJump(from, { x: 10 + 1 + 8, y: 15 })).toBe(false);
+    expect(canJump(from, { x: 11, y: 15 - 4 })).toBe(true); // straight up 4 (maxRise)
+    expect(canJump(from, { x: 11, y: 15 - 5 })).toBe(false);
+    expect(canJump(from, { x: 10 - 5, y: 15 }, false)).toBe(true); // leftward, 4 empty, standing
+    expect(canJump(from, { x: 10 - 6, y: 15 }, false)).toBe(true); // 5 empty (maxGapStand)
+    expect(canJump(from, { x: 10 - 7, y: 15 }, false)).toBe(false);
   });
 });
 
@@ -285,7 +287,7 @@ describe("arcs", () => {
   });
 
   it("a flat arc rises then falls (a real arc, not a line)", () => {
-    const coins = arcCoins(8, 0);
+    const coins = arcCoins(maxGap(0), 0); // the widest flat gap (7 after the retune; was 8)
     const ys = coins.map((c) => c.y);
     const apex = Math.min(...ys);
     expect(apex).toBeLessThanOrEqual(-4);

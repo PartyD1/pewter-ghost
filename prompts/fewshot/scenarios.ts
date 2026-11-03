@@ -282,9 +282,9 @@ export function fixWallRemoval(): Scenario {
   const { model, stream, tick, row, stroke, now } = setup();
   model.paint(row(16, 134, 149, TILE.GRASS));
   model.paint(row(17, 134, 149, TILE.DIRT));
-  // The wall, drawn earlier: 7 tiles tall on the floor at x 144.
+  // The wall, drawn earlier: 5 tiles tall on the floor at x 144 (the knight climbs 3).
   model.beginStroke();
-  for (let y = 15; y >= 9; y--) {
+  for (let y = 15; y >= 11; y--) {
     tick(100);
     model.paintTile(144, y, TILE.BLOCK);
   }
@@ -302,8 +302,8 @@ export function fixWallRemoval(): Scenario {
   tick(1200);
   return {
     id: "fix-wall-removal",
-    title: "A 7-tall wall drawn 20 s ago across the only route",
-    why: "From the floor the knight rises 6 at most, and there is no way around the 7-tall wall. Removing its top 2 tiles leaves a 5-tall wall the knight can climb, with slack. The tiles are old, and the label gives the measurement.",
+    title: "A 5-tall wall drawn 20 s ago across the only route",
+    why: "From the floor the knight rises 3 at most, and there is no way around the 5-tall wall. Removing its top 3 tiles leaves a 2-tall wall the knight can climb, with slack. The tiles are old, and the label gives the measurement.",
     model,
     stream,
     now: now(),
@@ -314,12 +314,13 @@ export function fixWallRemoval(): Scenario {
       kind: "fix",
       adds: [],
       removes: [
-        { x: 144, y: 9 },
-        { x: 144, y: 10 },
+        { x: 144, y: 11 },
+        { x: 144, y: 12 },
+        { x: 144, y: 13 },
       ],
       entities: [],
       confidence: 0.75,
-      label: "wall 7 high · knight rises 6",
+      label: "wall 5 high · knight rises 3",
       levelGuess: "mixed",
     },
   };
@@ -360,20 +361,20 @@ export function fixMove(): Scenario {
   };
 }
 
-/** 6. patrol fix: the agent cannot cross a 13-wide pit. */
+/** 6. patrol fix: the agent cannot cross a 10-wide pit (it clears 7 with a run-up, 4 from standing). */
 export function patrolPitStone(): Scenario {
   const { model, stream, tick, row, now } = setup();
   model.paint(row(15, 166, 177, TILE.GRASS));
   model.paint(row(16, 166, 177, TILE.DIRT));
-  model.paint(row(15, 191, 199, TILE.GRASS));
-  model.paint(row(16, 191, 199, TILE.DIRT));
+  model.paint(row(15, 188, 199, TILE.GRASS));
+  model.paint(row(16, 188, 199, TILE.DIRT));
   model.placeEntity("flag", 197, 14);
   model.setGoal({ x: 197, y: 14 });
   tick(6000);
   return {
     id: "patrol-pit-stone",
-    title: "Patrol: the knight is stuck before a 13-wide pit",
-    why: "Two grass tiles in the middle split the pit into gaps of 6 and 5, both clearable from standing. That is the fewest-tile repair, and the person's pit stays a pit.",
+    title: "Patrol: the knight is stuck before a 10-wide pit",
+    why: "Two grass tiles in the middle split the pit into gaps of 4 and 4, both clearable from standing. That is the fewest-tile repair, and the person's pit stays a pit.",
     model,
     stream,
     now: now(),
@@ -384,13 +385,13 @@ export function patrolPitStone(): Scenario {
       act: true,
       kind: "fix",
       adds: [
-        { x: 184, y: 15, tile: "grass" },
-        { x: 185, y: 15, tile: "grass" },
+        { x: 182, y: 15, tile: "grass" },
+        { x: 183, y: 15, tile: "grass" },
       ],
       removes: [],
       entities: [],
       confidence: 0.8,
-      label: "pit 13 wide · knight clears 11",
+      label: "pit 10 wide · knight clears 7",
       levelGuess: "parkour",
     },
   };

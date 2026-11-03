@@ -90,6 +90,7 @@ export class Editor {
     }
     const params = new URLSearchParams();
     if (o.fresh !== false) params.set("fresh", "1");
+    params.set("intent", ""); // skip the level-goal question; specs that test it override this
     if (proxy) {
       params.set("proxy", PROXY_URL);
       params.set("token", "e2e-token");

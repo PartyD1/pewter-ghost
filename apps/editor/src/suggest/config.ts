@@ -120,6 +120,13 @@ export interface GhostConfig {
   tidyCols: number;
   tidyRows: number;
 
+  /** Deterministic context injected into LLM requests (anomaly + reachability). */
+  context: {
+    enabled: boolean;
+    /** Flag wide-but-clearable jumps at or above this gap width. */
+    comfortGap: number;
+  };
+
   // --- Timing policy (suggest/timing) ------------------------------------------
   /**
    * Who decides when a verified ghost appears: "llm" (the filler's act and
@@ -186,6 +193,7 @@ export const DEFAULT_CONFIG: GhostConfig = {
   tidyIdleMs: 1200,
   tidyCols: 32,
   tidyRows: 14,
+  context: { enabled: true, comfortGap: 5 },
   timing: "llm",
   cdhfShowAbove: 0.3,
   cdhfGateBelow: 0.12,

@@ -9,10 +9,14 @@ const agent = new AgentClient({ worker: null });
 afterAll(() => agent.dispose());
 const config = { patrolIdleMs: 3000, patrolCapMs: 1000, agentCapMs: 300, sendBackIfUnderMs: 500 };
 
-/** 14-wide pit at 20..33: the knight clears 11. */
-const pitLevel = () => modelFrom(groundRows([[0, 19], [34, W - 1]]));
-/** Flat ground with a 7-tall, 2-wide wall at 20..21: the knight climbs 6. */
-const wallLevel = () => modelFrom(groundRows([[0, W - 1]], W, H, (x, y) => (x >= 20 && x <= 21 && y >= 1 && y < GROUND ? "#" : undefined)));
+/**
+ * 10-wide pit at 20..29: the knight clears 7 (14 wide and 11 before the feel
+ * retune). A repair only looks maxGapRun + 4 = 11 columns ahead, so a pit has
+ * to be about that size to be repairable with a few stones.
+ */
+const pitLevel = () => modelFrom(groundRows([[0, 19], [30, W - 1]]));
+/** Flat ground with a 5-tall, 2-wide wall at 20..21: the knight climbs 4 (4-tall was climbable after the stand-5 bump). */
+const wallLevel = () => modelFrom(groundRows([[0, W - 1]], W, H, (x, y) => (x >= 20 && x <= 21 && y >= GROUND - 5 && y < GROUND ? "#" : undefined)));
 
 function manualTimers() {
   const pending: { fn: () => void; ms: number; id: number }[] = [];
@@ -64,7 +68,7 @@ describe("Patrol", () => {
     expect(fix).not.toBeNull();
     expect(fix!).toMatchObject({ kind: "fix", mode: "patrol", filler: "algo", verified: false });
     expect(fix!.adds.length + fix!.removes.length).toBeLessThanOrEqual(3);
-    expect(fix!.label).toMatch(/gap 14 · knight clears 11/);
+    expect(fix!.label).toMatch(/gap 10 · knight clears 7/);
     level.applySuggestion(fix!);
     const again = await p.runNow();
     expect(again.beatable).toBe(true);

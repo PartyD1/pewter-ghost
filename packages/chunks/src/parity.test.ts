@@ -44,19 +44,21 @@ describe("generateChunk parity with chunkgen.py", () => {
     },
   );
 
-  it("the @jump-tables caps give the same chunks as the audit caps at NORMAL", () => {
-    for (const r of RECS) expect(chunkRows(gen(r, capsFor("NORMAL")))).toEqual(chunkRows(gen(r)));
+  // Before the 2026-10-08 feel retune the live @jump-tables caps gave exactly the
+  // same chunks as the audit caps at NORMAL. The knight now reaches less, so they
+  // differ on purpose; what must still hold is that the live caps give chunks the
+  // current rule check accepts, for every recorded configuration.
+  it("the live @jump-tables caps give rule-checked chunks for every recorded configuration", () => {
+    for (const r of RECS) expect(checkChunk(gen(r, capsFor("NORMAL"))).ok, `${r.difficulty} ${r.theme} seed ${r.seed}`).toBe(true);
   });
 
-  it("every recorded chunk the Python called beatable passes the TS rule check too", () => {
-    let agree = 0;
-    for (const r of RECS) {
-      const ok = checkChunk(gen(r)).ok;
-      if (ok === r.exitArcMin) agree++;
-    }
-    // The rule check uses the solver's per-height tables rather than reachpy's
-    // ladder; the two agree on these chunks.
-    expect(agree).toBe(RECS.length);
+  it("the rule check never accepts a recorded chunk the Python called unbeatable", () => {
+    // The recorded verdicts were made for the OLD, longer reach (audit caps),
+    // so the new rule check says no more often (it is stricter). It must not say
+    // yes where the old reach said no.
+    let ruleOkPyNo = 0;
+    for (const r of RECS) if (checkChunk(gen(r)).ok && !r.exitArcMin) ruleOkPyNo++;
+    expect(ruleOkPyNo).toBe(0);
   });
 
   it("metrics match chunkgen.metrics on an example", () => {

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { knightLimits } from "@jump-tables";
 import type { FillRequest, ModelAnswer } from "../contracts";
 import { bundleIsFresh } from "../../../../prompts/build";
 import { FEWSHOTS } from "../../../../prompts/bundle";
@@ -28,7 +29,7 @@ const SNAP_DIR = "../../../../prompts/__snapshots__";
 const PROMPTS_DIR = path.resolve(__dirname, "../../../../prompts");
 
 /** System prompt budget (est. tokens). The plan's ~1,200 is the per-request part; the system part is cacheable. */
-const SYSTEM_BUDGET = 8000;
+const SYSTEM_BUDGET = 8100; // reach table grew when maxRise went from 3 to 4
 /** Per-request user message budget for the fixture states (brief placeholder). */
 const USER_BUDGET = 1000;
 
@@ -109,7 +110,7 @@ describe("renderFillPrompt", () => {
     expect(SYSTEM_PROMPT).toContain(BRIEF_STATIC.slice(0, 200));
     expect(SYSTEM_PROMPT).toContain("### Example 6:");
     expect(SYSTEM_PROMPT).toContain(knightReachTable());
-    expect(SYSTEM_PROMPT).toContain("clears gaps of 11 at the same height");
+    expect(SYSTEM_PROMPT).toContain(`clears gaps of ${knightLimits().maxGapRun} at the same height`);
   });
 
   it("versions the prompt by its content", () => {

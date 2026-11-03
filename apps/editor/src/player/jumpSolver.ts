@@ -191,6 +191,9 @@ interface GapSpan {
  */
 const PHYSICS_DT = 1 / 60;
 
+/** How far inside the closed edge of a landing band a reported optimal gap sits, px (far below one pixel of play). */
+const LANDING_EDGE_EPS_PX = 1e-6;
+
 /**
  * Simulate one jump attempt.
  *
@@ -461,7 +464,12 @@ function solveRate(dt: number, s: JumpSituation): RateSolution {
               jumpFrame: jf,
               ledgeFrame,
               holdFrames: hold,
-              gapTiles: sp.max / TILE,
+              // `sp.max` is the CLOSED edge of the landing band (sink ≤ overlap
+              // holds with equality there). Report a gap a hair inside it, so a
+              // replay that evaluates the same inequality in a different order
+              // cannot flip on one ulp of rounding (constants like 217.6 px/s
+              // are not exactly representable; the old 256/320/1500 were).
+              gapTiles: (sp.max - LANDING_EDGE_EPS_PX) / TILE,
             };
           }
         }

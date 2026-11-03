@@ -118,9 +118,9 @@ Enemies: slime (13,8) patrols x 2..21.
   "idleMs": 300
  },
  "knight": {
-  "maxGapStand": 8,
-  "maxGapRun": 11,
-  "maxRise": 6
+  "maxGapStand": 5,
+  "maxGapRun": 7,
+  "maxRise": 4
  },
  "measured": {
   "density": 0,

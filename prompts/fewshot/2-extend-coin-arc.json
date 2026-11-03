@@ -87,9 +87,9 @@
       }
     ],
     "knight": {
-      "maxGapStand": 8,
-      "maxGapRun": 11,
-      "maxRise": 6
+      "maxGapStand": 5,
+      "maxGapRun": 7,
+      "maxRise": 4
     }
   },
   "answer": {

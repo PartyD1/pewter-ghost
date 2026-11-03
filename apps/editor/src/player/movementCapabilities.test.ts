@@ -139,8 +139,10 @@ describe("classifyJump rates real geometry", () => {
   });
 
   it("starving the runway makes the same gap harder", () => {
-    const roomy = latitudeForGap({ runwayTiles: 7, deltaYTiles: 0 }, 9);
-    const tight = latitudeForGap({ runwayTiles: 1, deltaYTiles: 0 }, 9);
+    // Gap 6: still makeable from both runways after the feel retune (9 was
+    // impossible from either, which made both latitudes 0).
+    const roomy = latitudeForGap({ runwayTiles: 7, deltaYTiles: 0 }, 6);
+    const tight = latitudeForGap({ runwayTiles: 1, deltaYTiles: 0 }, 6);
     expect(roomy).toBeGreaterThan(tight);
   });
 });

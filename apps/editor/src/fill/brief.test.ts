@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { arcTableText, knightLimits } from "@jump-tables";
 import { PATTERN_TAGS, SCREEN_COLS, snapshotFromAscii } from "@measure";
 import type { GhostHistoryItem } from "../contracts";
 import {
@@ -47,7 +48,8 @@ describe("static brief", () => {
     for (const t of ["parkour", "maze", "collect-a-thon", "story", "speedrun"]) expect(BRIEF_STATIC).toContain(`**${t}**`);
     expect(BRIEF_STATIC).toContain("Classic Mario");
     expect(BRIEF_STATIC).toContain("Classic Sonic");
-    expect(BRIEF_STATIC).toContain("gap 5: (1,-1) (2,-4) (3,-6) (4,-6) (5,-5)");
+    expect(BRIEF_STATIC).toContain(arcTableText(0, [5])); // the live arc for gap 5, whatever the physics
+    expect(BRIEF_STATIC).not.toContain(`gap ${knightLimits().maxGapRun + 1}:`); // nothing past the run-up limit
     expect(BRIEF_STATIC).not.toContain("{{");
     expect(BRIEF_STATIC).toMatch(/at least 4 tiles wide/);
     expect(BRIEF_STATIC).toMatch(/more than 2 tiles \(3 or more\) from where the knight lands/);
