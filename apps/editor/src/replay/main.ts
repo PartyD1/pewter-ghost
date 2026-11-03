@@ -121,6 +121,7 @@ function openText(text: string, src: { name: string; sessionId?: string; t?: num
 
 function viewer(replay: Replay, src: { name: string; sessionId?: string; t?: number }): void {
   const tracks = replay.tracks();
+  const base = replay.baseCells();
   const player = new Player(replay.duration, { gaps: quietGaps(tracks), onEnd: () => syncButtons() });
   player.seek(src.t ?? 0);
 
@@ -262,7 +263,7 @@ function viewer(replay: Replay, src: { name: string; sessionId?: string; t?: num
   function draw(force = false): void {
     const f = replay.stateAt(player.t);
     time.textContent = `${fmt(player.t)} / ${fmt(replay.duration)}`;
-    if (force || player.playing) drawFrame(ctx, f);
+    if (force || player.playing) drawFrame(ctx, f, { base });
     updateHud(f);
   }
 

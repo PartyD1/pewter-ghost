@@ -91,6 +91,8 @@ export class Replay {
   readonly events: LogEvent[];
   readonly duration: number;
   readonly sessionId: string;
+  /** The log's own clock value (ms) of replay time 0, for matching a replay moment to the raw log. */
+  readonly originMs: number;
   /** Events that failed validation when loading (kept out of the replay). */
   readonly skipped: { line: number; error: string }[];
 
@@ -111,8 +113,15 @@ export class Replay {
   private trackCache: Tracks | null = null;
 
   constructor(events: readonly LogEvent[], skipped: { line: number; error: string }[] = []) {
+    // Replay time 0 is the first event (the editor's clock counts from page load).
     // Stable by time: equal times keep log order.
-    this.events = events.map((e, i) => ({ e, i })).sort((a, b) => a.e.t - b.e.t || a.i - b.i).map((x) => x.e);
+    this.originMs = events.reduce((m, e) => Math.min(m, e.t), Infinity);
+    if (!Number.isFinite(this.originMs)) this.originMs = 0;
+    const origin = this.originMs;
+    this.events = events
+      .map((e, i) => ({ e: origin === 0 ? e : ({ ...e, t: e.t - origin } as LogEvent), i }))
+      .sort((a, b) => a.e.t - b.e.t || a.i - b.i)
+      .map((x) => x.e);
     this.skipped = skipped;
     this.times = this.events.map((e) => e.t);
     this.duration = this.computeDuration();
@@ -214,6 +223,13 @@ export class Replay {
       else skipped.push({ line: i + 1, error: v.error });
     });
     return new Replay(events, skipped);
+  }
+
+  /** The level the session began with (first snapshot), or null for an old log. Cells only. */
+  baseCells(): number[] | null {
+    if (this.snapIdx.length === 0) return null;
+    const ev = this.events[this.snapIdx[0]] as Extract<LogEvent, { type: "snapshot" }>;
+    return unpackSnapshot(ev.level).cells;
   }
 
   /** True when the log has what a visual replay needs (a level snapshot). */
@@ -385,13 +401,15 @@ class LevelCursor {
 
   /** The level after events[0..target] (target = index of the last applied event). */
   moveTo(target: number): ReplayLevel | null {
-    const bi = upperBound(this.snapIdx, target) - 1;
-    if (bi < 0) {
+    if (this.snapIdx.length === 0) {
       this.base = -1;
       this.idx = -1;
       this.level = null;
       return null;
     }
+    // Before the first snapshot, the level is the first snapshot (the state the session began with).
+    const bi = Math.max(0, upperBound(this.snapIdx, target) - 1);
+    target = Math.max(target, this.snapIdx[bi]);
     if (bi !== this.base || target < this.idx || !this.level) {
       const ev = this.events[this.snapIdx[bi]] as Extract<LogEvent, { type: "snapshot" }>;
       const snap = unpackSnapshot(ev.level);

@@ -33,8 +33,13 @@ const ENTITY_COLOR: Record<EntityKind, string> = {
 export interface DrawOptions {
   /** Draw a tile grid (default true). */
   grid?: boolean;
-  /** Tint cells by who placed them: person blue edge, ghost purple edge (default true). */
+  /**
+   * Outline what changed since the session began: blue for the person's cells,
+   * purple for Ghost's. Needs the starting cells (Replay.baseCells()); without
+   * them every authored cell is outlined.
+   */
   authorship?: boolean;
+  base?: readonly number[] | null;
 }
 
 export function drawFrame(ctx: CanvasRenderingContext2D, f: ReplayFrame, opts: DrawOptions = {}): void {
@@ -86,7 +91,18 @@ export function drawFrame(ctx: CanvasRenderingContext2D, f: ReplayFrame, opts: D
     for (let x = x0; x <= x1; x++) {
       const i = y * L.w + x;
       const tile = L.cells[i];
-      if (!tile) continue;
+      if (!tile) {
+        // Removed since the session began: a faint red outline where it used to be.
+        if (opts.authorship !== false && opts.base && opts.base[i]) {
+          ctx.save();
+          ctx.setLineDash([4, 3]);
+          ctx.strokeStyle = "rgba(224,49,49,0.7)";
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(px(x) + 1, py(y) + 1, s - 2, s - 2);
+          ctx.restore();
+        }
+        continue;
+      }
       ctx.fillStyle = TILE_COLOR[tile] ?? "#ff00ff";
       ctx.fillRect(px(x), py(y), s, s);
       if (tile === TILE.GRASS) {
@@ -102,7 +118,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, f: ReplayFrame, opts: D
       }
       if (opts.authorship !== false) {
         const a = L.authors[i];
-        if (a) {
+        if (a && (!opts.base || opts.base[i] !== tile)) {
           ctx.strokeStyle = a === 2 ? "rgba(151,117,250,0.95)" : "rgba(34,139,230,0.8)";
           ctx.lineWidth = 2;
           ctx.strokeRect(px(x) + 1, py(y) + 1, s - 2, s - 2);

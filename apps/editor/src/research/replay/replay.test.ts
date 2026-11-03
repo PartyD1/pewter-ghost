@@ -208,9 +208,10 @@ describe("Replay tracks", () => {
       { type: "key", t: 1100, code: "A", down: false },
       { type: "key", t: 5000, code: "B", down: true },
     ]).tracks();
+    // (replay time starts at the first event, here the key at 1000 ms)
     expect(gap.segments.filter((s) => s.track === "input").map((s) => [s.start, s.end])).toEqual([
-      [1000, 1100],
-      [5000, 5000],
+      [0, 100],
+      [4000, 4000],
     ]);
   });
 
@@ -247,6 +248,31 @@ describe("Replay loading", () => {
       { type: "key", t: 5, code: "C", down: true },
     ]);
     expect(r.events.map((e) => (e as { code: string }).code)).toEqual(["A", "B", "C"]);
+  });
+
+  it("starts replay time at the first event and keeps the log's own clock available", () => {
+    // The editor's clock counts from page load, so a real log starts well after 0.
+    const r = new Replay([
+      { type: "session", t: 40_000, sessionId: "s", commit: "x", promptVersion: "p", briefVersion: "b", model: "m", filler: "none", config: {} },
+      { type: "snapshot", t: 40_500, reason: "start", level: packSnapshot(empty()) },
+      { type: "key", t: 41_000, code: "A", down: true },
+    ]);
+    expect(r.originMs).toBe(40_000);
+    expect(r.duration).toBe(1000);
+    expect(r.events.map((e) => e.t)).toEqual([0, 500, 1000]);
+  });
+
+  it("shows the starting level before the first snapshot is logged", () => {
+    const r = new Replay([
+      { type: "session", t: 0, sessionId: "s", commit: "x", promptVersion: "p", briefVersion: "b", model: "m", filler: "none", config: {} },
+      { type: "snapshot", t: 500, reason: "start", level: packSnapshot(empty()) },
+      { type: "delta", t: 800, source: "person", cells: [[1, 1, 1, 1]] },
+    ]);
+    expect(r.stateAt(0).level).not.toBeNull();
+    expect(r.stateAt(0).level!.cells[idx(1, 1)]).toBe(0);
+    expect(r.stateAt(100).level!.cells[idx(1, 1)]).toBe(0);
+    expect(r.stateAt(800).level!.cells[idx(1, 1)]).toBe(1);
+    expect(r.stateAt(0).level!.cells[idx(1, 1)]).toBe(0); // and back again
   });
 
   it("copes with an empty log", () => {
