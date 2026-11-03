@@ -273,7 +273,7 @@ describe("POST /fill", () => {
 
   it("a failing store does not fail the response", async () => {
     const onError = vi.fn();
-    const store = { append: async () => Promise.reject(new Error("disk full")), read: async () => null };
+    const store = { append: async () => Promise.reject(new Error("disk full")), read: async () => null, list: async () => [] };
     const { handler } = setup({ store, onError });
     expect((await handler(post("/fill", fillBody()))).status).toBe(200);
     expect(onError.mock.calls.map((c) => c[0]).join()).toContain("disk full");
