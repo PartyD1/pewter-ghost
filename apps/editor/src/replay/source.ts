@@ -5,7 +5,8 @@
 
 export interface SessionListing {
   sessionId: string;
-  bytes: number;
+  /** Log size, when the server reports it (the proxy lists ids only). */
+  bytes?: number;
 }
 
 export class AuthError extends Error {

@@ -207,8 +207,10 @@ export class Timeline {
     if (!this.dragging) return;
     this.dragging = false;
     if (this.moved) return;
-    // A click, not a drag: snap to the item under the pointer.
-    const target = (e.target as HTMLElement).closest<HTMLElement>("[data-id]");
+    // A click, not a drag: snap to the item under the pointer. The pointer is captured, so
+    // e.target is the timeline itself; look at what is actually under the pointer.
+    const under = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+    const target = under?.closest<HTMLElement>("[data-id]") ?? null;
     if (!target) return;
     const id = target.dataset.id!;
     const segment = this.tracks.segments.find((s) => s.id === id);

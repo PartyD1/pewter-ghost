@@ -13,6 +13,8 @@ import { drawFrame, STAGE_H, STAGE_W } from "./stage";
 import { fmt, Timeline, TRACK_LABEL } from "./timeline";
 
 const PW_KEY = "pewter-ghost.replay.password";
+/** Stops the playing viewer's animation loop and key handler (set by viewer()). */
+let stopViewer: (() => void) | null = null;
 const app = document.getElementById("replay-app")!;
 const params = new URLSearchParams(location.search);
 const apiBase = params.get("api");
@@ -48,6 +50,7 @@ const setPw = (v: string): void => {
 // ---------------------------------------------------------------------------
 
 function startScreen(message?: string): void {
+  stopViewer?.();
   app.replaceChildren();
   const err = h("div", { class: "rp-err" }, message);
   const root = h("div", { class: "rp-start" }, h("h1", {}, "Pewter Ghost replay"), h("p", {}, "Watch back a recorded session: the level as it was built, the suggestions shown, and where the pointer went."), err);
@@ -93,7 +96,8 @@ function startScreen(message?: string): void {
 }
 
 function sessionButton(s: SessionListing): HTMLElement {
-  const b = h("button", {}, h("span", {}, s.sessionId), h("span", { class: "pill" }, `${Math.max(1, Math.round(s.bytes / 1024))} KB`));
+  const size = typeof s.bytes === "number" ? h("span", { class: "pill" }, `${Math.max(1, Math.round(s.bytes / 1024))} KB`) : null;
+  const b = h("button", {}, h("span", {}, s.sessionId), size);
   b.addEventListener("click", () => void openRemote(s.sessionId, 0));
   return b;
 }
@@ -333,7 +337,10 @@ function viewer(replay: Replay, src: { name: string; sessionId?: string; t?: num
   function stop(): void {
     cancelAnimationFrame(raf);
     window.removeEventListener("keydown", onKey);
+    if (stopViewer === stop) stopViewer = null;
   }
+  stopViewer?.();
+  stopViewer = stop;
 
   renderGhosts();
   timeline.setPlayhead(player.t);
@@ -355,6 +362,12 @@ function sessionInfo(r: Replay, name: string): HTMLElement {
 // Boot
 // ---------------------------------------------------------------------------
 
-const initial = parseHash(location.hash);
-if (initial && apiBase && getPw()) void openRemote(initial.sessionId, initial.t);
-else startScreen(initial && apiBase ? "Enter the lab password to open this session." : undefined);
+function boot(): void {
+  stopViewer?.();
+  const initial = parseHash(location.hash);
+  if (initial && apiBase && getPw()) void openRemote(initial.sessionId, initial.t);
+  else startScreen(initial && apiBase ? "Enter the lab password to open this session." : undefined);
+}
+boot();
+// Pasting another link into the same tab only changes the hash: open that one.
+window.addEventListener("hashchange", boot);
