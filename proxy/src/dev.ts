@@ -78,6 +78,7 @@ async function main(): Promise<void> {
     store: new FileStore(DATA_DIR),
     tokens: new FileTokenStore(tokensFile, open, log),
     allowOrigin: originAllowList(env.PROXY_ALLOWED_ORIGINS),
+    readSecret: env.PROXY_READ_SECRET || undefined,
     onError: log,
   });
   const port = Number(env.PROXY_PORT) || 8787;

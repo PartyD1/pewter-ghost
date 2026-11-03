@@ -6,7 +6,8 @@
  *   LLM_PROVIDER (gemini | openrouter | bayleaf) with that provider's key (secret)
  *   and model (see provider.ts),
  *   PROXY_TOKENS (JSON token file), PROXY_OPEN ("1" accepts token "dev"),
- *   ALLOWED_ORIGINS (comma list; localhost always allowed),
+ *   ALLOWED_ORIGINS (comma list; localhost always allowed; include the replay viewer's origin),
+ *   PROXY_READ_SECRET (secret: the shared lab password for GET /replay/..., unset = reading off),
  *   PROXY_UPSTREAM_TIMEOUT_MS, PROXY_THINKING_BUDGET, PROXY_LOGPROBS
  */
 import { renderFillPrompt, parseModelAnswer } from "@app/fill/prompt";
@@ -31,6 +32,8 @@ export interface WorkerEnv extends JevEnv {
   PROXY_TOKENS?: string;
   PROXY_OPEN?: string;
   ALLOWED_ORIGINS?: string;
+  /** Shared lab password for the researcher read API (GET /replay/...). Set as a secret. */
+  PROXY_READ_SECRET?: string;
 }
 
 interface ExecutionContextLike {
@@ -98,6 +101,7 @@ export function buildWorkerHandler(env: WorkerEnv): ProxyHandler {
     store,
     tokens: new ChainTokenStore(stores),
     allowOrigin: originAllowList(env.ALLOWED_ORIGINS),
+    readSecret: env.PROXY_READ_SECRET || undefined,
     onError: (m) => console.error(`[proxy] ${m}`),
   });
 }

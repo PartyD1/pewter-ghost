@@ -40,10 +40,29 @@ OpenRouter and BayLeaf share `src/openrouter.ts` (chat/completions; `json_schema
 `json_object` then plain text if a model rejects it). `PROXY_THINKING_BUDGET=0` is sent as
 `reasoning: { enabled: false }`; `PROXY_REASONING_EFFORT` as `reasoning: { effort }`.
 Shared:
+`PROXY_READ_SECRET` (the shared lab password for the replay read API below; unset = reading is off),
 `PROXY_OPEN=1`, `PROXY_PORT`, `PROXY_HOST`, `PROXY_ALLOWED_ORIGINS` (dev) / `ALLOWED_ORIGINS` (worker),
 `PROXY_UPSTREAM_TIMEOUT_MS` (10000), `PROXY_THINKING_BUDGET` (unset = not sent), `PROXY_LOGPROBS=0`.
 
 `responseLogprobs` is requested by default and turned off for the process if the API rejects it.
+
+## Replay read API (researchers)
+
+Participants write their session log through `POST /log`. Researchers read it back:
+
+```
+GET /replay/sessions            -> { sessions: [{ sessionId }] }
+GET /replay/sessions/<id>       -> the session's JSONL log (application/x-ndjson, never cached)
+```
+
+Both need `Authorization: Bearer <PROXY_READ_SECRET>`, the shared lab password. A participant token
+cannot read anything. With no `PROXY_READ_SECRET` set the routes answer 503. Wrong passwords are throttled
+per client (8 per minute, then a one-minute lockout even for the right password); reads are rate limited.
+Add the viewer's origin to `ALLOWED_ORIGINS` / `PROXY_ALLOWED_ORIGINS`.
+
+The viewer is `replay.html` (built beside the editor). Open
+`replay.html?api=<proxy url>#<sessionId>` (add `@<ms>` to land on a moment), enter the password, and watch.
+A downloaded `.jsonl` can also be dropped onto the viewer's start screen.
 
 ## Worker
 
