@@ -48,6 +48,7 @@ idle -> patrol (agent plays start -> frontier) -> blocked? -> Fix ghost (model, 
 - **Proxy** (`proxy/`): the only thing that reads the model key; tokens map to `{sessionId, condition, overrides}`; records every `/fill` exchange to git-ignored `proxy/.data/` for the eval suite. `/fill` answers HTTP 200 with `answer: null` on upstream failure.
 - **Physics must match Play mode**: `packages/jump-tables` and `physsim` are derived from the player physics in `apps/editor/src/player`; changing player physics means regenerating tables (`npm run jump-tables`) and their parity tests.
 - **Research log**: events (`session` first, `fill.call`, `ghost.show/end`, patrol, play, undo, save) go to the proxy `/log`; `research/completeness.ts` checks a log.
+- **Session replay**: the same log also holds raw input (`pointer.path`, `pointer.btn`, `wheel`, `key`, `focus`), `camera`, `tool`, exact level `delta`s and RLE `snapshot`s (`research/inputRecorder.ts`, `stateRecorder.ts`, started by `PewterApp.attachEditor`). `research/replay/` (pure) rebuilds any moment from a log (`Replay.stateAt(t)`) and the timeline tracks; `apps/editor/replay.html` + `src/replay/` is the viewer (Canvas2D, not Phaser). Researchers read logs through the proxy's `GET /replay/sessions[/id]` with the shared `PROXY_READ_SECRET` (`npm run dev` uses `dev`): open `/replay.html?api=http://localhost:8787`. New log events need a schema entry, a line in the scripted fixture, and replay handling; see the 2026-11-03 line in `docs/decisions.md`.
 
 ## Gotchas
 
