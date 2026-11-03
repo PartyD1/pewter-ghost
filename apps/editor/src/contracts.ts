@@ -385,6 +385,22 @@ export type ReplayEvent =
   | { type: "camera"; t: number; x: number; y: number; w: number; h: number; zoom: number }
   | { type: "tool"; t: number; mode: string; brush: string }
   | {
+      /**
+       * One level change (person stroke cell, ghost accept, undo, redo), exactly as
+       * the model applied it. `place` / `erase` stay for analytics; the replay
+       * rebuilds the level from snapshot + deltas.
+       */
+      type: "delta";
+      t: number;
+      source: "person" | "ghost" | "undo" | "redo";
+      cells: [x: number, y: number, tile: number, author: number][];
+      entitiesAdded?: Entity[];
+      entitiesRemoved?: string[];
+      start?: Point;
+      /** null = goal cleared. */
+      goal?: Point | null;
+    }
+  | {
       /** Whole level at `t`: at session start, after a load, and every checkpoint. */
       type: "snapshot";
       t: number;

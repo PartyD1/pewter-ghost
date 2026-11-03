@@ -33,6 +33,7 @@ export function scriptedSession(sessionId = "p01"): LogEvent[] {
     { type: "key", t: 995, code: "KeyZ", down: true },
     { type: "wheel", t: 998, x: 160, y: 300, dx: 0, dy: -50, ctrl: false },
     { type: "place", t: 1000, x: 10, y: 14, tile: 6, author: 1, stroke: "s1", tool: "paint" },
+    { type: "delta", t: 1000, source: "person", cells: [[10, 14, 6, 1]] },
     { type: "place", t: 1100, x: 11, y: 14, tile: 6, author: 1, stroke: "s1", tool: "paint" },
     { type: "place", t: 1200, x: 12, y: 12, tile: "entity:coin", author: 1, stroke: "s2", tool: "paint" },
     {

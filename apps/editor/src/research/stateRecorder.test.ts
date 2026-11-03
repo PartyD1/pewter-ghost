@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { LevelSnapshot, LogEvent } from "../contracts";
 import { unpackSnapshot } from "./rle";
 import { validateEvent } from "./schema";
-import { StateRecorder, type StateSource } from "./stateRecorder";
+import { StateRecorder, type ChangeInfo, type StateSource } from "./stateRecorder";
 
 function setup() {
   const events: LogEvent[] = [];
@@ -10,7 +10,7 @@ function setup() {
   let cells = [0, 0, 1, 0];
   let view = { x: 0, y: 0, w: 40, h: 20 };
   let zoom = 1;
-  const change: ((s: string) => void)[] = [];
+  const change: ((c: ChangeInfo) => void)[] = [];
   const loaded: (() => void)[] = [];
   const tools: ((t: { mode: string; brush: string }) => void)[] = [];
   const ticks: { fn: () => void; ms: number }[] = [];
@@ -44,9 +44,16 @@ function setup() {
     rec,
     events,
     setNow: (t: number) => (now = t),
-    edit: () => {
+    edit: (c: Partial<ChangeInfo> = {}) => {
       cells = [0, 0, 1, 2];
-      change.forEach((f) => f("person"));
+      const info: ChangeInfo = {
+        source: "person",
+        cells: [{ x: 1, y: 1, tile: 2, author: 1 }],
+        entitiesAdded: [],
+        entitiesRemoved: [],
+        ...c,
+      };
+      change.forEach((f) => f(info));
     },
     load: () => loaded.forEach((f) => f()),
     setView: (v: typeof view, z = 1) => ((view = v), (zoom = z)),
@@ -72,13 +79,28 @@ describe("StateRecorder", () => {
     s.events.length = 0;
     s.tick(30_000);
     expect(s.events).toHaveLength(0);
+    s.setNow(30_500);
     s.edit();
     s.setNow(31_000);
     s.tick(30_000);
-    expect(s.events).toHaveLength(1);
-    expect(s.events[0]).toMatchObject({ type: "snapshot", reason: "checkpoint", t: 31_000 });
+    expect(s.events.map((e) => e.type)).toEqual(["delta", "snapshot"]);
+    expect(s.events[1]).toMatchObject({ type: "snapshot", reason: "checkpoint", t: 31_000 });
     s.tick(30_000);
-    expect(s.events).toHaveLength(1);
+    expect(s.events).toHaveLength(2);
+  });
+
+  it("logs a delta for every kind of change except a load", () => {
+    const s = setup();
+    s.rec.start();
+    s.events.length = 0;
+    s.setNow(5);
+    s.edit({ source: "ghost", cells: [{ x: 0, y: 0, tile: 3, author: 2 }], start: { x: 1, y: 1 }, goal: null });
+    s.edit({ source: "undo", entitiesRemoved: ["e1"] });
+    s.edit({ source: "load" });
+    expect(s.events).toEqual([
+      { type: "delta", t: 5, source: "ghost", cells: [[0, 0, 3, 2]], start: { x: 1, y: 1 }, goal: null },
+      { type: "delta", t: 5, source: "undo", cells: [[1, 1, 2, 1]], entitiesRemoved: ["e1"] },
+    ]);
   });
 
   it("snapshots after a load and logs the camera again", () => {
@@ -121,6 +143,9 @@ describe("StateRecorder", () => {
     s.rec.stop();
     expect(s.events.map((e) => e.type)).toEqual(["snapshot"]);
     expect(s.listeners()).toBe(0);
+    s.events.length = 0;
+    s.edit();
+    expect(s.events).toHaveLength(0);
   });
 
   it("emits only schema-valid events", () => {

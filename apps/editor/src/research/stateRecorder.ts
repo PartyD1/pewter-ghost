@@ -12,13 +12,23 @@
  *
  * No Phaser: everything comes in through `StateSource`.
  */
-import type { LevelSnapshot, LogEvent } from "../contracts";
+import type { Entity, LevelSnapshot, LogEvent, Point } from "../contracts";
 import { packSnapshot } from "./rle";
+
+/** What the model reports after a change (a subset of LevelChangeEx). */
+export interface ChangeInfo {
+  source: "person" | "ghost" | "undo" | "redo" | "load";
+  cells: { x: number; y: number; tile: number; author: number }[];
+  entitiesAdded: Entity[];
+  entitiesRemoved: string[];
+  start?: Point;
+  goal?: Point | null;
+}
 
 export interface StateSource {
   snapshot(): LevelSnapshot;
   /** Called after every level change (do, undo, redo, load); returns unsubscribe. */
-  onChange(fn: (source: string) => void): () => void;
+  onChange(fn: (c: ChangeInfo) => void): () => void;
   /** Called when a whole level was loaded; returns unsubscribe. */
   onLoaded(fn: () => void): () => void;
   /** Called when mode / brush changes; returns unsubscribe. */
@@ -61,7 +71,7 @@ export class StateRecorder {
     const tool = source.tool();
     this.o.log({ type: "tool", t: this.o.clock(), ...tool });
     this.offs.push(
-      source.onChange(() => (this.dirty = true)),
+      source.onChange((c) => this.change(c)),
       source.onLoaded(() => {
         this.snap("load");
         this.camera();
@@ -85,6 +95,23 @@ export class StateRecorder {
     // Last word on the level, so the end of the replay is exact.
     if (this.dirty) this.snap("checkpoint");
     this.started = false;
+  }
+
+  private change(c: ChangeInfo): void {
+    this.dirty = true;
+    // A load is covered by its own snapshot (onLoaded).
+    if (c.source === "load") return;
+    const d: Extract<LogEvent, { type: "delta" }> = {
+      type: "delta",
+      t: this.o.clock(),
+      source: c.source,
+      cells: c.cells.map((k) => [k.x, k.y, k.tile, k.author]),
+    };
+    if (c.entitiesAdded.length) d.entitiesAdded = c.entitiesAdded.map((e) => ({ ...e }));
+    if (c.entitiesRemoved.length) d.entitiesRemoved = [...c.entitiesRemoved];
+    if (c.start) d.start = { ...c.start };
+    if (c.goal !== undefined) d.goal = c.goal ? { ...c.goal } : null;
+    this.o.log(d);
   }
 
   private snap(reason: "start" | "load" | "checkpoint"): void {

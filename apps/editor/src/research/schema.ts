@@ -156,6 +156,17 @@ function build(mode: Mode) {
   const focus = obj({ type: z.literal("focus"), t: nonNeg(), focused: z.boolean() });
   const camera = obj({ type: z.literal("camera"), t: nonNeg(), x: finite(), y: finite(), w: finite(), h: finite(), zoom: finite() });
   const tool = obj({ type: z.literal("tool"), t: nonNeg(), mode: z.string(), brush: z.string() });
+  const entityShape = z.custom<Entity>((v) => !!v && typeof v === "object");
+  const delta = obj({
+    type: z.literal("delta"),
+    t: nonNeg(),
+    source: z.enum(["person", "ghost", "undo", "redo"]),
+    cells: z.array(z.tuple([int(), int(), int().min(0), int().min(0)])),
+    entitiesAdded: z.array(entityShape).optional(),
+    entitiesRemoved: z.array(z.string()).optional(),
+    start: point.optional(),
+    goal: point.nullable().optional(),
+  });
   const snapshot = obj({
     type: z.literal("snapshot"),
     t: nonNeg(),
@@ -167,7 +178,7 @@ function build(mode: Mode) {
       authors: z.array(int()),
       provenance: z.record(z.coerce.number(), z.string()),
       // Entities are validated when the replay unpacks the snapshot (level/snapshot.ts).
-      entities: z.array(z.custom<Entity>((v) => !!v && typeof v === "object")),
+      entities: z.array(entityShape),
       entityAuthors: z.record(z.string(), author),
       start: point,
       goal: point.optional(),
@@ -198,6 +209,7 @@ function build(mode: Mode) {
     focus,
     camera,
     tool,
+    delta,
     snapshot,
   } as const;
 
@@ -224,6 +236,7 @@ function build(mode: Mode) {
     focus,
     camera,
     tool,
+    delta,
     snapshot,
   ]);
   return { variants, union };

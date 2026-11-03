@@ -14,7 +14,7 @@ export const brushLabel = (b: Brush): string => (b.kind === "tile" ? `tile:${b.t
 export function editorStateSource(api: EditorApi): StateSource {
   return {
     snapshot: () => api.model.snapshot(),
-    onChange: (fn) => api.model.subscribe((c) => fn(c.source)),
+    onChange: (fn) => api.model.subscribe((c) => fn(c)),
     onLoaded: (fn) => api.on("level:loaded", () => fn()),
     onTool: (fn) => api.modes.subscribe((s) => fn({ mode: s.effective, brush: brushLabel(s.brush) })),
     viewTiles: () => api.camera.viewTiles(),
