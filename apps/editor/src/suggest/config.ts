@@ -68,6 +68,18 @@ export interface GhostConfig {
   newStructureTiles: number;
   /** A shown ghost with no response ends with outcome "timeout" after this many ms (0 = never). */
   ghostTimeoutMs: number;
+  /**
+   * After a ghost appears, drawing somewhere else does not dismiss it for this
+   * long (and the stroke already under way never does): it popped up under the
+   * person's hand, so the next tiles are not a "no".
+   */
+  ghostDrawGraceMs: number;
+  /**
+   * A shown ghost keeps its place this long: a newer automatic suggestion is
+   * dropped ("busy") instead of replacing it, so one the person likes does not
+   * flip to another before they can take it. Requests and patrol fixes ignore it.
+   */
+  ghostMinShowMs: number;
   /** After Ctrl+Space with nothing held, a suggestion arriving within this many ms shows as "requested". */
   requestWindowMs: number;
   /** Painting outside a shown ghost dismisses it ("keep drawing and it goes away"). */
@@ -179,6 +191,8 @@ export const DEFAULT_CONFIG: GhostConfig = {
   cooldownMarginTiles: 1,
   newStructureTiles: 6,
   ghostTimeoutMs: 30000,
+  ghostDrawGraceMs: 1500,
+  ghostMinShowMs: 6000,
   requestWindowMs: 3000,
   dismissOnDrawElsewhere: true,
   adaptThresholds: true,

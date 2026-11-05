@@ -75,5 +75,7 @@ export const TIMING_BANDS: Partial<GhostConfig> = { showNowAbove: 0.75, showAtPa
 export function testConfig(over: Partial<GhostConfig> = {}): GhostConfig {
   // The timing tests exercise all three bands (now / pause / long pause), so
   // they pin thresholds that keep each band non-empty whatever the defaults.
-  return { ...structuredClone(DEFAULT_CONFIG), ...TIMING_BANDS, ...over };
+  // The ghost grace and minimum-show rules are off here: most tests exercise one rule at a
+  // time with back-to-back events. Tests of those rules pass their own values.
+  return { ...structuredClone(DEFAULT_CONFIG), ...TIMING_BANDS, ghostDrawGraceMs: 0, ghostMinShowMs: 0, ...over };
 }

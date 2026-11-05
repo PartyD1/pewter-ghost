@@ -322,6 +322,39 @@ describe("SuggestionManager — draw-to-dismiss and paint-on-ghost", () => {
     expect(ends[0]!.outcome).toBe("drawn-over");
   });
 
+  it("a ghost that appears mid-stroke is not dismissed by the rest of that stroke", () => {
+    const { m, now, ends } = setup({ ghostDrawGraceMs: 1500 });
+    const stroke = newStroke();
+    m.onPlacement(paint(now(), 80, 3, TILE.BLOCK, stroke));
+    const a = at(10);
+    m.offer(a);
+    expect(m.shown).toBe(a);
+    m.onPlacement(paint(now() + 50, 81, 3, TILE.BLOCK, stroke));
+    expect(ends).toEqual([]);
+    expect(m.shown).toBe(a);
+    expect(m.streak).toBe(0);
+  });
+
+  it("a new stroke elsewhere within the grace does not dismiss, after it does", () => {
+    const { m, now, wait, ends } = setup({ ghostDrawGraceMs: 1500 });
+    const a = at(10);
+    m.offer(a);
+    wait(500);
+    m.onPlacement(paint(now(), 80, 3));
+    expect(m.shown).toBe(a);
+    wait(1500);
+    m.onPlacement(paint(now(), 82, 3));
+    expect(ends[0]!.outcome).toBe("drawn-over");
+  });
+
+  it("painting on a ghost cell with something else still dismisses it in a new stroke", () => {
+    const { m, now, wait, ends } = setup({ ghostDrawGraceMs: 1500 });
+    m.offer(at(10));
+    wait(100);
+    m.onPlacement(paint(now(), 10, 15, TILE.DIRT));
+    expect(ends[0]!.outcome).toBe("drawn-over");
+  });
+
   it("painting elsewhere keeps the ghost when dismissOnDrawElsewhere is off", () => {
     const { m, now } = setup({ dismissOnDrawElsewhere: false });
     const s = at(10);
@@ -432,6 +465,21 @@ describe("SuggestionManager — one ghost at a time", () => {
     expect(m.offer(at(30, { confidence: 0.5 })).status).toBe("held");
     expect(ends[0]!.outcome).toBe("replaced");
     expect(m.shown).toBeNull();
+  });
+
+  it("a newer automatic suggestion does not replace a ghost within ghostMinShowMs", () => {
+    const { m, wait, ends, drops } = setup({ ghostMinShowMs: 6000 });
+    const a = at(10);
+    const b = at(30);
+    m.offer(a);
+    wait(2000);
+    expect(m.offer(b)).toEqual({ status: "dropped", reason: "busy" });
+    expect(drops).toEqual([{ id: b.id, reason: "busy" }]);
+    expect(ends).toEqual([]);
+    expect(m.shown).toBe(a);
+    wait(4500);
+    expect(m.offer(at(30)).status).toBe("shown");
+    expect(ends[0]!.outcome).toBe("replaced");
   });
 
   it("a newer suggestion supersedes the held one", () => {

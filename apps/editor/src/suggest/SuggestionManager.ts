@@ -33,6 +33,11 @@
  *    ghost cell, or anywhere else (dismissOnDrawElsewhere), ends it
  *    "drawn-over". An end with some cells already accepted is reported as
  *    "partial" with the count.
+ *  - Draw grace: placements of the stroke that was under way when the ghost
+ *    appeared never dismiss it, and no other stroke "draws elsewhere" over it
+ *    within ghostDrawGraceMs of it appearing.
+ *  - Busy: for ghostMinShowMs after a ghost shows, a newer automatic suggestion
+ *    is dropped ("busy") instead of replacing it; requests and patrol fixes still do.
  *  - Cool-down: after a dismissal (Esc or drawn-over), no ghost whose bounding
  *    box overlaps the dismissed one (grown by cooldownMarginTiles) for
  *    cooldownAfterDismissMs.
@@ -77,6 +82,9 @@ import { ConfidenceTimer } from "./timers/ConfidenceTimer";
 import type { Timer, TimerDecision } from "./timers/Timer";
 import { isVerified } from "./verified";
 
+/** A stroke counts as still under way when its last placement was this recent. */
+const STROKE_GAP_MS = 400;
+
 export type ManagerState = "idle" | "holding" | "showing" | "cooling";
 
 /** Why a suggestion was dropped without being shown (or kept off screen). */
@@ -87,6 +95,7 @@ export type DropReason =
   | "superseded"
   | "duplicate"
   | "blocked"
+  | "busy"
   | "cooldown"
   | "grace"
   | "rate-limited"
@@ -163,6 +172,8 @@ interface Slot {
   shownAt: number;
   because: ShownBecause | null;
   accepted: Map<string, GhostCell>;
+  /** Stroke the person was still drawing when this ghost appeared; its placements never dismiss it. */
+  ignoreStroke: string | null;
 }
 
 interface Cooldown {
@@ -188,6 +199,8 @@ export class SuggestionManager {
   private readonly on: ManagerListeners;
 
   private held: Slot | null = null;
+  /** Stroke id of the person's latest placement (to tell a stroke still under way from a new one). */
+  private lastStroke: string | null = null;
   private showing: Slot | null = null;
   private stateValue: ManagerState = "idle";
 
@@ -284,6 +297,17 @@ export class SuggestionManager {
       return this.dropNew(s, "blocked", now);
     }
 
+    // A ghost the person has had little time to look at is not replaced by a newer automatic one.
+    if (
+      this.showing &&
+      !slot.requested &&
+      !slot.patrolFix &&
+      cfg.ghostMinShowMs > 0 &&
+      now - this.showing.shownAt < cfg.ghostMinShowMs
+    ) {
+      return this.dropNew(s, "busy", now);
+    }
+
     if (s.kind === "fix") {
       for (const k of slot.keys) {
         const ch = this.cellChanges.get(k);
@@ -356,12 +380,15 @@ export class SuggestionManager {
           this.on.onPartial?.(sl.s, cell, sl.accepted.size, sl.total);
           if (sl.accepted.size >= sl.total) this.endShowing("partial", now);
         }
+      } else if (ev.stroke === sl.ignoreStroke) {
+        // Still the stroke that was under way when the ghost appeared: not a dismissal.
       } else if (relation === "conflict") {
         this.endShowing("drawn-over", now, ev.stroke);
-      } else if (this.cfg().dismissOnDrawElsewhere) {
+      } else if (this.cfg().dismissOnDrawElsewhere && now - sl.shownAt >= this.cfg().ghostDrawGraceMs) {
         this.endShowing("drawn-over", now, ev.stroke);
       }
     }
+    this.lastStroke = ev.stroke;
 
     if (this.held && this.held.keys.has(key)) this.dropHeld("stale", now);
 
@@ -486,6 +513,7 @@ export class SuggestionManager {
       shownAt: 0,
       because: null,
       accepted: new Map(),
+      ignoreStroke: null,
     };
   }
 
@@ -535,6 +563,7 @@ export class SuggestionManager {
     if (this.held === slot) this.held = null;
     slot.shownAt = now;
     slot.because = because;
+    slot.ignoreStroke = this.lastStroke !== null && now - this.lastActivity < STROKE_GAP_MS ? this.lastStroke : null;
     this.showing = slot;
     if (slot.requested) this.pendingRequestUntil = null;
     if (slot.s.kind === "fix") this.fixShownAt.set(problemKey(slot.s), now);
