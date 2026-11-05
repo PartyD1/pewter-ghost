@@ -164,6 +164,10 @@ export class GhostSession {
           this.refresh();
           extra.onStateChange?.(state, prev);
         },
+        onChoices: (index, total) => {
+          this.refresh();
+          extra.onChoices?.(index, total);
+        },
         onThresholdChange: (ch) => {
           this.devEvent(`showNowAbove ${ch.from.toFixed(2)} → ${ch.to.toFixed(2)} (${ch.reason})`);
           extra.onThresholdChange?.(ch);
@@ -181,6 +185,7 @@ export class GhostSession {
         accept: () => this.accept(),
         dismiss: () => this.dismiss(),
         request: () => this.request(),
+        cycle: (dir) => this.cycle(dir),
         route: () => this.showPlayRoute(),
         onLoad: () => {
           this.layer.end("dismissed");
@@ -256,6 +261,12 @@ export class GhostSession {
 
   dismiss(): boolean {
     return this.manager.dismiss();
+  }
+
+  /** Alt+] / Alt+[: show another choice. */
+  cycle(dir: 1 | -1 = 1): boolean {
+    if (this.api.isPlaying()) return false;
+    return this.manager.cycle(dir);
   }
 
   /** Ctrl+Space. */
@@ -334,7 +345,7 @@ export class GhostSession {
   private onShow(s: VerifiedSuggestion, because: ShownBecause, t: number): void {
     this.ordinal = this.history.recordShow(s);
     if (s.levelGuess) this.setLevelGuess(s.levelGuess);
-    this.layer.show(s, canvasCaption(s, this.ordinal));
+    this.layer.show(s, canvasCaption(s, this.ordinal, this.manager.choices));
     if (this.api.isPlaying()) this.layer.setSuspended(true);
     else if (s.kind === "extend") {
       // Extend anchors at the frontier: bring its first third into view (never jumps, waits for strokes).
@@ -412,7 +423,8 @@ export class GhostSession {
     const s = this.manager.shown;
     if (s) {
       const total = ghostCells(s).length;
-      return { mode: "showing", ghost: s, ordinal: this.ordinal, remaining: this.manager.remainingCells.length, total, guess };
+      const ch = this.manager.choices;
+      return { mode: "showing", ghost: s, ordinal: this.ordinal, remaining: this.manager.remainingCells.length, total, guess, ...(ch && ch.total > 1 ? { choice: ch } : {}) };
     }
     if (this.manager.requestPending) return { mode: "asking", guess };
     return { mode: "quiet", guess };

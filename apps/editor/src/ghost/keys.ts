@@ -8,6 +8,8 @@
  *   Esc          dismiss the shown ghost, or cancel a pending Ctrl+Space (edit mode;
  *                in Play, Esc belongs to the editor and stops Play).
  *   Ctrl+Space   ask for a suggestion now (edit mode).
+ *   Alt+] / Alt+[  next / previous choice, while a ghost with more than one choice is shown
+ *                (by key code, so Option on a Mac works; same keys as VS Code's inline suggestions).
  *   R            in Play mode: show the checked route for the current section.
  *                (P is taken: it stops Play. R = "route".)
  */
@@ -26,6 +28,8 @@ export interface GhostKeyLike {
 export interface GhostKeyContext {
   /** A ghost is on screen. */
   showing: boolean;
+  /** How many choices the shown ghost has (more than 1: Alt+] and Alt+[ cycle them). */
+  choices?: number;
   /** Ctrl+Space is waiting for a suggestion. */
   requestPending?: boolean;
   playing: boolean;
@@ -34,7 +38,7 @@ export interface GhostKeyContext {
   dialogOpen: boolean;
 }
 
-export type GhostKeyAction = "accept" | "dismiss" | "request" | "route" | "swallow";
+export type GhostKeyAction = "accept" | "dismiss" | "request" | "next" | "prev" | "route" | "swallow";
 
 /**
  * What a keydown means to the ghost, or null when the ghost ignores it.
@@ -60,6 +64,10 @@ export function ghostKeyAction(e: GhostKeyLike, ctx: GhostKeyContext): GhostKeyA
   if (e.key === "Escape" || e.key === "Esc") {
     if (ctrl || meta || alt) return null;
     return ctx.showing || ctx.requestPending ? "dismiss" : null;
+  }
+  if (alt && !ctrl && !meta && !e.shiftKey && (ctx.choices ?? 0) > 1) {
+    if (e.code === "BracketRight" || e.key === "]") return e.repeat ? "swallow" : "next";
+    if (e.code === "BracketLeft" || e.key === "[") return e.repeat ? "swallow" : "prev";
   }
   if (isSpace && ctrl && !meta && !alt && !e.shiftKey) return e.repeat ? "swallow" : "request";
   return null;

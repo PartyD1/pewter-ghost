@@ -659,7 +659,7 @@ describe("FillLoop speculation: calls are not cancelled, answers are reconciled"
     agent = new AgentClient({ worker: null });
     log = [];
     outcomes = [];
-    cfg = cfgWith({ ghostMinShowMs: 0, ghostDrawGraceMs: 0 }); // these tests are about reconciliation; the manager tests cover the ghost grace
+    cfg = cfgWith({ ghostMinShowMs: 0, ghostDrawGraceMs: 0, maxChoices: 1 }); // these tests are about reconciliation; the manager tests cover the ghost grace
     filler = new ScriptedFiller();
     drops = [];
     ends = [];
