@@ -50,3 +50,4 @@ export {
   type FinishPattern,
   type FinishProposal,
 } from "./detect";
+export { detectAnomalies, type AnomalyProposal, type AnomalyOptions } from "./anomaly";

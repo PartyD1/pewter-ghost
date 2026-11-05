@@ -119,7 +119,7 @@ function killServer(child) {
     page.on("pageerror", (e) => errors.push(String(e)));
 
     const query = LLM
-      ? `?fresh=1&dev=1&filler=llm&token=${encodeURIComponent(opt("--token", "dev"))}&callTimeoutMs=${opt("--timeout", "6000")}`
+      ? `?fresh=1&dev=1&intent=&filler=llm&token=${encodeURIComponent(opt("--token", "dev"))}&callTimeoutMs=${opt("--timeout", "6000")}`
       : "?fresh=1&dev=1&filler=stub";
     await page.goto(URL0 + query, { waitUntil: "load" });
     await page.waitForFunction(() => !!(window.__pewter && window.__pewter.api && window.__pewter.ghost && window.__pewter.app), null, {

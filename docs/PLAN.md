@@ -91,7 +91,7 @@ Proposes the next stretch of level in your style, a screen or so ahead, shown as
 ### Fix
 Changes something you placed: widens a gap the knight can't jump, thins a cluster of enemies, moves a coin off a platform in a "tricky coins" level. Shown as a ghost diff: what goes, what comes. Accepted as one step, undone as one step.
 
-      A Fix ghost: the pit you dug is 13 wide and the knight's best jump is 12. Pewter offers a two-tile ledge in the middle with coins marking the route. The pit stays yours; Tab adds the ledge.
+      A Fix ghost: the pit you dug is 10 wide and the knight's best jump is 7. Pewter offers a two-tile ledge in the middle with coins marking the route. The pit stays yours; Tab adds the ledge.
 
   
 

@@ -67,7 +67,7 @@ Mistakes are reported as `file:line: message`.
    - Every enemy has at least 4 tiles of patrol and is more than 1 tile from any jump landing.
    - No collectable is sealed in by tiles.
    - There is a rest at least every 72 columns (three screens).
-3. **Type fit** (reference levels only). The numbers below are measured with `@measure` (`lib/types.ts`), and each must fall inside its type's band. The bands put `prompts/brief/types.md` into numbers. Gap fractions are relative to `maxGapRun` (11 tiles).
+3. **Type fit** (reference levels only). The numbers below are measured with `@measure` (`lib/types.ts`), and each must fall inside its type's band. The bands put `prompts/brief/types.md` into numbers. Gap fractions are relative to `maxGapRun` (7 tiles).
 
 | Type | Bands |
 | --- | --- |
@@ -86,7 +86,7 @@ Two notes on the bands:
 
 | Name | What it is | Expectation |
 | --- | --- | --- |
-| `unbeatable-gap` | 24 tiles of run-up, then a 14-tile pit (more than `maxGapRun` 11, beyond even ULTRA timing), then a flag | Agent exhausts its search; `blockedAt` is at the pit edge |
+| `unbeatable-gap` | 24 tiles of run-up, then a 14-tile pit (more than `maxGapRun` 7, beyond even ULTRA timing), then a flag | Agent exhausts its search; `blockedAt` is at the pit edge |
 | `staircase-mid-flight` | Start ground and four rising steps, stopped halfway; no flag; the rest of the level is empty | `staircase` pattern; start reaches the top step (the frontier) |
 | `coin-floor` | A collect-a-thon draft with rows of coins lying on the floor, plus one proper arc | `coin-row-on-floor`; floor share ≥ 0.5; fails the collect-a-thon coin rule |
 | `enemy-cluster` | Five enemies packed around two landings | Pressure ≥ 1; lint flags short patrols and enemies on landings; geometry beatable |

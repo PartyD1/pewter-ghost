@@ -47,6 +47,7 @@ export const HELP_SECTIONS: readonly [string, readonly [string, string][]][] = [
 export const HELP_KEYS: readonly [string, string][] = HELP_SECTIONS.flatMap(([, rows]) => rows);
 
 export interface HelpLinks {
+  intent?: () => void;
   share: () => void;
   settings: () => void;
   reloadSave?: () => void;
@@ -86,6 +87,7 @@ export function toggleHelp(links?: HelpLinks): void {
         h(
           "div",
           { class: "pg-dialog-actions pg-help-links" },
+          links?.intent ? link("intent", "Level goal", links.intent) : null,
           link("share", "Share code", links?.share),
           link("settings", "Play settings", links?.settings),
           links?.reloadSave ? link("reload-save", "Reload save", links.reloadSave) : null,

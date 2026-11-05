@@ -54,6 +54,8 @@ import type {
 import { FEWSHOTS, FILL_PROMPT_V1 } from "../../../../prompts/bundle";
 import { BRIEF_STATIC } from "./brief";
 import { sha256HexSync } from "./hash";
+import { describeComputedContext } from "./context";
+import { describeStructure } from "./structure";
 
 // ---------------------------------------------------------------------------
 // Enums and the response schema
@@ -250,7 +252,10 @@ export function answerJson(a: ModelAnswer): string {
 
 /** Widest-gap table by height difference, for the system prompt. */
 export function knightReachTable(): string {
-  const dys = [-6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4];
+  // Rises up to the knight's limit only: beyond it there is no jump, and a column of
+  // "-1" (the table's "impossible") would only confuse the model.
+  const rises = Array.from({ length: knightLimits().maxRise }, (_, i) => -(knightLimits().maxRise - i));
+  const dys = [...rises, 0, 1, 2, 3, 4];
   const head = (dy: number) => (dy < 0 ? `rise ${-dy}` : dy === 0 ? "level" : dy === 4 ? "drop 4+" : `drop ${dy}`);
   const cols = dys.map(head);
   const w = Math.max(...cols.map((c) => c.length));
@@ -272,7 +277,7 @@ function fillTemplate(md: string, k: KnightLimits): string {
     RISE: String(k.maxRise),
     REACH_TABLE: knightReachTable(),
     STAND_RISE2: String(maxGap(-2, false)),
-    RUN_RISE4: String(maxGap(-4, true)),
+    RUN_RISE3: String(maxGap(-3, true)),
   };
   return md.replace(/\{\{([A-Z0-9_]+)\}\}/g, (all, name: string) => {
     const v = vars[name];
@@ -352,7 +357,7 @@ export interface RenderUserOptions {
 /** The request as the model reads it (also used for the few-shot examples). */
 export function renderUserMessage(
   req: Pick<FillRequest, "grid" | "origin" | "size" | "recent" | "frontier" | "mode" | "lastGhosts" | "knight"> &
-    Partial<Pick<FillRequest, "measured" | "brief" | "summary" | "blockedAt" | "previousFailure">>,
+    Partial<Pick<FillRequest, "measured" | "brief" | "summary" | "blockedAt" | "previousFailure" | "computedContext">>,
   opts: RenderUserOptions = {},
 ): string {
   const out: string[] = [];
@@ -370,6 +375,10 @@ export function renderUserMessage(
     );
   }
   if (!opts.compact) {
+    const structure = describeStructure(req);
+    if (structure) out.push(structure);
+    const ctx = req.computedContext ?? describeComputedContext(req as FillRequest);
+    if (ctx) out.push(ctx);
     if (req.measured) out.push(measuredText(req.measured, req.origin, req.size));
     if (req.summary) out.push(`rest of the level: ${req.summary}`);
   }

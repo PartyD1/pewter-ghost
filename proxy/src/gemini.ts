@@ -19,7 +19,7 @@ export interface GeminiOptions {
   apiKey: string;
   model?: string;
   fetch?: typeof fetch;
-  /** Whole-call deadline in ms (default 10 000). */
+  /** Whole-call deadline in ms (default 20 000). */
   timeoutMs?: number;
   baseUrl?: string;
   /** Ask for token log-probabilities (default true; disabled automatically if rejected). */
@@ -109,7 +109,7 @@ export class GeminiUpstream implements Upstream {
     this.model = opts.model || DEFAULT_MODEL;
     if (!/^[A-Za-z0-9._-]+$/.test(this.model)) throw new UpstreamError("config", "invalid model id");
     this.fetchImpl = opts.fetch ?? globalThis.fetch.bind(globalThis);
-    this.timeoutMs = opts.timeoutMs ?? 10_000;
+    this.timeoutMs = opts.timeoutMs ?? 20_000;
     this.baseUrl = (opts.baseUrl ?? GEMINI_BASE_URL).replace(/\/+$/, "");
     this.logprobsEnabled = opts.logprobs ?? true;
     this.thinkingBudget = opts.thinkingBudget ?? null;

@@ -12,6 +12,10 @@
  * written by export_caps.ts against the same fork commit b36ff59). A copy is
  * kept as audit-caps.json and caps.test.ts pins the comparison:
  *
+ *  NOTE: the numbers quoted in this comment (8/11/6, 12.04, ...) are from before
+ *  the feel retune (gravity 125%, run speed 85%, jump 90%). Today the design-tier
+ *  limits are {maxGapStand: 4, maxGapRun: 7, maxRise: 3}; the method is unchanged.
+ *
  *  - Same engine, same numbers. For GUARANTEED / NORMAL / EXPERT the flat
  *    ladder {0,1,2,4,7}, maxStepUp, maxGap, standingGap and impossibleGap are
  *    identical, and so is every one of the 220 per-rise frontier cells but

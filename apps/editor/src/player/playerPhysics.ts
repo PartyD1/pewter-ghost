@@ -14,36 +14,33 @@
 /** World pixels per tile. The only tiles→px conversion factor. */
 export const TILE = 16;
 
+/**
+ * FEEL RETUNE (2026-10-08). Old defaults with Gravity 125%, Run speed 85%,
+ * Jump power 90% baked in (see comment on JUMP_HEIGHT for the 2026-10-09 bump).
+ * Old values: 16 / 20 / 75 / 20 / 15 / 93.75 / 6.3.
+ */
 export const PLAYER_PHYSICS = {
   // ── Horizontal (tiles/s, tiles/s²) ──────────────────────────────────────
-  /**
-   * Top run speed. 16 t/s = 256 px/s. Together with the fixed ~0.73s jump
-   * airtime this caps the longest crossable gap at ~11.7 tiles — tuned down
-   * from 25 t/s (~18-tile gaps) so the crossable-gap range stays narrow
-   * enough for the AI level designer to reason about (~5.4–11.7 tiles, ~2:1).
-   */
-  MAX_RUN_SPEED: 16,
-  /**
-   * Linear ground acceleration. 0→max in ~0.8s over ~6.4 tiles of runway —
-   * deliberately not instant, so max-length jumps require a real run-up
-   * that level geometry can grant or deny.
-   */
-  GROUND_ACCEL: 20,
-  /** Linear ground deceleration when no input. Max→0 in ~0.21s over ~1.7 tiles. */
-  GROUND_FRICTION: 75,
-  /**
-   * Linear air acceleration. Equal to GROUND_ACCEL so control feels the
-   * same airborne as grounded. Puts a standing jump at ~5.4 tiles.
-   */
-  AIR_ACCEL: 20,
-  /** Linear air deceleration when no input (gentler than ground friction). */
-  AIR_FRICTION: 15,
+  /** Top run speed. 13.6 t/s = 217.6 px/s (old 16 × 0.85). */
+  MAX_RUN_SPEED: 13.6,
+  /** Linear ground acceleration (old 20 × 0.85). */
+  GROUND_ACCEL: 17,
+  /** Linear ground deceleration when no input (old 75 × 0.85). */
+  GROUND_FRICTION: 63.75,
+  /** Linear air acceleration (old 20 × 0.85). */
+  AIR_ACCEL: 17,
+  /** Linear air deceleration when no input (old 15 × 0.85). */
+  AIR_FRICTION: 12.75,
 
   // ── Vertical (tiles, tiles/s, tiles/s²) ─────────────────────────────────
-  /** World gravity. 93.75 t/s² = 1500 px/s². */
-  GRAVITY: 93.75,
-  /** Full-hold jump apex, in tiles. Jump velocity is DERIVED from this. */
-  JUMP_HEIGHT: 6.3,
+  /** World gravity (old 93.75 × 1.25). 117.1875 t/s² = 1875 px/s². */
+  GRAVITY: 117.1875,
+  /**
+   * Full-hold jump apex, in tiles. Jump velocity is DERIVED from this.
+   * 4.6 (was 4.08 after the 90% jump retune) so the knight clears a 5-tile
+   * gap from standing at the NORMAL tier; 4 felt too short in play.
+   */
+  JUMP_HEIGHT: 4.6,
   /** Max fall speed. 50 t/s = 800 px/s. */
   TERMINAL_VELOCITY: 50,
 
@@ -70,7 +67,7 @@ export const JUMP_CUT_MIN_SPEED_PX = PLAYER_PHYSICS.JUMP_CUT_MIN_SPEED * TILE; /
 
 /**
  * Upward impulse applied on jump, derived from the designed apex height:
- * v₀ = -√(2·g·h) ≈ -550 px/s. Negative because Phaser's Y axis points down.
+ * v₀ = -√(2·g·h). Negative because Phaser's Y axis points down.
  */
 export const JUMP_VELOCITY_PX = -Math.sqrt(
   2 * GRAVITY_PX * PLAYER_PHYSICS.JUMP_HEIGHT * TILE,
