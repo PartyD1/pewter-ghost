@@ -43,6 +43,10 @@ describe("stripText", () => {
   it("is as short for the first ghosts and names the fix key for fixes", () => {
     const f = stripText({ mode: "showing", ghost: { label: "staircase", kind: "finish" }, ordinal: 1, total: 1 });
     expect(f.main).toBe("staircase · 1 tile · Tab to keep");
+    const many = stripText({ mode: "showing", ghost: { label: "steps", kind: "finish" }, ordinal: 5, total: 3, choice: { index: 1, total: 3 } });
+    expect(many.main).toBe("steps · 3 tiles · Tab to keep · 2/3 · Alt+] for another");
+    expect(stripText({ mode: "showing", ghost: { label: "steps", kind: "finish" }, ordinal: 5, total: 3, choice: { index: 0, total: 1 } }).main).not.toContain("Alt+]");
+    expect(canvasCaption({ label: "steps", kind: "finish" }, 9, { index: 0, total: 2 })).toBe("steps · 1/2");
     const fix = stripText({ mode: "showing", ghost: { label: "gap 9 · knight clears 6", kind: "fix" }, ordinal: 2 });
     expect(fix.main).toBe("gap 9 · knight clears 6 · Tab to fix");
     const ext = stripText({ mode: "showing", ghost: { label: "", kind: "extend" }, ordinal: 3 });

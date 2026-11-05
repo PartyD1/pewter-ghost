@@ -33,6 +33,18 @@ describe("ghostKeyAction", () => {
     expect(ghostKeyAction({ key: " ", code: "Space", ctrlKey: true, shiftKey: true }, edit())).toBeNull();
   });
 
+  it("Alt+] / Alt+[ cycle choices, only while the ghost has more than one", () => {
+    const two = edit({ choices: 2 });
+    expect(ghostKeyAction({ key: "’", code: "BracketRight", altKey: true }, two)).toBe("next"); // Option+] on a Mac types a symbol
+    expect(ghostKeyAction({ key: "[", code: "BracketLeft", altKey: true }, two)).toBe("prev");
+    expect(ghostKeyAction({ key: "]", code: "BracketRight", altKey: true, repeat: true }, two)).toBe("swallow");
+    expect(ghostKeyAction({ key: "]", code: "BracketRight", altKey: true }, edit({ choices: 1 }))).toBeNull();
+    expect(ghostKeyAction({ key: "]", code: "BracketRight", altKey: true }, edit())).toBeNull();
+    expect(ghostKeyAction({ key: "]", code: "BracketRight" }, two)).toBeNull();
+    expect(ghostKeyAction({ key: "]", code: "BracketRight", altKey: true, ctrlKey: true }, two)).toBeNull();
+    expect(ghostKeyAction({ key: "]", code: "BracketRight", altKey: true }, edit({ choices: 2, playing: true }))).toBeNull();
+  });
+
   it("ignores everything while typing or with a dialog open", () => {
     expect(ghostKeyAction({ key: "Tab" }, edit({ typing: true }))).toBeNull();
     expect(ghostKeyAction({ key: "Escape" }, edit({ dialogOpen: true }))).toBeNull();

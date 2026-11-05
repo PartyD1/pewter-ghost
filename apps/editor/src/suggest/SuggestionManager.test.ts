@@ -322,6 +322,39 @@ describe("SuggestionManager — draw-to-dismiss and paint-on-ghost", () => {
     expect(ends[0]!.outcome).toBe("drawn-over");
   });
 
+  it("a ghost that appears mid-stroke is not dismissed by the rest of that stroke", () => {
+    const { m, now, ends } = setup({ ghostDrawGraceMs: 1500 });
+    const stroke = newStroke();
+    m.onPlacement(paint(now(), 80, 3, TILE.BLOCK, stroke));
+    const a = at(10);
+    m.offer(a);
+    expect(m.shown).toBe(a);
+    m.onPlacement(paint(now() + 50, 81, 3, TILE.BLOCK, stroke));
+    expect(ends).toEqual([]);
+    expect(m.shown).toBe(a);
+    expect(m.streak).toBe(0);
+  });
+
+  it("a new stroke elsewhere within the grace does not dismiss, after it does", () => {
+    const { m, now, wait, ends } = setup({ ghostDrawGraceMs: 1500 });
+    const a = at(10);
+    m.offer(a);
+    wait(500);
+    m.onPlacement(paint(now(), 80, 3));
+    expect(m.shown).toBe(a);
+    wait(1500);
+    m.onPlacement(paint(now(), 82, 3));
+    expect(ends[0]!.outcome).toBe("drawn-over");
+  });
+
+  it("painting on a ghost cell with something else still dismisses it in a new stroke", () => {
+    const { m, now, wait, ends } = setup({ ghostDrawGraceMs: 1500 });
+    m.offer(at(10));
+    wait(100);
+    m.onPlacement(paint(now(), 10, 15, TILE.DIRT));
+    expect(ends[0]!.outcome).toBe("drawn-over");
+  });
+
   it("painting elsewhere keeps the ghost when dismissOnDrawElsewhere is off", () => {
     const { m, now } = setup({ dismissOnDrawElsewhere: false });
     const s = at(10);
@@ -432,6 +465,98 @@ describe("SuggestionManager — one ghost at a time", () => {
     expect(m.offer(at(30, { confidence: 0.5 })).status).toBe("held");
     expect(ends[0]!.outcome).toBe("replaced");
     expect(m.shown).toBeNull();
+  });
+
+  it("an overlapping newer suggestion becomes a choice behind the shown ghost, ranked by confidence", () => {
+    const { m, ends, drops } = setup({ maxChoices: 3 });
+    const a = at(10, { confidence: 0.8 });
+    const b = at(12, { confidence: 0.95 });
+    const c = at(13, { confidence: 0.9 });
+    m.offer(a);
+    expect(m.offer(b)).toEqual({ status: "alternate", index: 0, total: 2 });
+    expect(m.offer(c)).toEqual({ status: "alternate", index: 1, total: 3 });
+    expect(m.shown).toBe(a); // the one on screen stays; it is now rank 3 of 3
+    expect(m.choices).toEqual({ index: 2, total: 3 });
+    expect(ends).toEqual([]);
+    expect(drops).toEqual([]);
+  });
+
+  it("never more than maxChoices; the extra is dropped busy inside the window", () => {
+    const { m } = setup({ maxChoices: 2, ghostMinShowMs: 6000 });
+    m.offer(at(10));
+    expect(m.offer(at(11)).status).toBe("alternate");
+    expect(m.offer(at(12))).toEqual({ status: "dropped", reason: "busy" });
+    const { m: one } = setup({ maxChoices: 1, ghostMinShowMs: 6000 });
+    one.offer(at(10));
+    expect(one.offer(at(11))).toEqual({ status: "dropped", reason: "busy" });
+  });
+
+  it("cycle() steps through the choices in rank order and wraps, without counting as a dismissal", () => {
+    const { m, ends, shows } = setup();
+    const a = at(10, { confidence: 0.8 });
+    const b = at(12, { confidence: 0.95 });
+    const c = at(13, { confidence: 0.9 });
+    m.offer(a);
+    m.offer(b);
+    m.offer(c);
+    expect(m.cycle()).toBe(true); // a (rank 3) wraps to b (rank 1)
+    expect(m.shown).toBe(b);
+    expect(m.cycle()).toBe(true);
+    expect(m.shown).toBe(c);
+    expect(m.cycle(-1)).toBe(true);
+    expect(m.shown).toBe(b);
+    expect(ends.map((e) => e.outcome)).toEqual(["replaced", "replaced", "replaced"]);
+    expect(m.streak).toBe(0);
+    expect(shows.length).toBe(4);
+    expect(m.choices).toEqual({ index: 0, total: 3 });
+  });
+
+  it("cycle() does nothing with a single ghost or once some of its cells were painted", () => {
+    const { m, now } = setup();
+    m.offer(at(10));
+    expect(m.cycle()).toBe(false);
+    m.offer(at(11));
+    m.onPlacement(paint(now(), 10, 15)); // exactly the proposed block: one cell accepted by hand
+    expect(m.cycle()).toBe(false);
+  });
+
+  it("choices go when the ghost is dismissed or their cells are drawn", () => {
+    const { m, now, drops } = setup();
+    const a = at(10);
+    const b = at(12);
+    const c = at(14);
+    m.offer(a);
+    m.offer(b);
+    m.offer(c);
+    m.onCellsChanged([{ x: 14, y: 15 }]); // an undo on c cell only (a: 10-11, b: 12-13)
+    expect(drops).toEqual([{ id: c.id, reason: "stale" }]);
+    expect(m.choices?.total).toBe(2);
+    m.dismiss();
+    expect(drops.map((d) => d.id)).toEqual([c.id, b.id]);
+    expect(m.cycle()).toBe(false);
+  });
+
+  it("a fix is never a choice, and requests still replace the shown ghost", () => {
+    const { m, ends } = setup({ ghostMinShowMs: 6000 });
+    m.offer(at(10));
+    expect(m.offer(at(11, { kind: "fix" })).status).toBe("dropped");
+    expect(m.offer(at(11, { mode: "requested" })).status).toBe("shown");
+    expect(ends[0]!.outcome).toBe("replaced");
+  });
+
+  it("a newer automatic suggestion does not replace a ghost within ghostMinShowMs", () => {
+    const { m, wait, ends, drops } = setup({ ghostMinShowMs: 6000 });
+    const a = at(10);
+    const b = at(30);
+    m.offer(a);
+    wait(2000);
+    expect(m.offer(b)).toEqual({ status: "dropped", reason: "busy" });
+    expect(drops).toEqual([{ id: b.id, reason: "busy" }]);
+    expect(ends).toEqual([]);
+    expect(m.shown).toBe(a);
+    wait(4500);
+    expect(m.offer(at(30)).status).toBe("shown");
+    expect(ends[0]!.outcome).toBe("replaced");
   });
 
   it("a newer suggestion supersedes the held one", () => {

@@ -37,9 +37,10 @@ export function shortLabel(s: Pick<Suggestion, "label" | "kind">): string {
  * Caption drawn on the canvas next to the ghost. `ordinal` is 1 for the
  * session's first ghost; the first TEACHING_GHOSTS name the key.
  */
-export function canvasCaption(s: Pick<Suggestion, "label" | "kind">, ordinal: number): string {
+export function canvasCaption(s: Pick<Suggestion, "label" | "kind">, ordinal: number, choice?: { index: number; total: number } | null): string {
   const label = shortLabel(s);
-  return ordinal <= TEACHING_GHOSTS ? `${label} · Tab` : label;
+  const base = ordinal <= TEACHING_GHOSTS ? `${label} · Tab` : label;
+  return choice && choice.total > 1 ? `${base} · ${choice.index + 1}/${choice.total}` : base;
 }
 
 /** The model's guess at what the level is, safe to show, or null. */
@@ -61,6 +62,8 @@ export interface StripView {
   /** Cells left to accept (for "showing"); omitted when none were painted by hand. */
   remaining?: number;
   total?: number;
+  /** For "showing" with more than one choice: this one's rank (0-based) and how many there are. */
+  choice?: { index: number; total: number };
   /** Sanitised level guess. */
   guess?: string | null;
   /** Play mode: is there a checked route to show with the route key? */
@@ -101,7 +104,8 @@ export function stripText(v: StripView): StripText {
           : v.total !== undefined
             ? ` · ${v.total} tile${v.total === 1 ? "" : "s"}`
             : "";
-      const tail = `${count} · ${g.kind === "fix" ? "Tab to fix" : "Tab to keep"}`;
+      const more = v.choice && v.choice.total > 1 ? ` · ${v.choice.index + 1}/${v.choice.total} · Alt+] for another` : "";
+      const tail = `${count} · ${g.kind === "fix" ? "Tab to fix" : "Tab to keep"}${more}`;
       return { guess, main: `${label}${tail}`, tone: "ghost", tail };
     }
     default:

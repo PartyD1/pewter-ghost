@@ -1,7 +1,7 @@
 /**
  * Ghost input (G-11): keys and drawing → SuggestionManager.
  *
- *  - Tab / Esc / Ctrl+Space / R (Play) through DOM listeners (see keys.ts).
+ *  - Tab / Esc / Ctrl+Space / Alt+] Alt+[ / R (Play) through DOM listeners (see keys.ts).
  *    The keydown listener runs in the capture phase so Tab never reaches the
  *    browser's focus navigation while a ghost is shown.
  *  - Person placements (LevelModel.onPlacement: paint, erase, entity edits)
@@ -20,6 +20,8 @@ import { ghostKeyAction, type GhostKeyAction, type GhostKeyLike } from "./keys";
 export interface ManagerInputs {
   readonly shown: unknown;
   readonly requestPending: boolean;
+  /** Rank and count of the shown ghost's choices (optional: absent = one choice). */
+  readonly choices?: { index: number; total: number } | null;
   onPlacement(ev: PlacementEvent): void;
   onCellsChanged(cells: Point[], t?: number, stroke?: string): void;
   reset(): void;
@@ -37,6 +39,8 @@ export interface GhostInputDeps {
   dismiss(): void;
   /** Ctrl+Space. */
   request(): void;
+  /** Alt+] (1) / Alt+[ (-1): another choice. */
+  cycle?(dir: 1 | -1): void;
   /** R in Play mode. */
   route(): void;
   /** After a level load reset the manager. */
@@ -92,6 +96,12 @@ export function bindGhostInput(d: GhostInputDeps): () => void {
       case "request":
         d.request();
         break;
+      case "next":
+        d.cycle?.(1);
+        break;
+      case "prev":
+        d.cycle?.(-1);
+        break;
       case "route":
         d.route();
         break;
@@ -125,6 +135,7 @@ function keyActionFor(e: KeyboardEvent | GhostKeyLike, d: GhostInputDeps): Ghost
   return ghostKeyAction(e, {
     showing: !!d.manager.shown,
     requestPending: d.manager.requestPending,
+    choices: d.manager.choices?.total ?? 1,
     playing: d.isPlaying(),
     typing: isTypingTarget((e as KeyboardEvent).target ?? null),
     dialogOpen: d.dialogOpen(),
