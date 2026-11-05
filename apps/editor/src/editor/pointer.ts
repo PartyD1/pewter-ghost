@@ -7,20 +7,25 @@
  *   UI laid on top of the canvas (hit-tested with elementFromPoint), when the
  *   button is released anywhere, and when the window loses focus.
  * - Pan mode, or Space held, turns a left drag into a camera pan.
- * - Select mode: pressing on the Start pennant or the Goal flag and releasing
- *   on another cell moves it there (one undo step).
+ * - Select mode: drag out a box over the level; drag inside the box to move
+ *   it (hold Alt to copy instead). Pressing on the Start pennant or the Goal
+ *   flag (outside a box) and releasing on another cell moves it there. Every
+ *   edit is one undo step.
  */
 import Phaser from "phaser";
 import type { Point } from "../contracts";
 import type { CameraController } from "./camera";
 import type { ModeState } from "./modes";
 import type { StrokePainter } from "./paint";
+import { rectContains, type SelectionController } from "./selection";
 
 export interface PointerDeps {
   scene: Phaser.Scene;
   camera: CameraController;
   modes: ModeState;
   painter: StrokePainter;
+  /** Select mode's box, move and copy gestures. */
+  selection: SelectionController;
   isPlaying: () => boolean;
   onHover: (cell: Point | undefined) => void;
   /** Select-mode click (inspection only; never edits). */
@@ -92,6 +97,7 @@ export class PointerBinding {
   /** End any stroke or pan in progress (mode change, Play, dialogs). */
   stopAll(): void {
     this.deps.painter.end();
+    this.deps.selection.cancel();
     this.panning = null;
     this.markerDrag = null;
   }
@@ -127,9 +133,15 @@ export class PointerBinding {
     const cell = this.cellOf(p);
     if (mode === "select") {
       if (!this.deps.inBounds(cell.x, cell.y)) return;
-      const kind = this.deps.markerAt?.(cell) ?? null;
-      if (kind) this.markerDrag = { kind, from: { x: cell.x, y: cell.y } };
-      this.deps.onSelect?.(cell);
+      const { selection } = this.deps;
+      const inBox = selection.rect !== null && rectContains(selection.rect, cell);
+      const kind = inBox ? null : (this.deps.markerAt?.(cell) ?? null);
+      if (kind) {
+        this.markerDrag = { kind, from: { x: cell.x, y: cell.y } };
+        this.deps.onSelect?.(cell);
+      } else {
+        selection.press(cell);
+      }
       return;
     }
     painter.begin(cell, mode, modes.brush);
@@ -155,6 +167,10 @@ export class PointerBinding {
     }
     const cell = this.cellOf(p);
     const painter = this.deps.painter;
+    if (this.deps.selection.dragging) {
+      if (p.isDown) this.deps.selection.dragTo(cell);
+      else this.deps.selection.cancel();
+    }
     if (painter.isActive) {
       if (!p.isDown) painter.end();
       else painter.move(cell);
@@ -163,6 +179,13 @@ export class PointerBinding {
   }
 
   private onUp(p?: Phaser.Input.Pointer): void {
+    const { selection } = this.deps;
+    if (selection.dragging && p) {
+      const alt = !!(p.event as { altKey?: boolean } | undefined)?.altKey;
+      // A move released over toolbar / palette is abandoned; a box just ends where the pointer went.
+      if (selection.isMoving && !this.overCanvas(p)) selection.cancel();
+      else if (selection.release(this.cellOf(p), alt) === "clicked") this.deps.onSelect?.(this.cellOf(p));
+    }
     const drag = this.markerDrag;
     if (drag && p && this.overCanvas(p)) {
       const to = this.cellOf(p);

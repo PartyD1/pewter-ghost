@@ -28,6 +28,7 @@ import { PlayController, type PlayHud } from "./play";
 import type { PlaySettingsStore } from "./playSettings";
 import { PointerBinding } from "./pointer";
 import { Renderer } from "./render";
+import { SelectionController, type Rect } from "./selection";
 
 /**
  * Camera pan speed for held WASD / arrows, in screen px per second: the old
@@ -71,6 +72,7 @@ export class EditorScene extends Phaser.Scene {
   levelRenderer!: Renderer;
   camera!: CameraController;
   painter!: StrokePainter;
+  selection!: SelectionController;
   pointer!: PointerBinding;
   play!: PlayController;
   readonly events2 = new EditorEmitter();
@@ -80,6 +82,7 @@ export class EditorScene extends Phaser.Scene {
   private gridGraphics!: Phaser.GameObjects.Graphics;
   private highlightBox!: Phaser.GameObjects.Graphics;
   private emptyMarkGraphics!: Phaser.GameObjects.Graphics;
+  private selectionBox!: Phaser.GameObjects.Graphics;
   private minimap: Phaser.Cameras.Scene2D.Camera | null = null;
   private minimapZoom = 0.15;
   private hover: Point | undefined;
@@ -134,12 +137,15 @@ export class EditorScene extends Phaser.Scene {
     this.highlightBox = this.add.graphics();
     this.highlightBox.setDepth(DEPTH.cursor);
     this.emptyMarkGraphics = this.add.graphics().setDepth(DEPTH.cursor);
+    this.selectionBox = this.add.graphics().setDepth(DEPTH.cursor);
+    this.selection = new SelectionController(model);
 
     this.pointer = new PointerBinding({
       scene: this,
       camera: this.camera,
       modes,
       painter: this.painter,
+      selection: this.selection,
       isPlaying: () => this.isPlaying,
       inBounds: (x, y) => model.inBounds(x, y),
       onHover: (cell) => this.setHover(cell),
@@ -182,6 +188,8 @@ export class EditorScene extends Phaser.Scene {
     this.cleanups.push(
       modes.subscribe((s, prev) => {
         if (s.effective !== prev.effective) this.pointer.stopAll();
+        // The box belongs to Select mode (it stays while Space-panning).
+        if (s.mode !== "select") this.selection.clear();
         this.game.events.emit(UI_EVENT.mode, s);
         this.events2.emit("mode", { mode: s.mode, brush: s.brush, effective: s.effective });
         this.drawCursor();
@@ -254,9 +262,47 @@ export class EditorScene extends Phaser.Scene {
     return true;
   }
 
+  // Selection commands (Select mode: Delete, Ctrl+C / X / V / A). Each edit is one undo step.
+
+  private canSelect(): boolean {
+    return !this.isPlaying && this.deps.modes.mode === "select";
+  }
+
+  deleteSelection(): boolean {
+    if (!this.canSelect() || !this.selection.rect) return false;
+    this.pointer.stopAll();
+    const n = this.selection.deleteSelection();
+    this.deps.notify(n ? "Deleted selection (Ctrl+Z undoes)" : "Nothing in the selection to delete", { ms: 2500 });
+    return true;
+  }
+
+  copySelection(cut = false): boolean {
+    if (!this.canSelect() || !this.selection.rect) return false;
+    this.pointer.stopAll();
+    if (cut) this.selection.cut();
+    else this.selection.copy();
+    this.deps.notify(cut ? "Cut. Ctrl+V pastes at the pointer" : "Copied. Ctrl+V pastes at the pointer", { ms: 2500 });
+    return true;
+  }
+
+  /** Paste the copied block with its top-left at the hovered cell (or where it was copied from). */
+  pasteSelection(): boolean {
+    if (!this.canSelect() || !this.selection.clip) return false;
+    this.pointer.stopAll();
+    const at = this.hover ?? this.selection.rect ?? { x: 0, y: 0 };
+    return this.selection.paste({ x: at.x, y: at.y });
+  }
+
+  selectAll(): boolean {
+    if (!this.canSelect()) return false;
+    this.selection.selectAll();
+    return true;
+  }
+
   startPlay(): boolean {
     if (this.isPlaying) return false;
     this.pointer.stopAll();
+    this.selection.clear();
     this.setHover(undefined);
     // Old startGame (editorScene.ts:256): the minimap goes away in Play.
     this.removeMinimap();
@@ -345,9 +391,27 @@ export class EditorScene extends Phaser.Scene {
    * (redrawEmptyTileOverlay, editorScene.ts:97-130) so the mode does not rely
    * on colour alone.
    */
+  /** The selection box (blue), and where a drag would drop it (yellow). */
+  private drawSelection(): void {
+    const g = this.selectionBox;
+    g.clear();
+    if (this.isPlaying) return;
+    const T = this.TILE_SIZE;
+    const box = (r: Rect, color: number, fill: number) => {
+      g.fillStyle(color, fill);
+      g.fillRect(r.x * T, r.y * T, r.w * T, r.h * T);
+      g.lineStyle(2, color, 1);
+      g.strokeRect(r.x * T, r.y * T, r.w * T, r.h * T);
+    };
+    const preview = this.selection.previewRect();
+    if (this.selection.rect) box(this.selection.rect, 0x2e9bff, this.selection.isMoving ? 0.1 : 0.22);
+    if (preview) this.selection.isMoving ? box(preview, 0xffd400, 0.28) : box(preview, 0x2e9bff, 0.22);
+  }
+
   private drawCursor(): void {
     const g = this.highlightBox;
     if (!g) return;
+    this.drawSelection();
     const cell = this.hover;
     this.emptyMarkGraphics.clear();
     if (!cell || this.isPlaying) {

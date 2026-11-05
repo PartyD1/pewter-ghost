@@ -465,6 +465,21 @@ function runAction(a: EditorAction): void {
     case "zoomReset":
       editorScene.camera.zoomReset();
       break;
+    case "deleteSelection":
+      editorScene.deleteSelection();
+      break;
+    case "copy":
+      editorScene.copySelection();
+      break;
+    case "cut":
+      editorScene.copySelection(true);
+      break;
+    case "paste":
+      editorScene.pasteSelection();
+      break;
+    case "selectAll":
+      editorScene.selectAll();
+      break;
   }
 }
 
