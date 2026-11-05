@@ -13,7 +13,8 @@
  * "defaultMap", "spritesheet", "pellets") are the ASSET constants.
  */
 import Phaser from "phaser";
-import { ASSET, FRAME_COUNT, FRAME_SOURCES, KENNEY_PX, TILE_PX } from "./constants";
+import { ASSET, FRAME_COUNT, TILE_PX } from "./constants";
+import { paintComposite, paintGhost } from "./tileComposite";
 
 export function preloadAssets(scene: Phaser.Scene): void {
   // --- old loadingScene.ts preload(), verbatim (this -> scene) ---
@@ -40,51 +41,15 @@ export function preloadAssets(scene: Phaser.Scene): void {
   scene.load.setPath("");
 }
 
-function drawStartMarker(ctx: CanvasRenderingContext2D, x: number): void {
-  // A small green pennant on a pole: "the knight starts here".
-  ctx.fillStyle = "#2d3a2e";
-  ctx.fillRect(x + 4, 2, 2, 13);
-  ctx.fillStyle = "#3ccf6e";
-  ctx.beginPath();
-  ctx.moveTo(x + 6, 2);
-  ctx.lineTo(x + 14, 5);
-  ctx.lineTo(x + 6, 8);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = "#2d3a2e";
-  ctx.fillRect(x + 2, 14, 6, 2);
-}
-
-/** Swap red and blue in the reddish pixels of one frame (red cloth -> blue; pole and outline stay). */
-function recolorBlue(ctx: CanvasRenderingContext2D, x: number): void {
-  const img = ctx.getImageData(x, 0, TILE_PX, TILE_PX);
-  const d = img.data;
-  for (let i = 0; i < d.length; i += 4) {
-    if (d[i] > d[i + 1] + 40 && d[i] > d[i + 2] + 40) [d[i], d[i + 2]] = [d[i + 2], d[i]];
-  }
-  ctx.putImageData(img, x, 0);
-}
-
-/** Build `pg-tiles` (the composite) and `pg-tiles-ghost`. Safe to call twice. */
+/** Build `pg-tiles` (the composite) and `pg-tiles-ghost`. Safe to call twice. The pixels come from tileComposite.ts (shared with the replay viewer). */
 export function buildTextures(scene: Phaser.Scene): void {
   const textures = scene.textures;
   if (!textures.exists(ASSET.tiles)) {
     const canvas = textures.createCanvas(ASSET.tiles, FRAME_COUNT * TILE_PX, TILE_PX);
     if (!canvas) throw new Error("could not create the tile texture");
-    const ctx = canvas.context;
-    ctx.imageSmoothingEnabled = false;
     const brackeys = textures.get(ASSET.brackeys).getSourceImage() as CanvasImageSource;
     const kenney = textures.get(ASSET.kenney).getSourceImage() as CanvasImageSource;
-    for (const [frameStr, src] of Object.entries(FRAME_SOURCES)) {
-      const f = Number(frameStr);
-      const dx = f * TILE_PX;
-      if ("brackeys" in src) ctx.drawImage(brackeys, src.brackeys * TILE_PX, 0, TILE_PX, TILE_PX, dx, 0, TILE_PX, TILE_PX);
-      else if ("kenney" in src) {
-        const [c, r] = src.kenney;
-        ctx.drawImage(kenney, c * KENNEY_PX, r * KENNEY_PX, KENNEY_PX, KENNEY_PX, dx, 0, TILE_PX, TILE_PX);
-        if (src.blue) recolorBlue(ctx, dx);
-      } else drawStartMarker(ctx, dx);
-    }
+    paintComposite(canvas.context, brackeys, kenney);
     canvas.refresh();
     for (let f = 0; f < FRAME_COUNT; f++) canvas.add(f, 0, f * TILE_PX, 0, TILE_PX, TILE_PX);
   }
@@ -102,20 +67,7 @@ function buildGhostTiles(textures: Phaser.Textures.TextureManager): void {
   const src = textures.get(ASSET.tiles).getSourceImage() as HTMLCanvasElement;
   const grey = textures.createCanvas(ASSET.ghostTiles, FRAME_COUNT * TILE_PX, TILE_PX);
   if (!grey) return;
-  const ctx = grey.context;
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(src, 0, 0);
-  const img = ctx.getImageData(0, 0, FRAME_COUNT * TILE_PX, TILE_PX);
-  const d = img.data;
-  for (let i = 0; i < d.length; i += 4) {
-    const l = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
-    const v = Math.round(GHOST_GREY.lo + (l / 255) * (GHOST_GREY.hi - GHOST_GREY.lo));
-    d[i] = d[i + 1] = d[i + 2] = v;
-  }
-  ctx.putImageData(img, 0, 0);
+  paintGhost(grey.context, src);
   grey.refresh();
   for (let f = 0; f < FRAME_COUNT; f++) grey.add(f, 0, f * TILE_PX, 0, TILE_PX, TILE_PX);
 }
-
-/** Grey range of the ghost texture (dark outline pixels -> lo, white -> hi). */
-const GHOST_GREY = { lo: 110, hi: 245 } as const;
