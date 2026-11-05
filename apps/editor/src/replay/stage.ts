@@ -58,7 +58,8 @@ export function drawFrame(ctx: CanvasRenderingContext2D, f: ReplayFrame, opts: D
     ctx.fillStyle = "#8b93a7";
     ctx.font = "20px system-ui, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("This log has no level snapshot, so there is nothing to draw.", STAGE_W / 2, STAGE_H / 2);
+    ctx.fillText("This session has no level to draw: it was recorded before replay existed.", STAGE_W / 2, STAGE_H / 2 - 14);
+    ctx.fillText("The timeline below still shows what was logged.", STAGE_W / 2, STAGE_H / 2 + 14);
     ctx.restore();
     return;
   }

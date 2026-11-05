@@ -1,14 +1,20 @@
 /**
- * Session replay viewer (replay.html). Loads a session log from the proxy's
- * read endpoints (?api=<proxy>#<sessionId>, shared lab password) or from a
- * local .jsonl file, then plays it back: the editor view re-rendered from
- * events, a cursor trail, and a timeline. The model is never called.
+ * Session replay viewer, served at /replay. Loads a session log from the
+ * proxy's read endpoints (shared lab password) or from a local .jsonl file,
+ * then plays it back: the editor view re-rendered from events, a cursor
+ * trail, and a timeline. The model is never called.
+ *
+ * On the same machine as the proxy it needs no setup: /replay signs in with
+ * the local password ("dev") and lists the newest sessions. Elsewhere add
+ * ?api=<proxy url> and type the lab password. #<sessionId>[@<ms>] opens one.
  */
 import "./replay.css";
+import { DEFAULT_CONFIG } from "../suggest/config";
 import { Replay, type ReplayFrame, type ReplayGhostSummary } from "../research/replay/replay";
 import { navPoints, stepPoint, TRACK_ORDER, type Marker, type Segment, type TrackId } from "../research/replay/tracks";
+import { formatLength, isWatchable, sessionTitle } from "./format";
 import { Player, quietGaps, SPEEDS } from "./player";
-import { AuthError, fetchSessionLog, listSessions, parseHash, shareLink, type SessionListing } from "./source";
+import { AuthError, fetchSessionLog, isLocalApi, listSessions, parseHash, shareLink, type SessionListing } from "./source";
 import { drawFrame, STAGE_H, STAGE_W } from "./stage";
 import { fmt, Timeline, TRACK_LABEL } from "./timeline";
 
@@ -17,7 +23,10 @@ const PW_KEY = "pewter-ghost.replay.password";
 let stopViewer: (() => void) | null = null;
 const app = document.getElementById("replay-app")!;
 const params = new URLSearchParams(location.search);
-const apiBase = params.get("api");
+/** The proxy to read from: ?api=, else the editor's default (http://localhost:8787). */
+const apiBase = (params.get("api") ?? DEFAULT_CONFIG.proxyUrl).replace(/\/+$/, "");
+/** On the proxy's own machine the password is the dev one, so there is nothing to type. */
+const LOCAL_PASSWORD = "dev";
 
 type Child = Node | string | null | undefined;
 function h<K extends keyof HTMLElementTagNameMap>(tag: K, attrs: Record<string, string> = {}, ...kids: Child[]): HTMLElementTagNameMap[K] {
@@ -49,34 +58,107 @@ const setPw = (v: string): void => {
 // Start screen
 // ---------------------------------------------------------------------------
 
-function startScreen(message?: string): void {
+async function startScreen(message?: string): Promise<void> {
   stopViewer?.();
-  app.replaceChildren();
-  const err = h("div", { class: "rp-err" }, message);
-  const root = h("div", { class: "rp-start" }, h("h1", {}, "Pewter Ghost replay"), h("p", {}, "Watch back a recorded session: the level as it was built, the suggestions shown, and where the pointer went."), err);
+  const my = ++screenToken;
+  const pw = getPw() || (isLocalApi(apiBase) ? LOCAL_PASSWORD : "");
+  if (!pw) return loginScreen(message);
+  app.replaceChildren(shell(h("p", { class: "rp-muted" }, "Looking for sessions…"), message));
+  try {
+    const list = await listSessions(apiBase, pw);
+    if (my !== screenToken) return;
+    setPw(pw);
+    listScreen(list.sessions, list.total, message);
+  } catch (e) {
+    if (my !== screenToken) return;
+    if (e instanceof AuthError) return loginScreen(getPw() ? "That password was not accepted." : message);
+    problemScreen(e instanceof Error ? e.message : String(e));
+  }
+}
+/** Ignore a screen's late answer when another screen has been asked for since. */
+let screenToken = 0;
 
-  if (apiBase) {
-    const pw = h("input", { type: "password", placeholder: "Lab password", autocomplete: "current-password" });
-    pw.value = getPw();
-    const list = h("div", { class: "rp-list" });
-    const go = h("button", { class: "primary" }, "Show sessions");
-    const load = async () => {
-      err.textContent = "";
-      list.replaceChildren();
-      setPw(pw.value);
-      try {
-        const sessions = await listSessions(apiBase, pw.value);
-        if (!sessions.length) list.append(h("p", {}, "No recorded sessions yet."));
-        for (const s of sessions) list.append(sessionButton(s));
-      } catch (e) {
-        err.textContent = e instanceof AuthError ? "That password was not accepted." : e instanceof Error ? e.message : String(e);
-      }
-    };
-    go.addEventListener("click", load);
-    pw.addEventListener("keydown", (e) => e.key === "Enter" && load());
-    root.append(h("div", { class: "rp-card" }, h("strong", {}, "From the server"), h("div", { class: "rp-row" }, pw, go), list));
+/** The frame every start screen shares: title, a one-line explanation, then the content. */
+function shell(content: Node, message?: string): HTMLElement {
+  return h(
+    "div",
+    { class: "rp-start" },
+    h("h1", {}, "Pewter Ghost replay"),
+    h("p", { class: "rp-muted" }, "Watch back a recorded session: the level as it was built, the suggestions shown, and where the pointer went."),
+    message ? h("div", { class: "rp-err" }, message) : null,
+    content,
+    fileCard(),
+  );
+}
+
+function loginScreen(message?: string): void {
+  const pw = h("input", { type: "password", placeholder: "Lab password", autocomplete: "current-password" });
+  pw.value = getPw();
+  const go = h("button", { class: "primary" }, "Show sessions");
+  const submit = () => {
+    setPw(pw.value);
+    void startScreen();
+  };
+  go.addEventListener("click", submit);
+  pw.addEventListener("keydown", (e) => e.key === "Enter" && submit());
+  app.replaceChildren(shell(h("div", { class: "rp-card" }, h("strong", {}, "Lab password"), h("div", { class: "rp-row" }, pw, go)), message));
+  pw.focus();
+}
+
+/** The server could not be reached or refused: say what to do, not just what failed. */
+function problemScreen(detail: string): void {
+  const retry = h("button", { class: "primary" }, "Try again");
+  retry.addEventListener("click", () => void startScreen());
+  const where = isLocalApi(apiBase)
+    ? h("p", {}, "Replays are saved by the local server. Start the app with ", h("code", {}, "npm run dev"), ", use the editor for a bit, then try again.")
+    : h("p", {}, `Looked for the session server at ${apiBase}.`);
+  app.replaceChildren(shell(h("div", { class: "rp-card" }, h("strong", {}, "Can't load sessions"), h("p", { class: "rp-err" }, detail), where, h("div", { class: "rp-row" }, retry))));
+}
+
+function listScreen(all: SessionListing[], total: number, message?: string): void {
+  const now = Date.now();
+  const watchable = all.filter(isWatchable);
+  const hidden = all.filter((s) => !isWatchable(s));
+  const content = h("div");
+  const row = (s: SessionListing, muted = false): HTMLElement => {
+    const t = sessionTitle(s, now);
+    const b = h("button", { class: `rp-session${muted ? " muted" : ""}` }, h("span", { class: "rp-s-title" }, t.title), h("span", { class: "rp-s-sub" }, muted ? `${t.sub || "no details"} · nothing to replay` : t.sub));
+    b.addEventListener("click", () => void openRemote(s.sessionId, 0));
+    return b;
+  };
+
+  if (watchable.length) {
+    const latest = watchable[0];
+    const t = sessionTitle(latest, now);
+    const big = h("button", { class: "primary rp-latest" }, h("span", { class: "rp-latest-main" }, "▶ Watch the latest session"), h("span", { class: "rp-latest-sub" }, `${t.title}${t.sub ? ` · ${t.sub}` : ""}`));
+    big.addEventListener("click", () => void openRemote(latest.sessionId, 0));
+    content.append(big);
+    if (watchable.length > 1) content.append(h("h2", { class: "rp-h2" }, "Recent sessions"), h("div", { class: "rp-list" }, ...watchable.slice(1).map((s) => row(s))));
+  } else {
+    const editor = h("a", { href: "../", target: "_blank", rel: "noopener" }, "Open the editor");
+    content.append(h("div", { class: "rp-card" }, h("strong", {}, "No replays yet"), h("p", {}, "Nothing recorded has anything to replay. ", editor, ", paint for a few seconds, then press Refresh.")));
   }
 
+  if (hidden.length) {
+    const older = h("div", { class: "rp-list", hidden: "" }, ...hidden.map((s) => row(s, true)));
+    const label = (open: boolean) => (open ? "Hide older and empty sessions" : `Show ${hidden.length} older or empty session${hidden.length === 1 ? "" : "s"}`);
+    const toggle = h("button", { class: "rp-link" }, label(false));
+    toggle.addEventListener("click", () => {
+      older.hidden = !older.hidden;
+      toggle.textContent = label(!older.hidden);
+    });
+    content.append(toggle, older);
+  }
+
+  const refresh = h("button", { class: "rp-link" }, "Refresh");
+  refresh.addEventListener("click", () => void startScreen());
+  const more = total > all.length ? ` · showing the newest ${all.length} of ${total}` : "";
+  content.append(h("p", { class: "rp-foot rp-muted" }, `${watchable.length} replay${watchable.length === 1 ? "" : "s"}${more} · `, refresh));
+  app.replaceChildren(shell(content, message));
+}
+
+/** Drop or choose a downloaded .jsonl log (kept out of the way: most people use the list). */
+function fileCard(): HTMLElement {
   const fileInput = h("input", { type: "file", accept: ".jsonl,.ndjson,.json,text/plain" });
   const drop = h("div", { class: "rp-drop" }, "Drop a session .jsonl file here, or ", fileInput);
   const openFile = async (f: File | undefined) => {
@@ -91,31 +173,26 @@ function startScreen(message?: string): void {
     drop.classList.remove("over");
     void openFile(e.dataTransfer?.files?.[0]);
   });
-  root.append(h("div", { class: "rp-card" }, h("strong", {}, "From a file"), h("div", { class: "rp-row" }, drop)));
-  app.append(root);
-}
-
-function sessionButton(s: SessionListing): HTMLElement {
-  const size = typeof s.bytes === "number" ? h("span", { class: "pill" }, `${Math.max(1, Math.round(s.bytes / 1024))} KB`) : null;
-  const b = h("button", {}, h("span", {}, s.sessionId), size);
-  b.addEventListener("click", () => void openRemote(s.sessionId, 0));
-  return b;
+  return h("details", { class: "rp-file" }, h("summary", {}, "Have a downloaded log file instead?"), drop);
 }
 
 async function openRemote(sessionId: string, t: number): Promise<void> {
-  if (!apiBase) return startScreen("No server given (add ?api=<proxy url> to the address).");
-  app.replaceChildren(h("div", { class: "rp-start" }, h("p", {}, `Loading ${sessionId}…`)));
+  const my = ++screenToken;
+  app.replaceChildren(h("div", { class: "rp-start" }, h("p", { class: "rp-muted" }, `Loading ${sessionId}…`)));
   try {
-    const text = await fetchSessionLog(apiBase, sessionId, getPw());
+    const text = await fetchSessionLog(apiBase, sessionId, getPw() || (isLocalApi(apiBase) ? LOCAL_PASSWORD : ""));
+    if (my !== screenToken) return;
     openText(text, { name: sessionId, sessionId, t });
   } catch (e) {
-    startScreen(e instanceof AuthError ? "Enter the lab password to open this session." : e instanceof Error ? e.message : String(e));
+    if (my !== screenToken) return;
+    if (e instanceof AuthError) return loginScreen("Enter the lab password to open this session.");
+    void startScreen(e instanceof Error ? e.message : String(e));
   }
 }
 
 function openText(text: string, src: { name: string; sessionId?: string; t?: number }): void {
   const replay = Replay.fromJsonl(text);
-  if (replay.events.length === 0) return startScreen(`${src.name}: no events could be read from that file.`);
+  if (replay.events.length === 0) return void startScreen(`${src.name}: no events could be read from that file.`);
   viewer(replay, src);
 }
 
@@ -365,8 +442,10 @@ function sessionInfo(r: Replay, name: string): HTMLElement {
 function boot(): void {
   stopViewer?.();
   const initial = parseHash(location.hash);
-  if (initial && apiBase && getPw()) void openRemote(initial.sessionId, initial.t);
-  else startScreen(initial && apiBase ? "Enter the lab password to open this session." : undefined);
+  // A link opens straight in when a password is known (remembered, or the local one);
+  // otherwise ask for it first rather than send a request that can only fail.
+  if (initial && (getPw() || isLocalApi(apiBase))) void openRemote(initial.sessionId, initial.t);
+  else void startScreen(initial ? "Enter the lab password to open this session." : undefined);
 }
 boot();
 // Pasting another link into the same tab only changes the hash: open that one.

@@ -11,7 +11,7 @@ describe("source", () => {
       seen = { url, auth: new Headers(init?.headers).get("Authorization") };
       return new Response(JSON.stringify({ sessions: [{ sessionId: "p01", bytes: 10 }] }));
     };
-    expect(await listSessions("http://x/", "pw", f)).toEqual([{ sessionId: "p01", bytes: 10 }]);
+    expect(await listSessions("http://x/", "pw", f)).toEqual({ sessions: [{ sessionId: "p01", bytes: 10 }], total: 1 });
     expect(seen).toEqual({ url: "http://x/replay/sessions", auth: "Bearer pw" });
   });
 

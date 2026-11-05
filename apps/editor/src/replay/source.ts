@@ -5,8 +5,21 @@
 
 export interface SessionListing {
   sessionId: string;
-  /** Log size, when the server reports it (the proxy lists ids only). */
+  /** Everything below is what the server knows without sending the log; older servers send ids only. */
   bytes?: number;
+  events?: number;
+  durationMs?: number;
+  /** Wall clock (epoch ms) when the session began. */
+  startedAt?: number;
+  /** False for logs from before replay existed (nothing to draw). */
+  hasReplay?: boolean;
+  filler?: string;
+}
+
+export interface SessionList {
+  sessions: SessionListing[];
+  /** Sessions on the server, which can exceed `sessions.length` (the newest are listed). */
+  total: number;
 }
 
 export class AuthError extends Error {
@@ -34,10 +47,20 @@ async function get(api: string, path: string, password: string, f: FetchLike): P
   return res;
 }
 
-export async function listSessions(api: string, password: string, f: FetchLike = fetch): Promise<SessionListing[]> {
+export async function listSessions(api: string, password: string, f: FetchLike = fetch): Promise<SessionList> {
   const res = await get(api, "/replay/sessions", password, f);
-  const body = (await res.json()) as { sessions?: SessionListing[] };
-  return Array.isArray(body.sessions) ? body.sessions : [];
+  const body = (await res.json()) as { sessions?: SessionListing[]; total?: number };
+  const sessions = Array.isArray(body.sessions) ? body.sessions : [];
+  return { sessions, total: typeof body.total === "number" ? body.total : sessions.length };
+}
+
+/** The proxy a replay page talks to: `?api=`, else the editor's default; the same machine is "local". */
+export function isLocalApi(api: string): boolean {
+  try {
+    return ["localhost", "127.0.0.1", "[::1]"].includes(new URL(api).hostname);
+  } catch {
+    return false;
+  }
 }
 
 export async function fetchSessionLog(api: string, sessionId: string, password: string, f: FetchLike = fetch): Promise<string> {
