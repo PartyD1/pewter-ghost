@@ -49,7 +49,7 @@ export interface PewterLogApi {
   tail(n?: number): LogEvent[];
   /** How many events were logged, sent, and are waiting to send. */
   stats(): unknown;
-  /** Save this session's log as a .jsonl file (it opens in the replay page too). */
+  /** Save this session's log as a .jsonl file. */
   download(): boolean;
 }
 
