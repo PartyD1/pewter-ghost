@@ -9,6 +9,8 @@ describe("formatWhen", () => {
     expect(formatWhen(Date.UTC(2026, 10, 5, 14, 43), NOW, utc)).toBe("Today, 2:43 PM");
     expect(formatWhen(Date.UTC(2026, 10, 4, 9, 10), NOW, utc)).toBe("Yesterday, 9:10 AM");
     expect(formatWhen(Date.UTC(2026, 9, 8, 1, 11), NOW, utc)).toBe("Oct 8, 1:11 AM");
+    // A different year shows the year, so an old session never looks recent.
+    expect(formatWhen(Date.UTC(2025, 11, 31, 23, 5), NOW, utc)).toBe("Dec 31, 2025, 11:05 PM");
   });
 });
 

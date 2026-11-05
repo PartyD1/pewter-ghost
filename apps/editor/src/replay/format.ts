@@ -16,7 +16,8 @@ export function formatWhen(ms: number, now: number = Date.now(), o: WhenOpts = {
   const time = new Intl.DateTimeFormat(locale, { timeZone: o.timeZone, hour: "numeric", minute: "2-digit" }).format(ms);
   if (day(ms) === day(now)) return `Today, ${time}`;
   if (day(ms) === day(now - 86_400_000)) return `Yesterday, ${time}`;
-  const date = new Intl.DateTimeFormat(locale, { timeZone: o.timeZone, month: "short", day: "numeric" }).format(ms);
+  const year = (t: number) => new Intl.DateTimeFormat(locale, { timeZone: o.timeZone, year: "numeric" }).format(t);
+  const date = new Intl.DateTimeFormat(locale, { timeZone: o.timeZone, month: "short", day: "numeric", ...(year(ms) === year(now) ? {} : { year: "numeric" as const }) }).format(ms);
   return `${date}, ${time}`;
 }
 
