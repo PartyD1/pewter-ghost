@@ -29,7 +29,18 @@ export function idTimestamp(sessionId: string): number | undefined {
   return Number.isFinite(t) ? t : undefined;
 }
 
-export function summarizeLog(sessionId: string, text: string): SessionSummary {
+/** What one stretch of log text contains: enough to build or update a summary. */
+export interface LogScan {
+  events: number;
+  /** Earliest event time and latest event end (a pointer batch ends at its last sample), in ms. */
+  minT: number;
+  maxT: number;
+  hasReplay: boolean;
+  filler?: string;
+  startedAt?: number;
+}
+
+export function scanLog(text: string): LogScan {
   let events = 0;
   let minT = Infinity;
   let maxT = -Infinity;
@@ -56,13 +67,18 @@ export function summarizeLog(sessionId: string, text: string): SessionSummary {
       if (typeof e.startedAt === "number") startedAt = e.startedAt;
     }
   }
+  return { events, minT, maxT, hasReplay, filler, startedAt };
+}
+
+export function summarizeLog(sessionId: string, text: string): SessionSummary {
+  const s = scanLog(text);
   return {
     sessionId,
-    events,
-    durationMs: events ? Math.max(0, Math.round(maxT - minT)) : 0,
-    startedAt: startedAt ?? idTimestamp(sessionId),
-    hasReplay,
-    filler,
+    events: s.events,
+    durationMs: s.events ? Math.max(0, Math.round(s.maxT - s.minT)) : 0,
+    startedAt: s.startedAt ?? idTimestamp(sessionId),
+    hasReplay: s.hasReplay,
+    filler: s.filler,
     bytes: text.length,
   };
 }
