@@ -14,6 +14,13 @@ describe("keyScan", () => {
     expect(JSON.stringify(hits)).not.toContain("sk-local-secret-123");
     expect(scanText("clean", "b.js")).toEqual([]);
   });
+  it("finds a Firebase service account private key block, masked", () => {
+    const hits = scanText('{"private_key":"-----BEGIN PRIVATE KEY-----\\nMIIEv..."}', "firebase.js");
+    expect(hits).toHaveLength(1);
+    expect(hits[0].kind).toBe("pattern");
+    expect(JSON.stringify(hits)).not.toContain("MIIEv");
+    expect(scanText("-----BEGIN PUBLIC KEY-----", "ok.js")).toEqual([]);
+  });
   it("walks a directory", async () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), "pg-scan-"));
     try {

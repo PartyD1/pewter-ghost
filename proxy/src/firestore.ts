@@ -114,6 +114,10 @@ export class FirestoreClient {
     if (!o.emulatorHost && !o.credentials) throw new Error("Firestore needs a service account (or FIRESTORE_EMULATOR_HOST for the emulator)");
   }
 
+  get projectId(): string {
+    return this.o.projectId;
+  }
+
   docName(path: string): string {
     return `${this.root}/${path}`;
   }
@@ -192,6 +196,39 @@ export class FirestoreClient {
     });
     return num(rows[0]?.result?.aggregateFields?.n) ?? 0;
   }
+}
+
+export interface FirebaseEnv {
+  /** The service account key file's JSON, as one string (a Worker secret). */
+  FIREBASE_SERVICE_ACCOUNT?: string;
+  /** Defaults to the service account's own project. */
+  FIREBASE_PROJECT_ID?: string;
+  /** "127.0.0.1:8080": the Firestore emulator instead of the real service. */
+  FIRESTORE_EMULATOR_HOST?: string;
+}
+
+/**
+ * Firestore client from the environment, or null when Firebase is not set up
+ * (the proxy then keeps logs where it always did). A half-set or malformed
+ * configuration throws a message that says what is wrong and never echoes the key.
+ */
+export function firestoreFromEnv(env: FirebaseEnv, fetchImpl?: typeof fetch): FirestoreClient | null {
+  const raw = env.FIREBASE_SERVICE_ACCOUNT?.trim();
+  const emulatorHost = env.FIRESTORE_EMULATOR_HOST?.trim();
+  if (!raw && !emulatorHost) return null;
+  if (emulatorHost) return new FirestoreClient({ projectId: env.FIREBASE_PROJECT_ID?.trim() || "demo-pewter-ghost", emulatorHost, fetch: fetchImpl });
+  let sa: ServiceAccount;
+  try {
+    sa = JSON.parse(raw!) as ServiceAccount;
+  } catch {
+    throw new Error("FIREBASE_SERVICE_ACCOUNT is not valid JSON (paste the whole downloaded key file)");
+  }
+  if (typeof sa.client_email !== "string" || typeof sa.private_key !== "string") throw new Error("FIREBASE_SERVICE_ACCOUNT is missing client_email or private_key (is it the service account key file?)");
+  // A key pasted through a .env file often has literal \n instead of line breaks.
+  sa = { ...sa, private_key: sa.private_key.replace(/\\n/g, "\n") };
+  const projectId = env.FIREBASE_PROJECT_ID?.trim() || sa.project_id;
+  if (!projectId) throw new Error("no Firebase project id: set FIREBASE_PROJECT_ID (the key file has no project_id)");
+  return new FirestoreClient({ projectId, credentials: sa, fetch: fetchImpl });
 }
 
 /** Longest chunk of log text kept in one document (bytes), under Firestore's 1 MiB with room for the rest. */

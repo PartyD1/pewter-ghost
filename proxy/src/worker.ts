@@ -13,6 +13,7 @@
 import { renderFillPrompt, parseModelAnswer } from "@app/fill/prompt";
 import { jevRequestProblem, parseJevVerdict, renderJevPrompt } from "@app/suggest/timing/jevPrompt";
 import { jevUpstreamFromEnv, upstreamFromEnv, type JevEnv } from "./provider";
+import { firestoreFromEnv, FirestoreStore, type FirebaseEnv } from "./firestore";
 import { createHandler, originAllowList, type ProxyHandler } from "./handler";
 import {
   ChainTokenStore,
@@ -26,7 +27,7 @@ import {
 import { ChunkedObjectStore, kvObjects, MemoryStore, r2Objects, type KVNamespaceLike, type ProxyStore, type R2BucketLike } from "./store";
 import { UpstreamError, type Upstream } from "./upstream";
 
-export interface WorkerEnv extends JevEnv {
+export interface WorkerEnv extends JevEnv, FirebaseEnv {
   PEWTER_KV?: KVNamespaceLike;
   PEWTER_R2?: R2BucketLike;
   PROXY_TOKENS?: string;
@@ -79,6 +80,13 @@ export function buildWorkerHandler(env: WorkerEnv): ProxyHandler {
   if (env.PEWTER_R2) store = new ChunkedObjectStore(r2Objects(env.PEWTER_R2));
   else if (env.PEWTER_KV) store = new ChunkedObjectStore(kvObjects(env.PEWTER_KV));
   else store = new MemoryStore(); // nothing bound: recordings are lost (logged below)
+  // Session logs go to Firebase when FIREBASE_SERVICE_ACCOUNT is set; everything else stays in KV / R2.
+  try {
+    const db = firestoreFromEnv(env);
+    if (db) store = new FirestoreStore(db, { inner: store });
+  } catch (e) {
+    console.error(`[proxy] Firebase is not used: ${e instanceof Error ? e.message : String(e)}`);
+  }
 
   const stores: TokenStore[] = [];
   let staticFile = { tokens: {} as Record<string, TokenEntry> };

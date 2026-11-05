@@ -12,13 +12,16 @@
  * never printed.
  */
 import { existsSync } from "node:fs";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { renderFillPrompt, parseModelAnswer } from "@app/fill/prompt";
 import { jevRequestProblem, parseJevVerdict, renderJevPrompt } from "@app/suggest/timing/jevPrompt";
 import { jevUpstreamFromEnv, modelFromEnv, providerFromEnv, upstreamFromEnv } from "./provider";
+import { firestoreFromEnv, FirestoreStore } from "./firestore";
 import { createHandler, originAllowList } from "./handler";
 import { FileStore } from "./node/fileStore";
+import type { ProxyStore } from "./store";
 import { FileTokenStore } from "./node/fileTokens";
 import { startServer } from "./node/nodeAdapter";
 import { UpstreamError, type Upstream } from "./upstream";
@@ -70,12 +73,25 @@ async function main(): Promise<void> {
   }
   const open = env.PROXY_OPEN === "1";
   const tokensFile = path.join(DATA_DIR, "tokens.json");
+  // Session logs go to Firebase when it is set up (a key file, or the emulator); everything else stays in proxy/.data.
+  let store: ProxyStore = new FileStore(DATA_DIR);
+  try {
+    const keyFile = env.FIREBASE_SERVICE_ACCOUNT_FILE?.trim();
+    const fbEnv = { ...env, FIREBASE_SERVICE_ACCOUNT: env.FIREBASE_SERVICE_ACCOUNT || (keyFile ? await readFile(path.resolve(projectRoot, keyFile), "utf8") : undefined) };
+    const db = firestoreFromEnv(fbEnv);
+    if (db) {
+      store = new FirestoreStore(db, { inner: store });
+      log(`session logs go to Firebase project "${db.projectId}"${env.FIRESTORE_EMULATOR_HOST ? " (emulator)" : ""}; recordings stay in proxy/.data`);
+    }
+  } catch (e) {
+    log(`WARNING: Firebase is not used: ${e instanceof Error ? e.message : String(e)}. Session logs stay in proxy/.data`);
+  }
   const handler = createHandler({
     render: renderFillPrompt,
     parse: parseModelAnswer,
     upstream,
     when: { render: renderJevPrompt, parse: parseJevVerdict, problem: jevRequestProblem, upstream: jevUpstream },
-    store: new FileStore(DATA_DIR),
+    store,
     tokens: new FileTokenStore(tokensFile, open, log),
     allowOrigin: originAllowList(env.PROXY_ALLOWED_ORIGINS),
     readSecret: env.PROXY_READ_SECRET || undefined,

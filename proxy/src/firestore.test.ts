@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { LogEvent } from "../../apps/editor/src/contracts";
 import { FakeUpstream, fakeParse, fakeRender } from "./__fixtures__/fakes";
 import { FakeFirestore } from "./__fixtures__/fakeFirestore";
-import { FirestoreClient, FirestoreError, FirestoreStore, MAX_CHUNK_BYTES, signAssertion, splitLines } from "./firestore";
+import { firestoreFromEnv, FirestoreClient, FirestoreError, FirestoreStore, MAX_CHUNK_BYTES, signAssertion, splitLines } from "./firestore";
 import { createHandler } from "./handler";
 import { StaticTokenStore } from "./sessions";
 import { MemoryStore, logKey, recordingKey, rejectedLogKey } from "./store";
@@ -93,6 +93,38 @@ describe("FirestoreClient auth", () => {
 
   it("refuses to start with neither a service account nor the emulator", () => {
     expect(() => new FirestoreClient({ projectId: "x" })).toThrow(/service account/);
+  });
+});
+
+describe("firestoreFromEnv", () => {
+  it("is off when nothing is configured", () => {
+    expect(firestoreFromEnv({})).toBeNull();
+    expect(firestoreFromEnv({ FIREBASE_SERVICE_ACCOUNT: "  ", FIREBASE_PROJECT_ID: "x" })).toBeNull();
+  });
+  it("builds a client from the downloaded key file's JSON, using its project", () => {
+    const db = firestoreFromEnv({ FIREBASE_SERVICE_ACCOUNT: JSON.stringify(sa) });
+    expect(db?.base).toBe("https://firestore.googleapis.com/v1/projects/pg-test/databases/(default)/documents");
+  });
+  it("lets FIREBASE_PROJECT_ID win, and survives a key whose line breaks were flattened to \\n", async () => {
+    const flat = { ...sa, private_key: sa.private_key.replace(/\n/g, "\\n") };
+    const fake = new FakeFirestore("other-project", { publicKeyPem, clientEmail: sa.client_email });
+    const db = firestoreFromEnv({ FIREBASE_SERVICE_ACCOUNT: JSON.stringify(flat), FIREBASE_PROJECT_ID: "other-project" }, fake.fetch as typeof fetch)!;
+    expect(db.base).toContain("/projects/other-project/");
+    await expect(db.count("sessions")).resolves.toBe(0); // signing worked with the repaired key
+  });
+  it("uses the emulator when asked, with no key", () => {
+    const db = firestoreFromEnv({ FIRESTORE_EMULATOR_HOST: "127.0.0.1:8080" });
+    expect(db?.base).toBe("http://127.0.0.1:8080/v1/projects/demo-pewter-ghost/databases/(default)/documents");
+  });
+  it("explains a bad setup without echoing the key", () => {
+    expect(() => firestoreFromEnv({ FIREBASE_SERVICE_ACCOUNT: "{nope" })).toThrow(/not valid JSON/);
+    expect(() => firestoreFromEnv({ FIREBASE_SERVICE_ACCOUNT: JSON.stringify({ project_id: "p" }) })).toThrow(/client_email or private_key/);
+    expect(() => firestoreFromEnv({ FIREBASE_SERVICE_ACCOUNT: JSON.stringify({ client_email: "a", private_key: "SECRET-KEY" }) })).toThrow(/project id/);
+    try {
+      firestoreFromEnv({ FIREBASE_SERVICE_ACCOUNT: JSON.stringify({ client_email: "a", private_key: "SECRET-KEY" }) });
+    } catch (e) {
+      expect(String(e)).not.toContain("SECRET-KEY");
+    }
   });
 });
 
