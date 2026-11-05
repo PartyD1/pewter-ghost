@@ -11,7 +11,7 @@
  * Phaser CANVAS game (old src/main.ts:63-91), with the old floating panel and
  * bottom toolbar mounted over it by ui/ChromeScene.ts.
  *
- * e2e tests read window.__pewter = { model, scene, game, config, api, modes, settings, app, ghost }.
+ * e2e tests read window.__pewter = { model, scene, game, config, api, modes, app, ghost }.
  * URL flags: ?fresh=1 ignores the autosave (new starter level); ?restore=1
  * restores it in development, where a plain reload starts fresh; ?renderer=webgl forces WebGL
  * (the default is the old app's Canvas renderer; ?renderer=canvas is accepted too);
@@ -31,7 +31,6 @@ import type { EditorAction } from "./editor/keys";
 import { LoadingScene } from "./editor/LoadingScene";
 import { ModeState } from "./editor/modes";
 import { starterSnapshot } from "./editor/newLevel";
-import { PlaySettingsStore } from "./editor/playSettings";
 import { bindShortcuts } from "./editor/shortcuts";
 import { keepStageFitted } from "./editor/stageFit";
 import { UIScene } from "./editor/UIScene";
@@ -44,7 +43,6 @@ import { h } from "./ui/dom";
 import { toggleHelp } from "./ui/HelpOverlay";
 import { openIntentDialog } from "./ui/IntentDialog";
 import { Palette } from "./ui/Palette";
-import { openPlaySettings } from "./ui/PlaySettingsPanel";
 import { AutoSaver, browserStorage, restoreAutosave, safeRemove, AUTOSAVE_KEY, type SaveSources } from "./ui/autosave";
 import { Toasts } from "./ui/Toast";
 import { Toolbar, type ToolbarCommand } from "./ui/Toolbar";
@@ -62,7 +60,6 @@ declare global {
       game: Phaser.Game;
       config: typeof config;
       modes: ModeState;
-      settings: PlaySettingsStore;
       api?: EditorApi;
       /** The fill loop, session and research log (session.ts). */
       app?: PewterApp;
@@ -81,7 +78,6 @@ const notify: EditorApi["notify"] = (text, opts) => {
 
 const model = new LevelModel();
 const modes = new ModeState("select");
-const settings = new PlaySettingsStore();
 const storage = browserStorage();
 /** Session, research log, fillers, agent, fill loop and patrol (session.ts). */
 const app = new PewterApp({ model });
@@ -95,7 +91,6 @@ const heldKeys = new Set<string>();
 
 function loadStarter(): void {
   model.load(starterSnapshot({ w: model.w, h: model.h }));
-  settings.reset();
 }
 
 /**
@@ -112,7 +107,6 @@ let restored = false;
 if (wantRestore) {
   const res = restoreAutosave(model, storage);
   if (res?.ok) {
-    settings.replace(res.file.playSettings);
     restored = true;
   } else if (res && !res.ok) {
     toasts.show(`Your last autosave could not be opened: ${res.error} Starting a new level.`, { kind: "error" });
@@ -127,7 +121,6 @@ if (!restored) loadStarter();
 const editorScene = new EditorScene({
   model,
   modes,
-  settings,
   config,
   log,
   statusSlot: chrome.statusSlot,
@@ -181,7 +174,7 @@ game.events.once(Phaser.Core.Events.READY, () => {
   });
 });
 
-window.__pewter = { model, scene: editorScene, game, config, modes, settings, app };
+window.__pewter = { model, scene: editorScene, game, config, modes, app };
 registerGhostStarter((api) => app.attachEditor(api, startGhost));
 
 // ---------------------------------------------------------------------------
@@ -190,12 +183,10 @@ registerGhostStarter((api) => app.attachEditor(api, startGhost));
 
 const saveSources: SaveSources = {
   model,
-  playSettings: () => settings.forSave(),
   history: () => editorScene.historySummary(),
 };
 const autosaver = new AutoSaver(saveSources, storage, 1000);
 model.subscribe(() => autosaver.schedule());
-settings.subscribe(() => autosaver.schedule());
 addEventListener("pagehide", () => {
   autosaver.flush();
   app.unload();
@@ -245,9 +236,6 @@ function command(c: ToolbarCommand): void {
     case "play":
       editorScene.togglePlay();
       break;
-    case "settings":
-      openPlaySettings(settings);
-      break;
     case "help":
       toggleHelp(helpLinks);
       break;
@@ -267,7 +255,6 @@ function askIntent(): void {
 
 const helpLinks = {
   intent: () => askIntent(),
-  settings: () => command("settings"),
   newLevel: () => confirmNewLevel(),
 };
 

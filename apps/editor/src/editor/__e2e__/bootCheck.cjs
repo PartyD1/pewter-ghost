@@ -250,13 +250,6 @@ function assert(cond, msg) {
     assert(ends[1].reachedGoal === true, "touching the flag ends Play with reachedGoal");
     assert(!(await page.evaluate(() => window.__pewter.api.isPlaying())), "editor is back after the goal");
 
-    // Play settings dialog changes a stored setting.
-    await page.click('[data-cmd="help"]'); // Play settings is a link in Help
-    await page.click('#pg-help [data-cmd="settings"]');
-    await page.locator('input[data-setting="gravityScale"]').fill("1.25");
-    await page.keyboard.press("Escape");
-    assert((await page.evaluate(() => window.__pewter.settings.get().gravityScale)) === 1.25, "gravity setting stored");
-
     assert(errors.length === 0, `no console errors${errors.length ? ": " + errors.join(" | ") : ""}`);
     console.log("BOOT CHECK PASSED");
     await browser.close();

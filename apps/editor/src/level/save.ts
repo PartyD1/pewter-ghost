@@ -8,7 +8,7 @@
  *     authors: string[h]  one char per cell: "0" none, "1" person, "2" ghost
  *     provenance: { "<cellIndex>": "<suggestionId>" },
  *     entities: Entity[], entityAuthors: { id: author },
- *     start, goal?, history?, playSettings?, savedAt?, app?
+ *     start, goal?, history?, savedAt?, app?
  *   }
  *
  * Loading never throws and never mutates the model on bad input: it returns
@@ -32,14 +32,6 @@ export const SAVE_VERSION = 2;
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-/** Game-feel settings stored with the level (G-37). Multipliers, 1 = default. */
-export interface PlaySettings {
-  gravityScale?: number;
-  speedScale?: number;
-  jumpScale?: number;
-  enemyAggression?: number;
-}
 
 export interface SuggestionHistoryItem {
   id: string;
@@ -75,14 +67,12 @@ export interface SaveFileV2 {
   start: { x: number; y: number };
   goal?: { x: number; y: number };
   history?: SuggestionHistorySummary;
-  playSettings?: PlaySettings;
   savedAt?: string;
   app?: string;
 }
 
 export interface SaveExtras {
   history?: SuggestionHistorySummary;
-  playSettings?: PlaySettings;
   /** ISO time; defaults to now. Pass null to omit (golden files). */
   savedAt?: string | null;
   app?: string;
@@ -107,7 +97,6 @@ const int = z.number().int();
 const point = z.object({ x: int.min(0), y: int.min(0) });
 const authorSchema = z.union([z.literal(0), z.literal(1), z.literal(2)]);
 const outcomeSchema = z.enum(["accepted", "partial", "esc", "drawn-over", "replaced", "timeout", "pending"]);
-const multiplier = z.number().finite().min(0.1).max(10);
 
 const entitySchema = z.object({
   id: z.string().min(1).max(64),
@@ -117,15 +106,6 @@ const entitySchema = z.object({
   patrol: z.tuple([int, int]).optional(),
   text: z.string().max(500).optional(),
 });
-
-export const playSettingsSchema = z
-  .object({
-    gravityScale: multiplier.optional(),
-    speedScale: multiplier.optional(),
-    jumpScale: multiplier.optional(),
-    enemyAggression: z.number().finite().min(0).max(10).optional(),
-  })
-  .strict();
 
 const historySchema = z.object({
   shown: int.min(0),
@@ -158,7 +138,6 @@ const saveV2Schema = z.object({
   start: point,
   goal: point.optional(),
   history: historySchema.optional(),
-  playSettings: playSettingsSchema.optional(),
   savedAt: z.string().max(64).optional(),
   app: z.string().max(100).optional(),
 });
@@ -202,7 +181,6 @@ export function snapshotToSave(snap: LevelSnapshot, extras: SaveExtras = {}): Sa
   };
   if (snap.goal) file.goal = { ...snap.goal };
   if (extras.history) file.history = capHistory(extras.history);
-  if (extras.playSettings) file.playSettings = { ...extras.playSettings };
   if (extras.savedAt !== null) file.savedAt = extras.savedAt ?? new Date().toISOString();
   if (extras.app) file.app = extras.app;
   return file;
@@ -328,7 +306,6 @@ function parseV2(data: unknown): LoadResult {
   if (!checked.ok) return { ok: false, error: `This level file is damaged: ${checked.error}` };
   const file = snapshotToSave(checked.snapshot, {
     history: f.history as SuggestionHistorySummary | undefined,
-    playSettings: f.playSettings,
     savedAt: f.savedAt ?? null,
     app: f.app,
   });

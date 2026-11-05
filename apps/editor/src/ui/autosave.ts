@@ -6,7 +6,7 @@
  * Pure apart from the injected storage and timers, so it is unit tested.
  */
 import type { LevelModel } from "../level/LevelModel";
-import { loadSaveInto, serializeSave, type LoadResult, type PlaySettings, type SuggestionHistorySummary } from "../level/save";
+import { loadSaveInto, serializeSave, type LoadResult, type SuggestionHistorySummary } from "../level/save";
 
 export const AUTOSAVE_KEY = "pewter-ghost:autosave";
 export const APP_TAG = "pewter-ghost-editor";
@@ -60,7 +60,6 @@ export function safeRemove(storage: StorageLike | null, key: string): void {
 
 export interface SaveSources {
   model: LevelModel;
-  playSettings: () => PlaySettings | undefined;
   history: () => SuggestionHistorySummary | undefined;
   now?: () => Date;
 }
@@ -68,7 +67,6 @@ export interface SaveSources {
 export function buildSaveText(src: SaveSources): string {
   const now = src.now?.() ?? new Date();
   return serializeSave(src.model, {
-    playSettings: src.playSettings(),
     history: src.history(),
     savedAt: now.toISOString(),
     app: APP_TAG,

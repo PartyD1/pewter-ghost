@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { enemyTuning } from "../editor/playSettings";
 import {
   createSlimeState,
   createUltraState,
@@ -12,8 +11,6 @@ import {
   type Shot,
 } from "./brains";
 
-const normal = enemyTuning(1);
-
 function runSlime(hz: number, seconds: number, range: [number, number]) {
   const s = createSlimeState();
   let x = (range[0] + range[1]) / 2;
@@ -22,7 +19,7 @@ function runSlime(hz: number, seconds: number, range: [number, number]) {
   let minX = x;
   let maxX = x;
   for (let t = 0; t < seconds * 1000 - 1e-6; t += dt) {
-    const out = stepSlime(s, dt, x, range, normal);
+    const out = stepSlime(s, dt, x, range);
     x += (out.vx * dt) / 1000;
     shots.push(...out.shots);
     minX = Math.min(minX, x);
@@ -31,7 +28,7 @@ function runSlime(hz: number, seconds: number, range: [number, number]) {
   return { x, shots: shots.length, minX, maxX };
 }
 
-function runUltra(hz: number, seconds: number, player: { x: number; y: number } | undefined, tuning = normal) {
+function runUltra(hz: number, seconds: number, player: { x: number; y: number } | undefined) {
   const s = createUltraState();
   let x = 100;
   const range: [number, number] = [40, 200];
@@ -40,7 +37,7 @@ function runUltra(hz: number, seconds: number, player: { x: number; y: number } 
   let warned = 0;
   const dt = 1000 / hz;
   for (let t = 0; t < seconds * 1000 - 1e-6; t += dt) {
-    const out = stepUltraSlime(s, dt, { x, y: 50 }, player, range, tuning);
+    const out = stepUltraSlime(s, dt, { x, y: 50 }, player, range);
     x += (out.vx * dt) / 1000;
     shots += out.shots.length;
     mega += out.shots.filter((q) => q.mega).length;
@@ -72,21 +69,17 @@ describe("Slime", () => {
     expect(r.maxX - r.minX).toBeGreaterThan(80); // it really walks the span
   });
 
-  it("stands still with no floor span and never fires when passive", () => {
+  it("stands still with no floor span", () => {
     const s = createSlimeState();
-    const out = stepSlime(s, 16, 50, [50, 50], normal);
+    const out = stepSlime(s, 16, 50, [50, 50]);
     expect(out.vx).toBe(0);
-    const p = createSlimeState();
-    let shots = 0;
-    for (let i = 0; i < 1000; i++) shots += stepSlime(p, 16, 50, [0, 100], enemyTuning(0)).shots.length;
-    expect(shots).toBe(0);
   });
 
   it("does not queue a volley after a long stall", () => {
     const s = createSlimeState();
-    const out = stepSlime(s, 60000, 50, [0, 100], normal);
+    const out = stepSlime(s, 60000, 50, [0, 100]);
     expect(out.shots).toHaveLength(1);
-    expect(stepSlime(s, 16, 50, [0, 100], normal).shots).toHaveLength(0);
+    expect(stepSlime(s, 16, 50, [0, 100]).shots).toHaveLength(0);
   });
 });
 
@@ -114,11 +107,6 @@ describe("UltraSlime (softened)", () => {
     // not near vertically: patrols at patrol speed rather than chasing hard
     expect(chasingAbove.x).toBeLessThan(near.x + 1);
     expect(far.x).toBeGreaterThanOrEqual(40 - 1);
-  });
-
-  it("is passive at aggression 0", () => {
-    const r = runUltra(60, 20, { x: 150, y: 50 }, enemyTuning(0));
-    expect(r.shots).toBe(0);
   });
 });
 

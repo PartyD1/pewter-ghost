@@ -114,7 +114,7 @@ export const TOOLBAR_HTML = `
           <button class="pt-tab" id="tbtn-undo" type="button" data-cmd="undo" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
           <button class="pt-tab" id="tbtn-redo" type="button" data-cmd="redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo">↷</button>
         </div>
-        <button class="pt-tbtn" id="tbtn-help" data-cmd="help" title="Keys, level goal, play settings (?)">? Help</button>
+        <button class="pt-tbtn" id="tbtn-help" data-cmd="help" title="Keys, level goal, new level (?)">? Help</button>
       </div>
     `;
 

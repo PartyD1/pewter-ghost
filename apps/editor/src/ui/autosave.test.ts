@@ -64,7 +64,6 @@ class FakeTimers implements Timers {
 function sources(m: LevelModel): SaveSources {
   return {
     model: m,
-    playSettings: () => ({ speedScale: 1.2 }),
     history: () => ({ shown: 2, outcomes: { accepted: 1, esc: 1 }, recent: [] }),
     now: () => new Date(2026, 9, 7, 12, 0, 0),
   };

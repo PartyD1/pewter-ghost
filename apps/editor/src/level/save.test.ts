@@ -46,7 +46,6 @@ describe("save v2", () => {
         { id: "sug-7", kind: "extend", label: "two blocks", outcome: "accepted", cells: 3, acceptedCells: 3 },
         { id: "sug-8", kind: "finish", label: "close gap", outcome: "esc" },
       ]),
-      playSettings: { gravityScale: 1.2, enemyAggression: 0.5 },
     });
     const res = parseSave(text);
     expect(res.ok).toBe(true);
@@ -55,7 +54,6 @@ describe("save v2", () => {
     expect(res.warnings).toEqual([]);
     expect(res.file.history?.outcomes).toEqual({ accepted: 1, esc: 1 });
     expect(res.file.history?.shown).toBe(2);
-    expect(res.file.playSettings).toEqual({ gravityScale: 1.2, enemyAggression: 0.5 });
     // Re-serialising the parsed file is byte-identical.
     expect(formatSave(res.file)).toBe(text);
   });
@@ -181,8 +179,6 @@ describe("malformed files never load and never touch the model", () => {
     ["start outside", () => ({ ...good(), start: { x: 200, y: 0 } })],
     ["start missing", () => ({ ...good(), start: undefined })],
     ["goal outside", () => ({ ...good(), goal: { x: 0, y: 20 } })],
-    ["bad play settings", () => ({ ...good(), playSettings: { gravityScale: 0 } })],
-    ["unknown play setting", () => ({ ...good(), playSettings: { warp: 2 } })],
     ["bad history", () => ({ ...good(), history: { shown: -1, outcomes: {}, recent: [] } })],
     ["huge dims", () => ({ ...good(), w: 100000 })],
     ["w mismatch", () => ({ ...good(), w: 199 })],
