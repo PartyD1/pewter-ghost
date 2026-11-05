@@ -173,8 +173,11 @@ export class CameraController implements CameraApi {
     }
     const fits = this.levelPx.h * this._zoom <= this.viewport.h;
     const intent = wheelIntent(e, fits);
-    if (intent.kind === "zoom") this.zoomBy(intent.factor, e.offsetX !== undefined ? { x: e.offsetX, y: e.offsetY ?? 0 } : undefined);
-    else this.panByScreen(intent.dx, intent.dy);
+    if (intent.kind === "zoom") {
+      // offsetX/Y are CSS px; the anchor is canvas px (the canvas may be shrunk to fit the window).
+      const s = this.scene.scale.displayScale;
+      this.zoomBy(intent.factor, e.offsetX !== undefined ? { x: e.offsetX * s.x, y: (e.offsetY ?? 0) * s.y } : undefined);
+    } else this.panByScreen(intent.dx, intent.dy);
   }
 
   /** Old editorScene.ts:579-604: deltaY > 0 zooms out by 0.1, else in by 0.1. */

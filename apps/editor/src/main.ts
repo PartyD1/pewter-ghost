@@ -35,6 +35,7 @@ import { ModeState } from "./editor/modes";
 import { starterSnapshot } from "./editor/newLevel";
 import { PlaySettingsStore } from "./editor/playSettings";
 import { bindShortcuts } from "./editor/shortcuts";
+import { keepStageFitted } from "./editor/stageFit";
 import { UIScene } from "./editor/UIScene";
 import { startGhost } from "./ghost/session";
 import { PewterApp } from "./session";
@@ -181,8 +182,8 @@ const editorScene = new EditorScene({
 const chromeScene = new ChromeScene(chrome);
 
 // The old game config (pewter-platfomer src/main.ts:61-89): Canvas renderer,
-// fixed 1280x720 (no scale mode: the canvas never grows or shrinks), pixel
-// art, arcade physics without gravity, and Phaser's DOM container for the
+// fixed game size (no scale mode; editor/stageFit.ts shrinks its CSS size to
+// fit the window), pixel art, arcade physics without gravity, and Phaser's DOM container for the
 // panel and toolbar. Pewter Ghost adds its own scenes and input options.
 const renderResolution = Math.min(window.devicePixelRatio || 1, 2);
 
@@ -215,6 +216,13 @@ const gameConfig: Phaser.Types.Core.GameConfig & { resolution?: number } = {
   banner: false,
 };
 const game = new Phaser.Game(gameConfig);
+// Fit the window: the canvas shrinks (CSS size only) so nothing is cut off.
+game.events.once(Phaser.Core.Events.READY, () => {
+  keepStageFitted({
+    stage: { w: game.scale.width, h: game.scale.height },
+    setZoom: (zoom) => game.scale.setZoom(zoom),
+  });
+});
 
 window.__pewter = { model, scene: editorScene, game, config, modes, settings, app };
 registerGhostStarter((api) => app.attachEditor(api, startGhost));
