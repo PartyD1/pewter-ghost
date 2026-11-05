@@ -7,7 +7,7 @@
  *  - `strictLogEventSchema`: rejects unknown fields (tests and dev builds catch typos).
  */
 import { z } from "zod";
-import type { LogEvent } from "../contracts";
+import type { Entity, LogEvent } from "../contracts";
 
 type Mode = "loose" | "strict";
 
@@ -42,6 +42,8 @@ function build(mode: Mode) {
     model: z.string(),
     filler: z.union([fillerName, z.literal("none")]),
     config: z.record(z.string(), z.unknown()),
+    replay: int().min(0).optional(),
+    startedAt: nonNeg().optional(),
   });
 
   const placementShape = {
@@ -82,6 +84,9 @@ function build(mode: Mode) {
     shownBecause,
     cells: int().min(0),
     label: z.string(),
+    adds: z.array(z.tuple([int(), int(), int().min(0)])).optional(),
+    removes: z.array(z.tuple([int(), int()])).optional(),
+    entities: z.array(z.tuple([entityKind, int(), int()])).optional(),
   });
 
   const ghostEnd = obj({
@@ -136,6 +141,52 @@ function build(mode: Mode) {
     why: z.string().optional(),
   });
 
+  const nums = () => z.array(finite());
+  const pointerPath = obj({ type: z.literal("pointer.path"), t: nonNeg(), dt: nums(), x: nums(), y: nums() });
+  const pointerBtn = obj({
+    type: z.literal("pointer.btn"),
+    t: nonNeg(),
+    x: finite(),
+    y: finite(),
+    down: z.boolean(),
+    button: int(),
+  });
+  const pointerEdge = obj({ type: z.literal("pointer.edge"), t: nonNeg(), inside: z.boolean() });
+  const wheel = obj({ type: z.literal("wheel"), t: nonNeg(), x: finite(), y: finite(), dx: finite(), dy: finite(), ctrl: z.boolean() });
+  const key = obj({ type: z.literal("key"), t: nonNeg(), code: z.string().max(32), down: z.boolean() });
+  const focus = obj({ type: z.literal("focus"), t: nonNeg(), focused: z.boolean() });
+  const camera = obj({ type: z.literal("camera"), t: nonNeg(), x: finite(), y: finite(), w: finite(), h: finite(), zoom: finite() });
+  const tool = obj({ type: z.literal("tool"), t: nonNeg(), mode: z.string(), brush: z.string() });
+  const entityShape = z.custom<Entity>((v) => !!v && typeof v === "object");
+  const delta = obj({
+    type: z.literal("delta"),
+    t: nonNeg(),
+    source: z.enum(["person", "ghost", "undo", "redo"]),
+    cells: z.array(z.tuple([int(), int(), int().min(0), int().min(0)])),
+    entitiesAdded: z.array(entityShape).optional(),
+    entitiesRemoved: z.array(z.string()).optional(),
+    start: point.optional(),
+    goal: point.nullable().optional(),
+  });
+  const snapshot = obj({
+    type: z.literal("snapshot"),
+    t: nonNeg(),
+    reason: z.enum(["start", "load", "checkpoint"]),
+    level: z.object({
+      w: int().min(1),
+      h: int().min(1),
+      cells: z.array(int()),
+      authors: z.array(int()),
+      provenance: z.record(z.coerce.number(), z.string()),
+      // Entities are validated when the replay unpacks the snapshot (level/snapshot.ts).
+      entities: z.array(entityShape),
+      entityAuthors: z.record(z.string(), author),
+      start: point,
+      goal: point.optional(),
+      packed: z.literal(true),
+    }),
+  });
+
   const variants = {
     session,
     place,
@@ -151,6 +202,16 @@ function build(mode: Mode) {
     save,
     variant,
     timing,
+    "pointer.path": pointerPath,
+    "pointer.btn": pointerBtn,
+    "pointer.edge": pointerEdge,
+    wheel,
+    key,
+    focus,
+    camera,
+    tool,
+    delta,
+    snapshot,
   } as const;
 
   const union = z.discriminatedUnion("type", [
@@ -168,6 +229,16 @@ function build(mode: Mode) {
     save,
     variant,
     timing,
+    pointerPath,
+    pointerBtn,
+    pointerEdge,
+    wheel,
+    key,
+    focus,
+    camera,
+    tool,
+    delta,
+    snapshot,
   ]);
   return { variants, union };
 }

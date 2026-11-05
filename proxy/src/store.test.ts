@@ -49,6 +49,14 @@ describe("MemoryStore", () => {
     await s.append("a", '{"x":2}\n');
     expect(s.lines("a")).toEqual([{ x: 1 }, { x: 2 }]);
   });
+  it("lists keys by prefix, sorted", async () => {
+    const s = new MemoryStore();
+    await s.append("logs/b.jsonl", "x\n");
+    await s.append("logs/a.jsonl", "x\n");
+    await s.append("recordings/a.jsonl", "x\n");
+    expect(await s.list("logs/")).toEqual(["logs/a.jsonl", "logs/b.jsonl"]);
+    expect(await s.list("nope/")).toEqual([]);
+  });
 });
 
 describe("ChunkedObjectStore", () => {
@@ -61,6 +69,15 @@ describe("ChunkedObjectStore", () => {
     expect(kv.map.size).toBe(6);
     expect(await s.read("recordings/s1.jsonl")).toBe("0\n1\n2\n3\n4\n");
     expect(await s.read("recordings/none.jsonl")).toBeNull();
+  });
+  it("lists logical keys, not chunks, across pages", async () => {
+    const kv = fakeKV(2);
+    let t = 1000;
+    const s = new ChunkedObjectStore(kvObjects(kv), () => t++);
+    for (let i = 0; i < 3; i++) await s.append("logs/p01.jsonl", `${i}\n`);
+    await s.append("logs/p02.jsonl", "x\n");
+    await s.append("recordings/p01.jsonl", "x\n");
+    expect(await s.list("logs/")).toEqual(["logs/p01.jsonl", "logs/p02.jsonl"]);
   });
   it("over R2", async () => {
     const s = new ChunkedObjectStore(r2Objects(fakeR2()));
@@ -86,6 +103,17 @@ describe("FileStore", () => {
     expect(lines).toEqual(Array.from({ length: 50 }, (_, i) => i));
     expect(await s.read("recordings/s1.jsonl")).toBe(text);
     expect(await s.read("recordings/missing.jsonl")).toBeNull();
+  });
+
+  it("lists keys under a prefix, and nothing for a missing directory", async () => {
+    dir = await mkdtemp(path.join(os.tmpdir(), "pg-store-"));
+    const s = new FileStore(dir);
+    await s.append("logs/p02.jsonl", "x\n");
+    await s.append("logs/p01.jsonl", "x\n");
+    await s.append("recordings/p01.jsonl", "x\n");
+    expect(await s.list("logs/")).toEqual(["logs/p01.jsonl", "logs/p02.jsonl"]);
+    expect(await s.list("logs/p02")).toEqual(["logs/p02.jsonl"]);
+    expect(await s.list("jev/")).toEqual([]);
   });
 
   it("refuses keys that escape the root", async () => {

@@ -6,12 +6,14 @@
  *   LLM_PROVIDER (gemini | openrouter | bayleaf) with that provider's key (secret)
  *   and model (see provider.ts),
  *   PROXY_TOKENS (JSON token file), PROXY_OPEN ("1" accepts token "dev"),
- *   ALLOWED_ORIGINS (comma list; localhost always allowed),
+ *   ALLOWED_ORIGINS (comma list; localhost always allowed; include the replay viewer's origin),
+ *   PROXY_READ_SECRET (secret: the shared lab password for GET /replay/..., unset = reading off),
  *   PROXY_UPSTREAM_TIMEOUT_MS, PROXY_THINKING_BUDGET, PROXY_LOGPROBS
  */
 import { renderFillPrompt, parseModelAnswer } from "@app/fill/prompt";
 import { jevRequestProblem, parseJevVerdict, renderJevPrompt } from "@app/suggest/timing/jevPrompt";
 import { jevUpstreamFromEnv, upstreamFromEnv, type JevEnv } from "./provider";
+import { firestoreFromEnv, FirestoreStore, type FirebaseEnv } from "./firestore";
 import { createHandler, originAllowList, type ProxyHandler } from "./handler";
 import {
   ChainTokenStore,
@@ -25,12 +27,14 @@ import {
 import { ChunkedObjectStore, kvObjects, MemoryStore, r2Objects, type KVNamespaceLike, type ProxyStore, type R2BucketLike } from "./store";
 import { UpstreamError, type Upstream } from "./upstream";
 
-export interface WorkerEnv extends JevEnv {
+export interface WorkerEnv extends JevEnv, FirebaseEnv {
   PEWTER_KV?: KVNamespaceLike;
   PEWTER_R2?: R2BucketLike;
   PROXY_TOKENS?: string;
   PROXY_OPEN?: string;
   ALLOWED_ORIGINS?: string;
+  /** Shared lab password for the researcher read API (GET /replay/...). Set as a secret. */
+  PROXY_READ_SECRET?: string;
 }
 
 interface ExecutionContextLike {
@@ -76,6 +80,13 @@ export function buildWorkerHandler(env: WorkerEnv): ProxyHandler {
   if (env.PEWTER_R2) store = new ChunkedObjectStore(r2Objects(env.PEWTER_R2));
   else if (env.PEWTER_KV) store = new ChunkedObjectStore(kvObjects(env.PEWTER_KV));
   else store = new MemoryStore(); // nothing bound: recordings are lost (logged below)
+  // Session logs go to Firebase when FIREBASE_SERVICE_ACCOUNT is set; everything else stays in KV / R2.
+  try {
+    const db = firestoreFromEnv(env);
+    if (db) store = new FirestoreStore(db, { inner: store });
+  } catch (e) {
+    console.error(`[proxy] Firebase is not used: ${e instanceof Error ? e.message : String(e)}`);
+  }
 
   const stores: TokenStore[] = [];
   let staticFile = { tokens: {} as Record<string, TokenEntry> };
@@ -98,6 +109,7 @@ export function buildWorkerHandler(env: WorkerEnv): ProxyHandler {
     store,
     tokens: new ChainTokenStore(stores),
     allowOrigin: originAllowList(env.ALLOWED_ORIGINS),
+    readSecret: env.PROXY_READ_SECRET || undefined,
     onError: (m) => console.error(`[proxy] ${m}`),
   });
 }

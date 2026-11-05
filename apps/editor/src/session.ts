@@ -65,6 +65,7 @@ import type {
   VerdictStage,
   VerifiedSuggestion,
 } from "./contracts";
+import { REPLAY_VERSION } from "./contracts";
 import type { EditorApi } from "./editor/api";
 import { cleanIntent } from "./fill/intent";
 import { BRIEF_VERSION, BriefCache, measureRequestWindow, type Brief } from "./fill/brief";
@@ -96,6 +97,8 @@ import type { DevFillInfo } from "./ghost/devOverlay";
 import type { GhostSession, GhostSessionOptions } from "./ghost/session";
 import type { LevelModel } from "./level/LevelModel";
 import { EventLog, setActiveLog } from "./research/log";
+import { ConsoleTrace } from "./research/consoleTrace";
+import { startReplayRecording, traceRequested } from "./research/replayRecording";
 import { fetchSession, readTokenFromUrl, type SessionInfo } from "./research/session";
 import { applyOverrides, config as liveConfig, DEFAULT_CONFIG, type GhostConfig } from "./suggest/config";
 import type { ManagerListeners, OfferOptions, OfferResult } from "./suggest/SuggestionManager";
@@ -173,10 +176,17 @@ export class SessionLog {
   private target: LogTarget | null = null;
   /** Events dropped because the pre-session buffer was full. */
   dropped = 0;
+  /** Sees every event as it is logged, before buffering (the console trace). Never throws into the editor. */
+  tap: ((e: LogEvent) => void) | null = null;
 
   constructor(private readonly maxPending = 5000) {}
 
   readonly log = (e: LogEvent): void => {
+    try {
+      this.tap?.(e);
+    } catch {
+      /* a broken tap must not stop the log */
+    }
     if (this.target) {
       try {
         this.target.log(e);
@@ -223,6 +233,8 @@ export function sessionEvent(
     model: cfg.model,
     filler: info.filler,
     config: structuredClone(cfg) as unknown as Record<string, unknown>,
+    replay: REPLAY_VERSION,
+    startedAt: Date.now(),
   };
 }
 
@@ -1041,6 +1053,8 @@ export interface PewterAppOptions {
  */
 export class PewterApp {
   readonly sessionLog = new SessionLog();
+  /** Live console echo of recorded keys, mouse buttons, hovers and edits (?trace=1, or pewterLog.trace()). */
+  readonly trace: ConsoleTrace;
   readonly agent: LoopAgent;
   readonly registry = new FillerRegistry();
   readonly loop: FillLoop;
@@ -1061,6 +1075,9 @@ export class PewterApp {
     // Defaults ← URL now (the session may override later); the filler stays off until the session resolves.
     const url = urlOverrides(search);
     applyOverrides(resolveConfig(url, null));
+    this.trace = new ConsoleTrace({ print: (l) => console.log(l), enabled: traceRequested(search) });
+    this.sessionLog.tap = (e) => this.trace.tap(e);
+    if (this.trace.enabled) this.trace.announce();
     this.agent = o.agent ?? new AgentClient();
     this.timing = new TimingPolicy({ config: () => liveConfig, clock: this.clock, log: this.sessionLog.log });
     this.cleanups.push(
@@ -1137,6 +1154,8 @@ export class PewterApp {
     this.ghost = ghost;
     this.loop.setGhost(ghost);
     const offs = [
+      // Raw input, camera and level snapshots for session replay (research/replayRecording.ts).
+      startReplayRecording(api, this.sessionLog.log, this.clock, { trace: this.trace, eventLog: () => this.eventLog }),
       api.on("play:start", () => this.loop.setPaused(true)),
       api.on("play:end", () => this.loop.setPaused(false)),
       this.timing.attach({

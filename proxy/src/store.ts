@@ -12,6 +12,13 @@ export interface ProxyStore {
   append(key: string, text: string): Promise<void>;
   /** Full contents of `key`, or null if nothing was ever appended. */
   read(key: string): Promise<string | null>;
+  /** Every key that starts with `prefix` (e.g. "logs/"), sorted. Used by the replay read API. */
+  list(prefix: string): Promise<string[]>;
+  /**
+   * Optional fast path for the replay list: newest-first summaries without
+   * reading every log (the Firestore store keeps them). Absent = computed from the logs.
+   */
+  summaries?(limit: number): Promise<{ sessions: import("./summary").SessionSummary[]; total: number }>;
 }
 
 export class MemoryStore implements ProxyStore {
@@ -21,6 +28,9 @@ export class MemoryStore implements ProxyStore {
   }
   async read(key: string): Promise<string | null> {
     return this.data.has(key) ? this.data.get(key)! : null;
+  }
+  async list(prefix: string): Promise<string[]> {
+    return [...this.data.keys()].filter((k) => k.startsWith(prefix)).sort();
   }
   /** Parsed JSONL lines of `key` (test helper). */
   lines<T = unknown>(key: string): T[] {
@@ -66,6 +76,16 @@ export class ChunkedObjectStore implements ProxyStore {
     if (names.length === 0) return null;
     const parts = await Promise.all(names.map((n) => this.objects.get(n)));
     return parts.map((p) => p ?? "").join("");
+  }
+
+  /** Chunks are stored as `<key>/<chunk>`; the logical key is everything before the last slash. */
+  async list(prefix: string): Promise<string[]> {
+    const keys = new Set<string>();
+    for (const name of await this.objects.list(prefix)) {
+      const i = name.lastIndexOf("/");
+      if (i > 0) keys.add(name.slice(0, i));
+    }
+    return [...keys].sort();
   }
 }
 

@@ -1,13 +1,28 @@
 /// <reference types="vitest/config" />
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import { fileURLToPath } from "node:url";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
+
+/** `/replay` (no slash) opens the replay page, in dev and in `vite preview`. */
+const replayRoute = (): Plugin => {
+  const rewrite = (req: { url?: string }, _res: unknown, next: () => void) => {
+    const m = /^\/replay(\?.*)?$/.exec(req.url ?? "");
+    if (m) req.url = `/replay/${m[1] ?? ""}`;
+    next();
+  };
+  return {
+    name: "pewter-replay-route",
+    configureServer: (s) => void s.middlewares.use(rewrite),
+    configurePreviewServer: (s) => void s.middlewares.use(rewrite),
+  };
+};
 
 export default defineConfig({
   root: r("./apps/editor"),
   base: "./",
   publicDir: r("./apps/editor/public"),
+  plugins: [replayRoute()],
   resolve: {
     alias: [
       { find: /^@app\/(.*)$/, replacement: r("./apps/editor/src/") + "$1" },
@@ -21,7 +36,13 @@ export default defineConfig({
       { find: /^@chunks\/(.*)$/, replacement: r("./packages/chunks/src/") + "$1" },
     ],
   },
-  build: { outDir: r("./dist"), emptyOutDir: true, target: "es2022" },
+  build: {
+    outDir: r("./dist"),
+    emptyOutDir: true,
+    target: "es2022",
+    // Two pages: the editor and the session replay viewer (served at /replay/).
+    rollupOptions: { input: { main: r("./apps/editor/index.html"), replay: r("./apps/editor/replay/index.html") } },
+  },
   worker: { format: "es" },
   server: { port: 5173, strictPort: false },
   test: {

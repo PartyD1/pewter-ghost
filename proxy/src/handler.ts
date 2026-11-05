@@ -9,6 +9,10 @@
  *   POST /log    Bearer <t> | ?token= ProxyLogBody  -> { ok, accepted, rejected }
  *   POST /when   Bearer <t>           ProxyWhenBody -> ProxyWhenResponse (the Jev
  *                                     timing model; 404 when deps.when is absent)
+ *   GET  /replay/sessions             Bearer <readSecret> -> { sessions: [{ sessionId }] }
+ *   GET  /replay/sessions/<id>        Bearer <readSecret> -> the session's JSONL log
+ *                                     (researcher read access, shared lab password;
+ *                                     503 until deps.readSecret is set)
  *
  * /fill renders the prompt with the injected renderer, calls the upstream,
  * parses each sample with the injected parser (garbage -> null), and appends a
@@ -40,6 +44,7 @@ import {
   type TokenStore,
 } from "./sessions";
 import { isSafeSessionId, jevKey, logKey, recordingKey, rejectedLogKey, type ProxyStore } from "./store";
+import { listSessionSummaries } from "./summary";
 import { UpstreamError, type Upstream, type UpstreamResult } from "./upstream";
 
 export interface HandlerDeps {
@@ -78,6 +83,15 @@ export interface HandlerDeps {
   fillConditions?: readonly TokenInfo["condition"][];
   /** Default temperatures by sample count (defaults 0.2 and 0.7). */
   temperature?: { one: number; two: number };
+  /**
+   * Shared lab password for the researcher read API (GET /replay/...). Unset =
+   * reading is off (503). It is never a participant token: those cannot read logs.
+   */
+  readSecret?: string;
+  /** /replay reads per client (default 60/min, burst 60). */
+  readRate?: RateLimitConfig;
+  /** Wrong-password attempts per client before a lockout (default 8 per minute). */
+  readFailRate?: RateLimitConfig;
   maxFillBodyBytes?: number;
   maxLogBodyBytes?: number;
   maxLogEvents?: number;
@@ -128,6 +142,8 @@ export function createHandler(deps: HandlerDeps): ProxyHandler {
   const logLimiter = new TokenBucketLimiter(deps.logRate ?? { capacity: 30, perMinute: 60 });
   const sessionLimiter = new TokenBucketLimiter(deps.sessionRate ?? { capacity: 10, perMinute: 30 });
   const whenLimiter = new TokenBucketLimiter(deps.whenRate ?? { capacity: 30, perMinute: 90 });
+  const readLimiter = new TokenBucketLimiter(deps.readRate ?? { capacity: 60, perMinute: 60 });
+  const readFailLimiter = new TokenBucketLimiter(deps.readFailRate ?? { capacity: 8, perMinute: 8 });
   const allowOrigin = deps.allowOrigin ?? allowLocalhost;
   const fillConditions = deps.fillConditions ?? ["llm"];
   const whenConditions = deps.whenConditions ?? ["llm", "algo", "markov", "stub"];
@@ -369,6 +385,46 @@ export function createHandler(deps: HandlerDeps): ProxyHandler {
     return json(200, { ok: true, accepted, rejected });
   }
 
+  /** Researcher read API: list sessions, fetch one session's log. */
+  async function replay(request: Request, path: string): Promise<Response> {
+    if (request.method !== "GET") throw new HttpError(405, "method not allowed", { Allow: "GET, OPTIONS" });
+    const secret = deps.readSecret;
+    if (!secret) throw new HttpError(503, "replay reading is not enabled");
+    const client = request.headers.get("cf-connecting-ip") ?? request.headers.get("x-forwarded-for") ?? "anon";
+    // Locked out after repeated wrong passwords, even for the right one, until tokens refill.
+    if (readFailLimiter.take(client, now(), 0).remaining < 1)
+      throw new HttpError(429, "too many wrong passwords, try again in a minute", { "Retry-After": "60" });
+    const m = /^Bearer\s+(.+?)\s*$/i.exec(request.headers.get("authorization") ?? "");
+    if (!m || !constantTimeEqual(m[1], secret)) {
+      readFailLimiter.take(client, now());
+      throw new HttpError(401, "wrong or missing read password", { "WWW-Authenticate": "Bearer" });
+    }
+    const r = readLimiter.take(client, now());
+    if (!r.ok) throw new HttpError(429, "rate limit exceeded", { "Retry-After": String(Math.max(1, Math.ceil(r.retryAfterMs / 1000))) });
+
+    if (path === "/replay/sessions") {
+      const asked = Number(new URL(request.url).searchParams.get("limit"));
+      const limit = Number.isInteger(asked) && asked > 0 ? Math.min(asked, 300) : 60;
+      const { sessions, total } = deps.store.summaries ? await deps.store.summaries(limit) : await listSessionSummaries(deps.store, limit);
+      return json(200, { sessions, total });
+    }
+    let id = "";
+    try {
+      id = path.startsWith("/replay/sessions/") ? decodeURIComponent(path.slice("/replay/sessions/".length)) : "";
+    } catch {
+      /* malformed escape: falls through to the bad-id answer */
+    }
+    if (!isSafeSessionId(id)) throw new HttpError(400, "bad sessionId");
+    // `logs/<id>.rejected.jsonl` is the rejected-events file, not a session: never serve it as one.
+    if (id.endsWith(".rejected")) throw new HttpError(404, "no such session");
+    const text = await deps.store.read(logKey(id));
+    if (text === null) throw new HttpError(404, "no such session");
+    return new Response(text, {
+      status: 200,
+      headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store" },
+    });
+  }
+
   // --- dispatch ------------------------------------------------------------
 
   return async function handle(request: Request, ctx?: HandlerContext): Promise<Response> {
@@ -385,6 +441,9 @@ export function createHandler(deps: HandlerDeps): ProxyHandler {
           "Access-Control-Allow-Headers": "Authorization, Content-Type",
           "Access-Control-Max-Age": "600",
         });
+      }
+      if (path === "/replay/sessions" || path.startsWith("/replay/sessions/")) {
+        return withHeaders(await replay(request, path), cors ?? {});
       }
       const route = ROUTES[path];
       if (!route) throw new HttpError(404, "not found");
@@ -423,6 +482,15 @@ const ROUTES: Record<string, "GET" | "POST"> = {
   "/log": "POST",
   "/when": "POST",
 };
+
+/** Compare two strings without bailing out at the first difference. */
+function constantTimeEqual(a: string, b: string): boolean {
+  const x = new TextEncoder().encode(a);
+  const y = new TextEncoder().encode(b);
+  let diff = x.length ^ y.length;
+  for (let i = 0; i < Math.max(x.length, y.length); i++) diff |= (x[i] ?? 0) ^ (y[i] ?? 0);
+  return diff === 0;
+}
 
 function corsHeaders(origin: string | null, allow: (o: string) => boolean): Record<string, string> | null {
   if (!origin || !allow(origin)) return null;
