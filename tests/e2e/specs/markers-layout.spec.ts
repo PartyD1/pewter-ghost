@@ -2,7 +2,7 @@
  * Fixes from the lab's review:
  * - nothing covers the drawing area (panel and toolbar sit beside/below the canvas);
  * - the Start pennant can be erased and dragged; the Goal flag can be dragged;
- * - in development a plain reload starts fresh, Save task reloads into what it saved.
+ * - in development a plain reload starts fresh, ?restore=1 brings the autosave back.
  */
 import { expect, test, type Page } from "@playwright/test";
 import { Editor } from "../support/editor";
@@ -61,23 +61,24 @@ test("the Goal flag can be dragged in Select mode, but not into the ground", asy
   ed.expectNoErrors();
 });
 
-test("development: a plain reload starts fresh; Save task reloads into what it saved", async ({ page }) => {
+test("development: a plain reload starts fresh; ?restore=1 brings the autosave back", async ({ page }) => {
   const ed = await Editor.open(page, { proxy: null });
   await ed.pick("grass");
   await ed.clickTile(10, 6);
   expect(await ed.tileAt(10, 6)).not.toBe(0);
+  // The autosave is debounced; wait for it to land.
+  await page.waitForFunction(() => localStorage.getItem("pewter-ghost:autosave") !== null);
   // Plain reload, no ?fresh: the starter level again.
   await page.goto("./", { waitUntil: "load" });
   await page.waitForFunction(() => (window as any).__pewter?.app);
   await page.evaluate(() => (window as any).__pewter.app.ready);
   expect(await page.evaluate(() => (window as any).__pewter.model.tileAt(10, 6))).toBe(0);
-  // Paint, Save task (saves and reloads): the tile comes back.
+  // Paint again, then reload with ?restore=1: the tile comes back.
   const ed2 = await Editor.open(page, { proxy: null, fresh: false });
   await ed2.pick("grass");
   await ed2.clickTile(10, 6);
-  const nav = page.waitForEvent("load");
-  await page.click('[data-cmd="reload"]');
-  await nav;
+  await page.waitForFunction(() => localStorage.getItem("pewter-ghost:autosave") !== null);
+  await page.goto("./?restore=1", { waitUntil: "load" });
   await page.waitForFunction(() => (window as any).__pewter?.app);
   await page.evaluate(() => (window as any).__pewter.app.ready);
   expect(await page.evaluate(() => (window as any).__pewter.model.tileAt(10, 6))).not.toBe(0);

@@ -7,7 +7,7 @@
  * Checks: boots without console errors; paints with mouse strokes (one undo
  * step per stroke); a stroke stops when the pointer goes over DOM UI;
  * right-click does nothing; Select mode does not paint; undo/redo keys;
- * Play starts and stops; Save task autosaves. Writes a screenshot.
+ * Play starts and stops. Writes a screenshot.
  * Exits non-zero on failure.
  */
 /* eslint-disable */
@@ -256,11 +256,6 @@ function assert(cond, msg) {
     await page.locator('input[data-setting="gravityScale"]').fill("1.25");
     await page.keyboard.press("Escape");
     assert((await page.evaluate(() => window.__pewter.settings.get().gravityScale)) === 1.25, "gravity setting stored");
-
-    // Save task downloads a v2 file carrying the settings.
-    const [dl] = await Promise.all([page.waitForEvent("download"), page.click('[data-cmd="save"]')]);
-    const file = JSON.parse(fs.readFileSync(await dl.path(), "utf8"));
-    assert(file.version === 2 && file.playSettings && file.playSettings.gravityScale === 1.25, `Save task file ${dl.suggestedFilename()}`);
 
     assert(errors.length === 0, `no console errors${errors.length ? ": " + errors.join(" | ") : ""}`);
     console.log("BOOT CHECK PASSED");

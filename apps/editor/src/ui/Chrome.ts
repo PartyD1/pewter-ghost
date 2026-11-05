@@ -23,8 +23,7 @@
  * - Notices (#pg-toasts) are the old temporary message at the panel's foot,
  *   where the old chat log showed it (ui/Toast.ts).
  * - Toolbar: "✕ Deselect" is gone (no selection boxes); "? Help" is the
- *   neutral .pt-tbtn pill (Deselect's style); "↺ Save & Reload" is
- *   "↺ Save task". The four modes, and Undo / Redo, are each one neutral
+ *   neutral .pt-tbtn pill (Deselect's style). The four modes, and Undo / Redo, are each one neutral
  *   pill holding buttons in the pill's own type (600 14px #c8c8e8; the
  *   active mode is the old violet active tab): eleven separate 20px-padded
  *   pills do not fit the old 910px row left of the panel (measured
@@ -115,9 +114,7 @@ export const TOOLBAR_HTML = `
           <button class="pt-tab" id="tbtn-undo" type="button" data-cmd="undo" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
           <button class="pt-tab" id="tbtn-redo" type="button" data-cmd="redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo">↷</button>
         </div>
-        <button class="pt-tbtn pt-tbtn-save" id="tbtn-save" data-cmd="save" title="Download the level and keep a copy in this browser (Ctrl+S)">💾 Save</button>
-        <button class="pt-tbtn pt-tbtn-reload" id="tbtn-reload" data-cmd="reload" title="Save the task file, then reload">↺ Save task</button>
-        <button class="pt-tbtn" id="tbtn-help" data-cmd="help" title="Keys, share code, play settings (?)">? Help</button>
+        <button class="pt-tbtn" id="tbtn-help" data-cmd="help" title="Keys, level goal, play settings (?)">? Help</button>
       </div>
     `;
 

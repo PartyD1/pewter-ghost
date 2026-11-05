@@ -23,7 +23,6 @@ import "./style.css";
 import Phaser from "phaser";
 import type { LogEvent } from "./contracts";
 import { LevelModel } from "./level/LevelModel";
-import { type LoadResult } from "./level/save";
 import { applyOverrides, config } from "./suggest/config";
 import { registerGhostStarter, whenEditorReady, type EditorApi, type EditorLogger } from "./editor/api";
 import { ASSET } from "./editor/constants";
@@ -46,17 +45,7 @@ import { toggleHelp } from "./ui/HelpOverlay";
 import { openIntentDialog } from "./ui/IntentDialog";
 import { Palette } from "./ui/Palette";
 import { openPlaySettings } from "./ui/PlaySettingsPanel";
-import {
-  AutoSaver,
-  browserStorage,
-  downloadText,
-  reloadTask,
-  restoreAutosave,
-  safeRemove,
-  saveTask,
-  AUTOSAVE_KEY,
-  type SaveSources,
-} from "./ui/saveTask";
+import { AutoSaver, browserStorage, restoreAutosave, safeRemove, AUTOSAVE_KEY, type SaveSources } from "./ui/autosave";
 import { Toasts } from "./ui/Toast";
 import { Toolbar, type ToolbarCommand } from "./ui/Toolbar";
 import { variantsEnabled, VariantSwitch } from "./ui/VariantSwitch";
@@ -109,44 +98,15 @@ function loadStarter(): void {
   settings.reset();
 }
 
-function reportLoad(res: LoadResult, what: string): boolean {
-  if (!res.ok) {
-    toasts.show(`${what} failed: ${res.error} Nothing was changed.`, { kind: "error" });
-    return false;
-  }
-  settings.replace(res.file.playSettings);
-  const migrated = res.migratedFrom === 1 ? " (converted from an old Pewter save)" : "";
-  if (res.warnings.length)
-    toasts.show(`${what}${migrated} with ${res.warnings.length} warning${res.warnings.length === 1 ? "" : "s"}:`, {
-      kind: "warn",
-      ms: 9000,
-      details: res.warnings,
-    });
-  else toasts.show(`${what}${migrated}.`);
-  return true;
-}
-
 /**
  * Reload behaviour. In development (npm run dev) a plain reload starts a fresh
- * level, which is what testing wants. The autosave comes back only after
- * "Save task" (it reloads into what it saved, the study's per-task step) or
- * with ?restore=1. Production builds restore the autosave on every reload, so
+ * level, which is what testing wants. The autosave comes back only with
+ * ?restore=1. Production builds restore the autosave on every reload, so
  * a participant who reloads by accident keeps their work. ?fresh=1 always
  * starts fresh.
  */
-const RESTORE_ONCE_KEY = "pg-restore-once";
-function takeRestoreOnce(): boolean {
-  try {
-    const v = sessionStorage.getItem(RESTORE_ONCE_KEY) === "1";
-    sessionStorage.removeItem(RESTORE_ONCE_KEY);
-    return v;
-  } catch {
-    return false;
-  }
-}
-const restoreOnce = takeRestoreOnce();
 const wantRestore =
-  params.get("fresh") !== "1" && (!import.meta.env.DEV || restoreOnce || params.get("restore") === "1");
+  params.get("fresh") !== "1" && (!import.meta.env.DEV || params.get("restore") === "1");
 
 let restored = false;
 if (wantRestore) {
@@ -241,66 +201,13 @@ addEventListener("pagehide", () => {
   app.unload();
 });
 addEventListener("beforeunload", () => autosaver.flush());
-if (!storage) toasts.show("This browser is not keeping local saves (private mode?). Use Save task to download your level.", { kind: "warn", ms: 8000 });
-
-function doSaveTask(): void {
-  if (editorScene.isPlaying) return;
-  const r = saveTask(saveSources, storage);
-  downloadText(r.fileName, r.text);
-  log({ type: "save", t: performance.now(), snapshotId: r.snapshotId });
-  void app.flushLog();
-  toasts.show(`Saved ${r.fileName}.`);
-}
-
-/**
- * "↺ Save task" (the old "↺ Save & Reload", old UIScene.ts:549-552: save,
- * then window.location.reload() after 150 ms). The level comes back from the
- * autosave, so ?fresh=1 is dropped from the address first.
- */
-function doSaveTaskAndReload(): void {
-  if (editorScene.isPlaying) return;
-  doSaveTask();
-  autosaver.flush();
-  try {
-    sessionStorage.setItem(RESTORE_ONCE_KEY, "1");
-  } catch {
-    /* no sessionStorage: in development the reload starts fresh */
-  }
-  setTimeout(() => {
-    const url = new URL(location.href);
-    url.searchParams.delete("fresh");
-    if (url.href === location.href) location.reload();
-    else location.replace(url.href);
-  }, 150);
-}
-
-function confirmReload(): void {
-  openDialog("Reload from the last Save task?", (body, close) => {
-    body.append(
-      h("p", { class: "pg-help-lead", text: "The level goes back to exactly what Save task stored. Changes since then, and the undo history, are dropped." }),
-      h(
-        "div",
-        { class: "pg-dialog-actions" },
-        h("button", { class: BTN, type: "button", text: "Cancel", onclick: close }),
-        h("button", {
-          class: BTN_PRIMARY,
-          type: "button",
-          text: "Reload",
-          onclick: () => {
-            close();
-            if (reportLoad(reloadTask(model, storage), "Reloaded the saved task")) editorScene.events2.emit("level:loaded", { source: "reload", warnings: [] });
-          },
-        }),
-      ),
-    );
-  });
-}
+if (!storage) toasts.show("This browser is not keeping local saves (private mode?). Your work will not survive a reload.", { kind: "warn", ms: 8000 });
 
 /** "New level" (Help): the starter level, after a confirm; the autosave is cleared. */
 function confirmNewLevel(): void {
   openDialog("Start a new level?", (body, close) => {
     body.append(
-      h("p", { class: "pg-help-lead", text: "The level goes back to the starter map. Use Save first to keep this one." }),
+      h("p", { class: "pg-help-lead", text: "The level goes back to the starter map. The current level is replaced." }),
       h(
         "div",
         { class: "pg-dialog-actions" },
@@ -338,12 +245,6 @@ function command(c: ToolbarCommand): void {
     case "play":
       editorScene.togglePlay();
       break;
-    case "save":
-      doSaveTask();
-      break;
-    case "reload":
-      doSaveTaskAndReload();
-      break;
     case "settings":
       openPlaySettings(settings);
       break;
@@ -367,7 +268,6 @@ function askIntent(): void {
 const helpLinks = {
   intent: () => askIntent(),
   settings: () => command("settings"),
-  reloadSave: () => confirmReload(),
   newLevel: () => confirmNewLevel(),
 };
 
@@ -425,9 +325,6 @@ function runAction(a: EditorAction): void {
       break;
     case "exitPlay":
       editorScene.stopPlay();
-      break;
-    case "save":
-      doSaveTask();
       break;
     case "help":
       toggleHelp(helpLinks);

@@ -1,15 +1,14 @@
 /**
- * Save task (G-08): save v2 JSON download, localStorage autosave and an
- * explicit reload. Storage access is wrapped: it can throw or be absent in
+ * Autosave (G-08): the level is kept in localStorage as a v2 save, so a
+ * reload or a crash never loses work. Storage access is wrapped: it can throw or be absent in
  * private windows, and the editor must keep working without it.
  *
  * Pure apart from the injected storage and timers, so it is unit tested.
  */
 import type { LevelModel } from "../level/LevelModel";
-import { loadSaveInto, saveFileName, serializeSave, type LoadResult, type PlaySettings, type SuggestionHistorySummary } from "../level/save";
+import { loadSaveInto, serializeSave, type LoadResult, type PlaySettings, type SuggestionHistorySummary } from "../level/save";
 
 export const AUTOSAVE_KEY = "pewter-ghost:autosave";
-export const TASK_SAVE_KEY = "pewter-ghost:task-save";
 export const APP_TAG = "pewter-ghost-editor";
 
 export interface StorageLike {
@@ -74,31 +73,6 @@ export function buildSaveText(src: SaveSources): string {
     savedAt: now.toISOString(),
     app: APP_TAG,
   });
-}
-
-export interface TaskSaveResult {
-  text: string;
-  fileName: string;
-  /** False when localStorage was unavailable (the download still happens). */
-  storedLocally: boolean;
-  /** An id for the research log's save event. */
-  snapshotId: string;
-}
-
-/** The "Save task" button: build the file and keep a local copy for Reload. */
-export function saveTask(src: SaveSources, storage: StorageLike | null): TaskSaveResult {
-  const now = src.now?.() ?? new Date();
-  const text = buildSaveText({ ...src, now: () => now });
-  const storedLocally = safeSet(storage, TASK_SAVE_KEY, text);
-  safeSet(storage, AUTOSAVE_KEY, text);
-  return { text, fileName: saveFileName(now), storedLocally, snapshotId: `r${src.model.revision}-${now.getTime()}` };
-}
-
-/** Explicit reload: put the level back exactly as last saved with Save task. */
-export function reloadTask(model: LevelModel, storage: StorageLike | null): LoadResult {
-  const text = safeGet(storage, TASK_SAVE_KEY);
-  if (text === null) return { ok: false, error: "There is no saved task in this browser yet. Use Save task first." };
-  return loadSaveInto(model, text);
 }
 
 export interface Timers {
@@ -182,18 +156,4 @@ export function restoreAutosave(model: LevelModel, storage: StorageLike | null):
   const text = safeGet(storage, AUTOSAVE_KEY);
   if (text === null) return null;
   return loadSaveInto(model, text);
-}
-
-/** Download a text file through a temporary link (browser only). */
-export function downloadText(fileName: string, text: string, mime = "application/json"): void {
-  const blob = new Blob([text], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  a.style.display = "none";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

@@ -23,7 +23,6 @@ fixture. `specs/replay.spec.ts` checks every fixture against the editor's own an
 | --- | --- |
 | smoke | boot, session, research log to `/log`, no console errors |
 | painting | strokes, modes, strokes stop over the UI, undo / redo |
-| saveload | Save task v2 and Load, v1 import, broken file, share code round trip |
 | ghost-keys | Tab, Esc, Ctrl+Space, paint-on-ghost partial, draw elsewhere dismisses |
 | patrol-fix | unbeatable level gets a patrol Fix after idle; Fix with removals and one undo |
 | condition-none | no `/fill` calls, no patrol, no ghost |

@@ -1203,7 +1203,7 @@ export class PewterApp {
     return now;
   }
 
-  /** Send pending log events now (Save task). */
+  /** Send pending log events now (on unload). */
   flushLog(): Promise<boolean> {
     return this.eventLog ? this.eventLog.flush() : Promise.resolve(false);
   }

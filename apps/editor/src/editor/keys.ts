@@ -23,7 +23,6 @@ export type EditorAction =
   | { type: "redo" }
   | { type: "play" }
   | { type: "exitPlay" }
-  | { type: "save" }
   | { type: "help" }
   | { type: "zoom"; dir: 1 | -1 }
   | { type: "zoomReset" }
@@ -58,7 +57,6 @@ export function keyAction(e: KeyLike, ctx: KeyContext): EditorAction | null {
   if (mod && !e.altKey) {
     if (k === "z") return e.shiftKey ? { type: "redo" } : { type: "undo" };
     if (k === "y" && !e.shiftKey) return { type: "redo" };
-    if (k === "s" && !e.shiftKey) return { type: "save" };
     if ((k === "=" || k === "+") && !e.shiftKey) return { type: "zoom", dir: 1 };
     if (k === "-") return { type: "zoom", dir: -1 };
     if (k === "0") return { type: "zoomReset" };

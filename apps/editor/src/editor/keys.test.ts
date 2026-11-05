@@ -46,10 +46,9 @@ describe("keyAction", () => {
     expect(keyAction({ key: "z", ctrlKey: true }, play)).toBeNull();
   });
 
-  it("P starts play, ? opens help, Ctrl+S saves, +/- zoom", () => {
+  it("P starts play, ? opens help, +/- zoom", () => {
     expect(keyAction({ key: "p" }, edit)).toEqual({ type: "play" });
     expect(keyAction({ key: "?" , shiftKey: true }, edit)).toEqual({ type: "help" });
-    expect(keyAction({ key: "s", ctrlKey: true }, edit)).toEqual({ type: "save" });
     expect(keyAction({ key: "=" }, edit)).toEqual({ type: "zoom", dir: 1 });
     expect(keyAction({ key: "-" }, edit)).toEqual({ type: "zoom", dir: -1 });
   });

@@ -5,16 +5,13 @@ import { parseSave } from "../level/save";
 import {
   AUTOSAVE_KEY,
   AutoSaver,
-  reloadTask,
   restoreAutosave,
   safeGet,
   safeSet,
-  saveTask,
-  TASK_SAVE_KEY,
   type SaveSources,
   type StorageLike,
   type Timers,
-} from "./saveTask";
+} from "./autosave";
 
 class MemStorage implements StorageLike {
   map = new Map<string, string>();
@@ -73,50 +70,9 @@ function sources(m: LevelModel): SaveSources {
   };
 }
 
-describe("save task", () => {
-  it("builds a v2 file with settings and history and keeps a local copy", () => {
-    const m = new LevelModel({ w: 20, h: 10 });
-    m.paintTile(3, 4, TILE.GRASS);
-    const st = new MemStorage();
-    const r = saveTask(sources(m), st);
-    expect(r.fileName).toBe("pewter-level_2026-10-07_12-00-00.json");
-    expect(r.storedLocally).toBe(true);
-    const parsed = parseSave(r.text);
-    expect(parsed.ok).toBe(true);
-    if (!parsed.ok) return;
-    expect(parsed.file.playSettings).toEqual({ speedScale: 1.2 });
-    expect(parsed.file.history?.shown).toBe(2);
-    expect(parsed.snapshot.cells[4 * 20 + 3]).toBe(TILE.GRASS);
-    expect(st.getItem(TASK_SAVE_KEY)).toBe(r.text);
-    expect(st.getItem(AUTOSAVE_KEY)).toBe(r.text);
-    expect(r.snapshotId).toMatch(/^r\d+-\d+$/);
-  });
-
-  it("reload puts back exactly the saved level and clears history", () => {
-    const m = new LevelModel({ w: 20, h: 10 });
-    m.paintTile(1, 1, TILE.DIRT);
-    const st = new MemStorage();
-    saveTask(sources(m), st);
-    m.paintTile(2, 2, TILE.DIRT);
-    const res = reloadTask(m, st);
-    expect(res.ok).toBe(true);
-    expect(m.tileAt(1, 1)).toBe(TILE.DIRT);
-    expect(m.tileAt(2, 2)).toBe(0);
-    expect(m.canUndo).toBe(false);
-  });
-
-  it("reload without a save explains itself and changes nothing", () => {
-    const m = new LevelModel({ w: 20, h: 10 });
-    m.paintTile(1, 1, TILE.DIRT);
-    const res = reloadTask(m, new MemStorage());
-    expect(res.ok).toBe(false);
-    expect(m.tileAt(1, 1)).toBe(TILE.DIRT);
-  });
-
+describe("autosave storage", () => {
   it("survives blocked storage", () => {
     const m = new LevelModel({ w: 20, h: 10 });
-    expect(saveTask(sources(m), throwing).storedLocally).toBe(false);
-    expect(saveTask(sources(m), null).storedLocally).toBe(false);
     expect(safeGet(throwing, "x")).toBeNull();
     expect(safeSet(throwing, "x", "y")).toBe(false);
     expect(restoreAutosave(m, throwing)).toBeNull();
