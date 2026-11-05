@@ -197,31 +197,3 @@ export function downloadText(fileName: string, text: string, mime = "application
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-
-/** Ask the person for a file and read it as text; null when cancelled. */
-export function pickTextFile(accept = ".json,application/json"): Promise<{ name: string; text: string } | null> {
-  return new Promise((resolve) => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = accept;
-    input.style.display = "none";
-    let settled = false;
-    const done = (v: { name: string; text: string } | null) => {
-      if (settled) return;
-      settled = true;
-      input.remove();
-      resolve(v);
-    };
-    input.addEventListener("change", () => {
-      const f = input.files?.[0];
-      if (!f) return done(null);
-      f.text().then(
-        (text) => done({ name: f.name, text }),
-        () => done(null),
-      );
-    });
-    input.addEventListener("cancel", () => done(null));
-    document.body.appendChild(input);
-    input.click();
-  });
-}

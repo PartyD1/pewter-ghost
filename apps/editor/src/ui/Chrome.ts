@@ -116,7 +116,6 @@ export const TOOLBAR_HTML = `
           <button class="pt-tab" id="tbtn-redo" type="button" data-cmd="redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo">↷</button>
         </div>
         <button class="pt-tbtn pt-tbtn-save" id="tbtn-save" data-cmd="save" title="Download the level and keep a copy in this browser (Ctrl+S)">💾 Save</button>
-        <button class="pt-tbtn pt-tbtn-load" id="tbtn-load" data-cmd="load" title="Open a saved level file">📂 Load</button>
         <button class="pt-tbtn pt-tbtn-reload" id="tbtn-reload" data-cmd="reload" title="Save the task file, then reload">↺ Save task</button>
         <button class="pt-tbtn" id="tbtn-help" data-cmd="help" title="Keys, share code, play settings (?)">? Help</button>
       </div>

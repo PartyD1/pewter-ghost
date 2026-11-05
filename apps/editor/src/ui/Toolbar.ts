@@ -8,7 +8,7 @@
 import { MODES, type Mode } from "../editor/modes";
 import type { Chrome } from "./Chrome";
 
-export type ToolbarCommand = "undo" | "redo" | "play" | "save" | "reload" | "load" | "settings" | "help";
+export type ToolbarCommand = "undo" | "redo" | "play" | "save" | "reload" | "settings" | "help";
 
 export interface ToolbarState {
   mode: Mode;
@@ -51,7 +51,7 @@ export class Toolbar {
     const redo = this.cmdButtons.get("redo");
     if (undo) undo.disabled = s.playing || !s.canUndo;
     if (redo) redo.disabled = s.playing || !s.canRedo;
-    for (const c of ["save", "reload", "load"]) {
+    for (const c of ["save", "reload"]) {
       const b = this.cmdButtons.get(c);
       if (b) b.disabled = s.playing;
     }

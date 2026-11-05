@@ -574,18 +574,6 @@
   color: #bbf7d0;
 }
 
-/* Load */
-.pt-tbtn-load {
-  background: rgba(23, 58, 110, 0.85);
-  border-color: rgba(96, 165, 250, 0.5);
-  color: #93c5fd;
-}
-.pt-tbtn-load:hover {
-  background: rgba(28, 72, 140, 0.95);
-  border-color: rgba(96, 165, 250, 0.8);
-  color: #bfdbfe;
-}
-
 /* Reload */
 .pt-tbtn-reload {
   background: rgba(100, 55, 10, 0.85);

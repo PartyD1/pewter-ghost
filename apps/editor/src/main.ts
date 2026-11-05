@@ -23,7 +23,7 @@ import "./style.css";
 import Phaser from "phaser";
 import type { LogEvent } from "./contracts";
 import { LevelModel } from "./level/LevelModel";
-import { loadSaveInto, type LoadResult } from "./level/save";
+import { type LoadResult } from "./level/save";
 import { applyOverrides, config } from "./suggest/config";
 import { registerGhostStarter, whenEditorReady, type EditorApi, type EditorLogger } from "./editor/api";
 import { ASSET } from "./editor/constants";
@@ -50,7 +50,6 @@ import {
   AutoSaver,
   browserStorage,
   downloadText,
-  pickTextFile,
   reloadTask,
   restoreAutosave,
   safeRemove,
@@ -324,13 +323,6 @@ function confirmNewLevel(): void {
   });
 }
 
-async function doLoad(): Promise<void> {
-  const f = await pickTextFile();
-  if (!f) return;
-  const res = loadSaveInto(model, f.text);
-  if (reportLoad(res, `Loaded ${f.name}`) && res.ok) editorScene.events2.emit("level:loaded", { source: "file", warnings: res.warnings });
-}
-
 // ---------------------------------------------------------------------------
 // Toolbar, palette, shortcuts
 // ---------------------------------------------------------------------------
@@ -351,9 +343,6 @@ function command(c: ToolbarCommand): void {
       break;
     case "reload":
       doSaveTaskAndReload();
-      break;
-    case "load":
-      void doLoad();
       break;
     case "settings":
       openPlaySettings(settings);
