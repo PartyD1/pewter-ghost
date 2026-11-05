@@ -42,7 +42,7 @@ test("password, session list, log and a link to a moment", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
 
-  await page.goto(`./replay.html?api=${encodeURIComponent(API)}`);
+  await page.goto(`./replay/?api=${encodeURIComponent(API)}`);
   const pw = page.locator('input[type="password"]');
 
   // Wrong password: a clear message, nothing listed.
@@ -76,7 +76,7 @@ test("password, session list, log and a link to a moment", async ({ page }) => {
   await expect(page.locator(".rp-side .rp-kv").nth(1)).toContainText("API calls");
 
   // A link to a moment: the password is remembered for the tab, so it opens straight in.
-  await page.goto(`./replay.html?api=${encodeURIComponent(API)}#p02@9500`);
+  await page.goto(`./replay/?api=${encodeURIComponent(API)}#p02@9500`);
   await expect(page.locator(".rp-bar .time")).toHaveText(/^0:09\.5 \//);
   await expect(page.locator(".rp-side")).toContainText("p02");
 
@@ -87,15 +87,15 @@ test("password, session list, log and a link to a moment", async ({ page }) => {
 
 test("an unknown session says so and returns to the start screen", async ({ page }) => {
   await serveProxy(page);
-  await page.goto(`./replay.html?api=${encodeURIComponent(API)}`);
+  await page.goto(`./replay/?api=${encodeURIComponent(API)}`);
   await page.evaluate((s) => sessionStorage.setItem("pewter-ghost.replay.password", s), SECRET);
-  await page.goto(`./replay.html?api=${encodeURIComponent(API)}#nope`);
+  await page.goto(`./replay/?api=${encodeURIComponent(API)}#nope`);
   await expect(page.locator(".rp-err")).toContainText("no such session");
 });
 
 test("a server with reading switched off explains why", async ({ page }) => {
   await page.route(`${API}/**`, (route) => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "off" }) }));
-  await page.goto(`./replay.html?api=${encodeURIComponent(API)}`);
+  await page.goto(`./replay/?api=${encodeURIComponent(API)}`);
   await page.locator('input[type="password"]').fill("x");
   await page.getByRole("button", { name: "Show sessions" }).click();
   await expect(page.locator(".rp-err")).toContainText("not enabled");

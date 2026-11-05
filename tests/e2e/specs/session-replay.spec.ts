@@ -75,7 +75,7 @@ test("a recorded session replays to the same level, and the viewer plays it", as
   const errors: string[] = [];
   viewer.on("pageerror", (e) => errors.push(String(e)));
   viewer.on("console", (m) => m.type() === "error" && errors.push(m.text()));
-  await viewer.goto("./replay.html");
+  await viewer.goto("./replay/");
   await viewer.setInputFiles('input[type="file"]', { name: "session.jsonl", mimeType: "text/plain", buffer: Buffer.from(jsonl) });
   await expect(viewer.locator(".rp-stage canvas")).toBeVisible();
   await expect(viewer.locator(".tl-seg").first()).toBeVisible();

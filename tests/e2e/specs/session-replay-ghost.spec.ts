@@ -93,7 +93,7 @@ test("a ghost is shown, accepted and undone, and the replay follows it exactly",
   const viewer = await browser.newPage({ viewport: { width: 1366, height: 820 } });
   const errors: string[] = [];
   viewer.on("pageerror", (e) => errors.push(String(e)));
-  await viewer.goto("./replay.html");
+  await viewer.goto("./replay/");
   await viewer.setInputFiles('input[type="file"]', {
     name: "ghost.jsonl",
     mimeType: "text/plain",
