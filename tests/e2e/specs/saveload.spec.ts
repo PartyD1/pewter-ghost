@@ -1,7 +1,6 @@
 /**
  * Saving and opening levels (G-08, G-37): Save task writes a v2 file that Load
- * reads back exactly; an old Pewter (v1) save is converted; a share code
- * round-trips the level.
+ * reads back exactly; an old Pewter (v1) save is converted.
  */
 import { expect, test } from "@playwright/test";
 import { readFileSync } from "node:fs";
@@ -40,12 +39,6 @@ async function drawSomething(ed: Editor): Promise<void> {
   await ed.drag([20, 21].map((x) => [x, 10]));
   await ed.pick("coin");
   await ed.clickTile(15, 10);
-}
-
-/** Share code is a link in the Help dialog (the old-style toolbar has no room for it). */
-async function openShare(page: import("@playwright/test").Page): Promise<void> {
-  await page.click('[data-cmd="help"]');
-  await page.click('#pg-help [data-cmd="share"]');
 }
 
 test.describe("save and load", () => {
@@ -111,39 +104,5 @@ test.describe("save and load", () => {
     await expect(page.locator(".pg-toast-error")).toBeVisible();
     expect(await ed.snapshotJson()).toBe(before);
     // The error toast is expected UI, not a console error.
-  });
-
-  test("share code round trip", async ({ page }) => {
-    await drawSomething(ed);
-    const original = await levelView(ed);
-
-    await openShare(page);
-    await page.waitForFunction(() => ((document.querySelector("#pg-share-out") as HTMLTextAreaElement | null)?.value ?? "").startsWith("pg1."));
-    const code = await page.locator("#pg-share-out").inputValue();
-    expect(code.length).toBeGreaterThan(10);
-    await page.keyboard.press("Escape");
-
-    // Change the level, then open the code.
-    await ed.pick("dirt");
-    await ed.drag([24, 25, 26].map((x) => [x, 6]));
-    expect((await levelView(ed)).cells).not.toEqual(original.cells);
-
-    await openShare(page);
-    await page.locator("#pg-share-in").fill(code);
-    await page.getByRole("button", { name: "Open this level" }).click();
-    await expect(page.locator(".pg-toast").filter({ hasText: "Opened the shared level" })).toBeVisible();
-    const opened = await levelView(ed);
-    expect(opened.cells).toEqual(original.cells);
-    expect(opened.entities).toEqual(original.entities);
-    expect(opened.start).toEqual(original.start);
-
-    // A damaged code is refused and changes nothing.
-    const before = await ed.snapshotJson();
-    await openShare(page);
-    await page.locator("#pg-share-in").fill("pg1.this-is-not-a-level");
-    await page.getByRole("button", { name: "Open this level" }).click();
-    await expect(page.locator("#pg-share .pg-share-status.pg-error")).toBeVisible();
-    await page.keyboard.press("Escape");
-    expect(await ed.snapshotJson()).toBe(before);
   });
 });

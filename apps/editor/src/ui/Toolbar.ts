@@ -8,7 +8,7 @@
 import { MODES, type Mode } from "../editor/modes";
 import type { Chrome } from "./Chrome";
 
-export type ToolbarCommand = "undo" | "redo" | "play" | "save" | "reload" | "load" | "share" | "settings" | "help";
+export type ToolbarCommand = "undo" | "redo" | "play" | "save" | "reload" | "load" | "settings" | "help";
 
 export interface ToolbarState {
   mode: Mode;

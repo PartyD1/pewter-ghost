@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { LevelModel } from "../level/LevelModel";
 import { parseSave, serializeSave } from "../level/save";
-import { decodeShareCode, encodeShareCode } from "../level/share";
 import {
   apexTiles,
   DEFAULT_PLAY_SETTINGS,
@@ -71,15 +70,11 @@ describe("play settings", () => {
     expect(enemyTuning(2)).toEqual({ speedMul: 1.5, fireMul: 2, chase: true });
   });
 
-  it("round-trips through save v2 and the share code", async () => {
+  it("round-trips through save v2", () => {
     const m = new LevelModel({ w: 20, h: 10 });
     const settings = { gravityScale: 1.2, enemyAggression: 0.5 };
     const parsed = parseSave(serializeSave(m, { playSettings: settingsForSave(settings) }));
     expect(parsed.ok).toBe(true);
     if (parsed.ok) expect(normalisePlaySettings(parsed.file.playSettings)).toEqual({ ...DEFAULT_PLAY_SETTINGS, ...settings });
-    const code = await encodeShareCode(m, { playSettings: settingsForSave(settings) });
-    const dec = await decodeShareCode(code);
-    expect(dec.ok).toBe(true);
-    if (dec.ok) expect(normalisePlaySettings(dec.playSettings)).toEqual({ ...DEFAULT_PLAY_SETTINGS, ...settings });
   });
 });

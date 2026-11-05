@@ -262,13 +262,6 @@ function assert(cond, msg) {
     const file = JSON.parse(fs.readFileSync(await dl.path(), "utf8"));
     assert(file.version === 2 && file.playSettings && file.playSettings.gravityScale === 1.25, `Save task file ${dl.suggestedFilename()}`);
 
-    // Share code dialog produces a code.
-    await page.click('[data-cmd="help"]'); // Share code is a link in Help
-    await page.click('#pg-help [data-cmd="share"]');
-    await page.waitForFunction(() => (document.querySelector("#pg-share-out") || {}).value?.startsWith("pg1."), null, { timeout: 5000 });
-    await page.keyboard.press("Escape");
-    assert(true, "share code generated");
-
     assert(errors.length === 0, `no console errors${errors.length ? ": " + errors.join(" | ") : ""}`);
     console.log("BOOT CHECK PASSED");
     await browser.close();

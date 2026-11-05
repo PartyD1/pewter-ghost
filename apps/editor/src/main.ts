@@ -24,7 +24,6 @@ import Phaser from "phaser";
 import type { LogEvent } from "./contracts";
 import { LevelModel } from "./level/LevelModel";
 import { loadSaveInto, type LoadResult } from "./level/save";
-import { decodeShareCode } from "./level/share";
 import { applyOverrides, config } from "./suggest/config";
 import { registerGhostStarter, whenEditorReady, type EditorApi, type EditorLogger } from "./editor/api";
 import { ASSET } from "./editor/constants";
@@ -59,7 +58,6 @@ import {
   AUTOSAVE_KEY,
   type SaveSources,
 } from "./ui/saveTask";
-import { openShareDialog } from "./ui/ShareDialog";
 import { Toasts } from "./ui/Toast";
 import { Toolbar, type ToolbarCommand } from "./ui/Toolbar";
 import { variantsEnabled, VariantSwitch } from "./ui/VariantSwitch";
@@ -333,24 +331,6 @@ async function doLoad(): Promise<void> {
   if (reportLoad(res, `Loaded ${f.name}`) && res.ok) editorScene.events2.emit("level:loaded", { source: "file", warnings: res.warnings });
 }
 
-async function openCode(code: string): Promise<{ ok: true; warnings: string[] } | { ok: false; error: string }> {
-  const dec = await decodeShareCode(code);
-  if (!dec.ok) return dec;
-  try {
-    const more = model.load(dec.snapshot);
-    settings.replace(dec.playSettings);
-    const warnings = [...dec.warnings, ...more];
-    toasts.show(warnings.length ? `Opened the shared level with ${warnings.length} warning(s).` : "Opened the shared level.", {
-      kind: warnings.length ? "warn" : "info",
-      details: warnings,
-    });
-    editorScene.events2.emit("level:loaded", { source: "share", warnings });
-    return { ok: true, warnings };
-  } catch (err) {
-    return { ok: false, error: `That code holds a level this editor cannot open: ${(err as Error).message}` };
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Toolbar, palette, shortcuts
 // ---------------------------------------------------------------------------
@@ -375,9 +355,6 @@ function command(c: ToolbarCommand): void {
     case "load":
       void doLoad();
       break;
-    case "share":
-      openShareDialog({ model, playSettings: () => settings.forSave(), open: openCode });
-      break;
     case "settings":
       openPlaySettings(settings);
       break;
@@ -400,7 +377,6 @@ function askIntent(): void {
 
 const helpLinks = {
   intent: () => askIntent(),
-  share: () => command("share"),
   settings: () => command("settings"),
   reloadSave: () => confirmReload(),
   newLevel: () => confirmNewLevel(),

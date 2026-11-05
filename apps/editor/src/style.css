@@ -300,14 +300,10 @@ body {
 
 /* Body text: the old .control-desc grey. */
 .pg-help-lead,
-.pg-share-status,
 .pg-settings-apex {
   color: #b0b0d8;
   font-size: 12px;
   margin: 4px 0 8px;
-}
-.pg-share-status.pg-error {
-  color: #fca5a5;
 }
 .pt-chat-input.pg-code {
   font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;

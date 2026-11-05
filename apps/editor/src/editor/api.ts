@@ -37,7 +37,7 @@ export interface EditorEvents {
   /** Hovered cell in edit mode (undefined when off the level/canvas). */
   hover: Point | undefined;
   /** The editor loaded a whole level (file, share code, autosave). */
-  "level:loaded": { source: "file" | "share" | "autosave" | "new" | "reload"; warnings: string[] };
+  "level:loaded": { source: "file" | "autosave" | "new" | "reload"; warnings: string[] };
   /** Undo / redo were applied by the editor. */
   undo: { what: "own" | "ghost" | "mixed"; redo: boolean };
 }

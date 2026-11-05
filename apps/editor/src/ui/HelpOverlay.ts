@@ -3,8 +3,8 @@
  * (pewter-platfomer src/phaser/UIScene.ts:174-233: h3 headings and
  * .control-item rows of .control-key / .control-desc), inside an old-style
  * glass dialog. It replaces the Controls tab (plan: "Replaced by visible
- * modes and three keys that matter"). Two links at the foot open the Share
- * code and Play settings dialogs; two more (Reload save, New level) hold the
+ * modes and three keys that matter"). Links at the foot open the Play
+ * settings dialog and the Level goal; two more (Reload save, New level) hold the
  * actions that used to sit on notices. The footer buttons are old .pt-tab
  * buttons (the old panel's size), "Got it" the old active tab.
  */
@@ -52,7 +52,6 @@ export const HELP_KEYS: readonly [string, string][] = HELP_SECTIONS.flatMap(([, 
 
 export interface HelpLinks {
   intent?: () => void;
-  share: () => void;
   settings: () => void;
   reloadSave?: () => void;
   newLevel?: () => void;
@@ -92,7 +91,6 @@ export function toggleHelp(links?: HelpLinks): void {
           "div",
           { class: "pg-dialog-actions pg-help-links" },
           links?.intent ? link("intent", "Level goal", links.intent) : null,
-          link("share", "Share code", links?.share),
           link("settings", "Play settings", links?.settings),
           links?.reloadSave ? link("reload-save", "Reload save", links.reloadSave) : null,
           links?.newLevel ? link("new-level", "New level", links.newLevel) : null,
