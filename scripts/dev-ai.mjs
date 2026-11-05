@@ -28,6 +28,8 @@ for (const f of [".env.local", ".env"]) {
   }
 }
 env.PROXY_OPEN ??= "1";
+// Local replay viewer: password "dev" unless .env sets one (the proxy listens on 127.0.0.1 only).
+if (!env.PROXY_READ_SECRET) env.PROXY_READ_SECRET = "dev";
 env.PROXY_THINKING_BUDGET ??= "0";
 
 const PROVIDERS = ["gemini", "openrouter", "bayleaf"];

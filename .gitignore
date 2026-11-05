@@ -6,3 +6,8 @@ test-results
 playwright-report
 .env
 .env.local
+# Firebase service account keys: never commit one (the proxy reads it from the environment)
+*firebase-adminsdk*.json
+firebase-key*.json
+service-account*.json
+.firebase/

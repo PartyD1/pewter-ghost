@@ -31,7 +31,7 @@ describe("checkCompleteness", () => {
   it("session must come first and only once", () => {
     const s = scriptedSession();
     const swapped = [s[1], s[0], ...s.slice(2)];
-    expect(messages(checkCompleteness(swapped))).toMatch(/first event is "place"/);
+    expect(messages(checkCompleteness(swapped))).toMatch(/first event is "snapshot"/);
     expect(messages(checkCompleteness([...s, { ...s[0], t: 99999 }]))).toMatch(/extra session/);
   });
 

@@ -44,6 +44,24 @@ export class FileStore implements ProxyStore {
     return next;
   }
 
+  /** Keys of the files under the prefix's directory whose key starts with the prefix. */
+  async list(prefix: string): Promise<string[]> {
+    const slash = prefix.lastIndexOf("/");
+    const dirKey = slash >= 0 ? prefix.slice(0, slash) : "";
+    const dir = dirKey ? this.pathFor(`${dirKey}/x`).replace(/[/\\]x$/, "") : this.root;
+    let names: string[];
+    try {
+      names = await fs.readdir(dir);
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "ENOENT") return [];
+      throw e;
+    }
+    return names
+      .map((n) => (dirKey ? `${dirKey}/${n}` : n))
+      .filter((k) => k.startsWith(prefix))
+      .sort();
+  }
+
   async read(key: string): Promise<string | null> {
     const file = this.pathFor(key);
     await (this.chains.get(file) ?? Promise.resolve()).catch(() => undefined);

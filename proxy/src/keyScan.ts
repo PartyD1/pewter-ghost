@@ -10,7 +10,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { configuredKey } from "./provider";
 
-export const KEY_PATTERNS: RegExp[] = [/AIza[0-9A-Za-z_-]{35}/g, /sk-or-v1-[0-9a-f]{64}/g];
+/** Google API keys, OpenRouter keys, and the private key block of a Firebase / Google service account. */
+export const KEY_PATTERNS: RegExp[] = [/AIza[0-9A-Za-z_-]{35}/g, /sk-or-v1-[0-9a-f]{64}/g, /-----BEGIN (?:RSA )?PRIVATE KEY-----/g];
 
 export interface KeyHit {
   file: string;

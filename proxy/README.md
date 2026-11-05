@@ -40,10 +40,59 @@ OpenRouter and BayLeaf share `src/openrouter.ts` (chat/completions; `json_schema
 `json_object` then plain text if a model rejects it). `PROXY_THINKING_BUDGET=0` is sent as
 `reasoning: { enabled: false }`; `PROXY_REASONING_EFFORT` as `reasoning: { effort }`.
 Shared:
+`PROXY_READ_SECRET` (the shared lab password for the replay read API below; unset = reading is off),
 `PROXY_OPEN=1`, `PROXY_PORT`, `PROXY_HOST`, `PROXY_ALLOWED_ORIGINS` (dev) / `ALLOWED_ORIGINS` (worker),
 `PROXY_UPSTREAM_TIMEOUT_MS` (10000), `PROXY_THINKING_BUDGET` (unset = not sent), `PROXY_LOGPROBS=0`.
 
 `responseLogprobs` is requested by default and turned off for the process if the API rejects it.
+
+## Replay read API (researchers)
+
+Participants write their session log through `POST /log`. Researchers read it back:
+
+```
+GET /replay/sessions[?limit=60]  -> { sessions: [{ sessionId, events, durationMs, startedAt, hasReplay, filler, bytes }], total }
+                                    newest first; `hasReplay` is false for logs from before replay existed
+GET /replay/sessions/<id>        -> the session's JSONL log (application/x-ndjson, never cached)
+```
+
+Both need `Authorization: Bearer <PROXY_READ_SECRET>`, the shared lab password. A participant token
+cannot read anything. With no `PROXY_READ_SECRET` set the routes answer 503. Wrong passwords are throttled
+per client (8 per minute, then a one-minute lockout even for the right password); reads are rate limited.
+Add the viewer's origin to `ALLOWED_ORIGINS` / `PROXY_ALLOWED_ORIGINS`.
+
+The viewer is the page at **`/replay`** (built beside the editor; `/replay/` on a static host). On the machine
+running `npm run dev` it needs nothing: it signs in with the local password (`dev`) and lists the newest
+sessions with a "Watch the latest session" button. Elsewhere open `/replay?api=<proxy url>`, type the lab
+password, and pick a session. `#<sessionId>` (add `@<ms>` to land on a moment) opens one directly.
+A downloaded `.jsonl` can also be dropped onto the page's start screen.
+
+## Firebase (session logs)
+
+Set `FIREBASE_SERVICE_ACCOUNT_FILE` (local) or `FIREBASE_SERVICE_ACCOUNT` (Worker secret) and the proxy keeps
+**session logs in Cloud Firestore**; recordings for the eval suite, rejected events and Jev exchanges stay
+where they were (proxy/.data, KV or R2). The proxy is the only thing that talks to Firestore (service
+account over REST, so no Firebase key reaches a browser and `firestore.rules` denies every client).
+
+```
+sessions/{sessionId}                one summary per session: events, bytes, firstT, lastT, startedAt, replayFlag, filler
+sessions/{sessionId}/chunks/{id}    the log itself, whole JSONL lines, <= 700 KB per document
+```
+
+The summary is what makes the replay list fast: one ordered query, no logs downloaded.
+
+Setup (once): Firebase console -> your project -> Build -> Firestore Database -> Create database (production
+mode is right; the rules in `firestore.rules` deny clients and the service account bypasses them). Then
+Project settings -> Service accounts -> Generate new private key, save the `.json` somewhere that is not in
+git (the repo ignores `*firebase-adminsdk*.json`, `firebase-key*.json`, `service-account*.json`), and put its
+path in `.env`: `FIREBASE_SERVICE_ACCOUNT_FILE=./firebase-key.json`. `npm run dev` then prints
+`session logs go to Firebase project "<id>"`. For a Worker:
+`npx wrangler secret put FIREBASE_SERVICE_ACCOUNT < firebase-key.json`. To deploy the rules:
+`npx firebase-tools deploy --only firestore:rules`. Local emulator (Java 11+):
+`FIRESTORE_EMULATOR_HOST=127.0.0.1:8080` with `npx firebase-tools emulators:start --only firestore`.
+
+Tested against a stand-in for Firestore's REST API (proxy/src/__fixtures__/fakeFirestore.ts) that checks the
+token signature, write preconditions and transforms; it has not been run against a live project in CI.
 
 ## Worker
 
