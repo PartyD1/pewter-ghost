@@ -106,15 +106,17 @@ test("a recorded session replays to the same level, and the viewer plays it", as
   const match = await viewer.evaluate(async (png) => {
     const img = new Image();
     await new Promise((r) => ((img.onload = r), (img.src = png)));
+    const stage = document.querySelector<HTMLCanvasElement>(".rp-stage canvas")!;
+    // The same field of view: the stage is exactly as big as the editor's canvas (not wider).
+    const W = img.width;
+    const H = img.height;
+    if (stage.width !== W || stage.height !== H) return { sizeMismatch: `${stage.width}x${stage.height} vs ${W}x${H}`, match: 0 };
     const cmp = document.createElement("canvas");
-    cmp.width = 1280;
-    cmp.height = 720;
+    cmp.width = W;
+    cmp.height = H;
     const cx = cmp.getContext("2d", { willReadFrequently: true })!;
     cx.drawImage(img, 0, 0);
-    const W = 880;
-    const H = 720;
     const a = cx.getImageData(0, 0, W, H).data;
-    const stage = document.querySelector<HTMLCanvasElement>(".rp-stage canvas")!;
     const b = stage.getContext("2d")!.getImageData(0, 0, W, H).data;
     const close = (p: Uint8ClampedArray, i: number, q: Uint8ClampedArray, j: number) =>
       Math.abs(p[i] - q[j]) < 12 && Math.abs(p[i + 1] - q[j + 1]) < 12 && Math.abs(p[i + 2] - q[j + 2]) < 12;
@@ -132,10 +134,11 @@ test("a recorded session replays to the same level, and the viewer plays it", as
         if (agrees(a, b, i) || agrees(b, a, i)) same++;
       }
     }
-    return same / total;
+    return { sizeMismatch: null, match: same / total, size: `${W}x${H}` };
   }, editorPng);
-  console.log(`viewer vs editor canvas: ${(match * 100).toFixed(1)}% of pixels match`);
-  expect(match).toBeGreaterThan(0.96);
+  expect(match.sizeMismatch).toBeNull();
+  console.log(`viewer vs editor canvas (${match.size}): ${(match.match * 100).toFixed(1)}% of pixels match`);
+  expect(match.match).toBeGreaterThan(0.96);
   await viewer.locator(".rp-bar label", { hasText: "Highlight changes" }).locator("input").check();
 
   // Play moves the clock; clicking the timeline seeks.

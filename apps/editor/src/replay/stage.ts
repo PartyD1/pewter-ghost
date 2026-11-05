@@ -15,10 +15,31 @@ import { backdropSource } from "../editor/tileComposite";
 import type { ReplayCamera, ReplayFrame } from "../research/replay/replay";
 import type { Sprites } from "./sprites";
 
-export const STAGE_W = 1280;
-export const STAGE_H = 720;
+/**
+ * The editor's game canvas, in its own pixels: 928 x 720 (the old 1280 px canvas
+ * minus the 340 px panel and a 12 px gap, main.ts). Pointer positions in the log
+ * are in these pixels, and the replay stage is exactly this size, so the replay
+ * shows what the participant could see and no more.
+ */
+export const DEFAULT_VIEW = { w: 928, h: 720 } as const;
+
 /** The editor's opening zoom, used until the log gives a camera. */
-const FALLBACK_CAMERA: ReplayCamera = { x: 0, y: 0, w: 35, h: 20, zoom: 2.25 };
+const FALLBACK_CAMERA: ReplayCamera = { x: 0, y: 0, w: DEFAULT_VIEW.w / (16 * 2.25), h: DEFAULT_VIEW.h / (16 * 2.25), zoom: 2.25 };
+
+/**
+ * How big the stage is for a camera. The editor logs the visible tile area in
+ * every `camera` event (its canvas, less any panel laid over it), so the stage
+ * follows what was actually on the participant's screen, whatever their window
+ * did. With no camera, or a nonsense one, the editor's usual canvas size.
+ */
+export function viewSize(cam: ReplayCamera | null | undefined): { w: number; h: number } {
+  if (!cam || !(cam.w > 0) || !(cam.h > 0) || !(cam.zoom > 0)) return { ...DEFAULT_VIEW };
+  const s = TILE_PX * cam.zoom;
+  const w = Math.round(cam.w * s);
+  const h = Math.round(cam.h * s);
+  if (w < 64 || h < 64 || w > 4096 || h > 4096) return { ...DEFAULT_VIEW };
+  return { w, h };
+}
 
 const TILE_COLOR: Record<number, string> = {
   [TILE.BLOCK]: "#9aa1ad",
@@ -54,22 +75,28 @@ export interface DrawOptions {
 
 export function drawFrame(ctx: CanvasRenderingContext2D, f: ReplayFrame, opts: DrawOptions = {}): void {
   const cam = f.camera ?? FALLBACK_CAMERA;
+  const { w: W, h: H } = viewSize(cam);
+  // The stage is the participant's own view: resize the canvas to it (this also clears it).
+  if (ctx.canvas.width !== W || ctx.canvas.height !== H) {
+    ctx.canvas.width = W;
+    ctx.canvas.height = H;
+  }
   const s = TILE_PX * cam.zoom;
   const px = (x: number) => (x - cam.x) * s;
   const py = (y: number) => (y - cam.y) * s;
 
   ctx.save();
-  ctx.clearRect(0, 0, STAGE_W, STAGE_H);
+  ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = "#1b1f2a";
-  ctx.fillRect(0, 0, STAGE_W, STAGE_H);
+  ctx.fillRect(0, 0, W, H);
 
   const L = f.level;
   if (!L) {
     ctx.fillStyle = "#8b93a7";
     ctx.font = "20px system-ui, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText("This session has no level to draw: it was recorded before replay existed.", STAGE_W / 2, STAGE_H / 2 - 14);
-    ctx.fillText("The timeline below still shows what was logged.", STAGE_W / 2, STAGE_H / 2 + 14);
+    ctx.fillText("This session has no level to draw: it was recorded before replay existed.", W / 2, H / 2 - 14);
+    ctx.fillText("The timeline below still shows what was logged.", W / 2, H / 2 + 14);
     ctx.restore();
     return;
   }
@@ -77,9 +104,9 @@ export function drawFrame(ctx: CanvasRenderingContext2D, f: ReplayFrame, opts: D
   const sp = opts.sprites ?? null;
   ctx.imageSmoothingEnabled = false; // pixel art stays crisp when scaled
   const x0 = Math.max(0, Math.floor(cam.x));
-  const x1 = Math.min(L.w - 1, Math.ceil(cam.x + STAGE_W / s));
+  const x1 = Math.min(L.w - 1, Math.ceil(cam.x + W / s));
   const y0 = Math.max(0, Math.floor(cam.y));
-  const y1 = Math.min(L.h - 1, Math.ceil(cam.y + STAGE_H / s));
+  const y1 = Math.min(L.h - 1, Math.ceil(cam.y + H / s));
   /** Draw one 16 px frame of `img` on level cell (x, y), edges snapped to whole pixels so zoomed tiles leave no seams. */
   const blit = (img: CanvasImageSource, frame: number, x: number, y: number, alpha = 1): void => {
     const l = Math.round(px(x));
@@ -188,13 +215,13 @@ export function drawFrame(ctx: CanvasRenderingContext2D, f: ReplayFrame, opts: D
 
   if (f.playing) {
     ctx.fillStyle = "rgba(20,24,33,0.45)";
-    ctx.fillRect(0, 0, STAGE_W, STAGE_H);
-    badge(ctx, "PLAY MODE — the participant was playing their level", STAGE_W / 2, 40);
+    ctx.fillRect(0, 0, W, H);
+    badge(ctx, "PLAY MODE — the participant was playing their level", W / 2, 40);
   }
   if (!f.focused) {
     ctx.fillStyle = "rgba(20,24,33,0.6)";
-    ctx.fillRect(0, 0, STAGE_W, STAGE_H);
-    badge(ctx, "AWAY — window unfocused or tab hidden", STAGE_W / 2, STAGE_H / 2);
+    ctx.fillRect(0, 0, W, H);
+    badge(ctx, "AWAY — window unfocused or tab hidden", W / 2, H / 2);
   }
   ctx.restore();
 }

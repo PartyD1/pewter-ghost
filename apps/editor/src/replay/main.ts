@@ -16,7 +16,7 @@ import { formatLength, isWatchable, sessionTitle } from "./format";
 import { Player, quietGaps, SPEEDS } from "./player";
 import { AuthError, fetchSessionLog, isLocalApi, listSessions, parseHash, shareLink, type SessionListing } from "./source";
 import { loadSprites, spritesNow } from "./sprites";
-import { drawFrame, STAGE_H, STAGE_W } from "./stage";
+import { DEFAULT_VIEW, drawFrame } from "./stage";
 import { fmt, Timeline, TRACK_LABEL } from "./timeline";
 
 // The page may be opened as /replay (the dev and preview servers rewrite it) or /replay/. Asset paths are
@@ -213,7 +213,7 @@ function viewer(replay: Replay, src: { name: string; sessionId?: string; t?: num
   const player = new Player(replay.duration, { gaps: quietGaps(tracks), onEnd: () => syncButtons() });
   player.seek(src.t ?? 0);
 
-  const canvas = h("canvas", { width: String(STAGE_W), height: String(STAGE_H) });
+  const canvas = h("canvas", { width: String(DEFAULT_VIEW.w), height: String(DEFAULT_VIEW.h) });
   const ctx = canvas.getContext("2d")!;
   const hud = h("div", { class: "rp-hud" });
   const time = h("span", { class: "time" });

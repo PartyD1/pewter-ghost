@@ -30,7 +30,8 @@ kbd { background: var(--panel-2); border: 1px solid var(--line); border-radius: 
 .rp-main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 320px; }
 .rp-stagewrap { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 10px; gap: 8px; }
 .rp-stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; background: #0b0d12; border-radius: 8px; overflow: hidden; }
-.rp-stage canvas { max-width: 100%; max-height: 100%; aspect-ratio: 16 / 9; background: #1b1f2a; }
+/* The canvas is the participant's own view, whatever its size: scale it down to fit, never stretch it. */
+.rp-stage canvas { max-width: 100%; max-height: 100%; object-fit: contain; background: #1b1f2a; }
 .rp-hud { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--muted); font-size: 12px; min-height: 18px; }
 .rp-hud b { color: var(--text); font-weight: 600; }
 
