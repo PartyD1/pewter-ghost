@@ -42,8 +42,37 @@
 #pg-toolbar-slot.pg-hidden {
   visibility: hidden;
 }
+/* display: block drops the inline baseline gap under the canvas. */
 #pg-stage canvas {
+  display: block;
   touch-action: none;
+}
+
+/* Fit the window (editor/stageFit.ts sets the variables as the canvas shrinks):
+   the title and toolbar follow the layout's width and the panel never outgrows
+   the canvas (its contents scroll). "safe" keeps the top left reachable by
+   scrolling when the window is below the smallest zoom. */
+body {
+  justify-content: safe center;
+  align-items: safe center;
+}
+.emoji-container {
+  width: var(--pg-layout-w, 1280px);
+}
+#pg-layout {
+  width: var(--pg-layout-w, 1280px);
+}
+#pg-frame .pt-chatbox {
+  height: min(700px, var(--pg-stage-h, 700px));
+}
+#pg-toolbar-slot > * {
+  min-width: 0;
+  max-width: 100%;
+}
+#pg-toolbar-slot .pt-toolbar {
+  max-width: 100%;
+  flex-wrap: wrap;
+  row-gap: 6px;
 }
 
 /* --- Toolbar: mode pills, Undo / Redo, Help ------------------------------ */
