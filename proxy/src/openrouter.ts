@@ -27,7 +27,7 @@ export interface OpenRouterOptions {
   /** Name used in error messages ("openrouter", "bayleaf"). */
   provider?: string;
   fetch?: typeof fetch;
-  /** Whole-call deadline in ms (default 10 000). */
+  /** Whole-call deadline in ms (default 20 000). */
   timeoutMs?: number;
   /** Ask for token log-probabilities (default true; disabled automatically if rejected). */
   logprobs?: boolean;
@@ -131,7 +131,7 @@ export class OpenRouterUpstream implements Upstream {
     this.apiKey = opts.apiKey;
     this.model = opts.model;
     this.fetchImpl = opts.fetch ?? globalThis.fetch.bind(globalThis);
-    this.timeoutMs = opts.timeoutMs ?? 10_000;
+    this.timeoutMs = opts.timeoutMs ?? 20_000;
     this.baseUrl = opts.baseUrl.replace(/\/+$/, "");
     this.logprobsEnabled = opts.logprobs ?? true;
     this.reasoning = opts.reasoning ?? null;

@@ -19,8 +19,8 @@ export interface GhostConfig {
    * but live gemini-3.7-flash answers (thinking off) take 2.0 s p50, 2.9 s
    * p90, 3.6 s p98 and up to 11.4 s (eval/runs/baseline.json, 52 calls), and a
    * live staircase call took 5.2 s. 900 drops every answer and 3500 dropped
-   * the slow-but-right ones. 6000 keeps every measured answer except the 11 s
-   * outlier. Freshness is no longer the timeout's job: reconciliation drops
+   * the slow-but-right ones. 15000 (from 6000 on 2026-11-05: 38% of glm calls hit the proxy limit) keeps every measured answer including the 11 s
+   * outlier; Gemini measures 2.1 s median, 2.7 s p90. Freshness is no longer the timeout's job: reconciliation drops
    * an answer that no longer fits (cells drawn, newer shown, older than
    * maxAnswerAgeMs). Keep it below maxAnswerAgeMs, so an answer that beats the
    * timeout is still young enough to show. Lower it once a faster model
@@ -158,7 +158,7 @@ export const DEFAULT_CONFIG: GhostConfig = {
   showAtPauseAbove: 0,
   pauseMs: 500,
   longPauseMs: 2500,
-  callTimeoutMs: 6000,
+  callTimeoutMs: 15000,
   agentCapMs: 300,
   patrolCapMs: 1000,
   patrolIdleMs: 2000,
@@ -189,7 +189,7 @@ export const DEFAULT_CONFIG: GhostConfig = {
   fillDebounceMs: 40,
   fillLeadingEdge: true,
   maxInFlight: 6,
-  maxAnswerAgeMs: 8000,
+  maxAnswerAgeMs: 20000,
   tidyIdleMs: 1200,
   tidyCols: 32,
   tidyRows: 14,
