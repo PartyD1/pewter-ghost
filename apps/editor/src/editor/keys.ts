@@ -26,7 +26,13 @@ export type EditorAction =
   | { type: "save" }
   | { type: "help" }
   | { type: "zoom"; dir: 1 | -1 }
-  | { type: "zoomReset" };
+  | { type: "zoomReset" }
+  // Select mode (the scene ignores these in other modes)
+  | { type: "deleteSelection" }
+  | { type: "copy" }
+  | { type: "cut" }
+  | { type: "paste" }
+  | { type: "selectAll" };
 
 export interface KeyContext {
   /** Play mode is running. */
@@ -56,11 +62,18 @@ export function keyAction(e: KeyLike, ctx: KeyContext): EditorAction | null {
     if ((k === "=" || k === "+") && !e.shiftKey) return { type: "zoom", dir: 1 };
     if (k === "-") return { type: "zoom", dir: -1 };
     if (k === "0") return { type: "zoomReset" };
+    if (!e.shiftKey && !e.repeat) {
+      if (k === "c") return { type: "copy" };
+      if (k === "x") return { type: "cut" };
+      if (k === "v") return { type: "paste" };
+      if (k === "a") return { type: "selectAll" };
+    }
     return null;
   }
   if (e.altKey) return null;
 
   if (e.repeat) return null;
+  if (k === "Delete" || k === "Backspace") return { type: "deleteSelection" };
   const mode = modeForKey(e.key);
   if (mode) return { type: "mode", mode };
   if (k === "p") return { type: "play" };

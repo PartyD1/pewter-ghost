@@ -17,6 +17,17 @@ describe("keyAction", () => {
     expect(keyAction({ key: "z", metaKey: true }, edit)).toEqual({ type: "undo" });
   });
 
+  it("maps Delete / Backspace and Ctrl+C / X / V / A to the selection actions", () => {
+    expect(keyAction({ key: "Delete" }, edit)).toEqual({ type: "deleteSelection" });
+    expect(keyAction({ key: "Backspace" }, edit)).toEqual({ type: "deleteSelection" });
+    expect(keyAction({ key: "c", ctrlKey: true }, edit)).toEqual({ type: "copy" });
+    expect(keyAction({ key: "x", metaKey: true }, edit)).toEqual({ type: "cut" });
+    expect(keyAction({ key: "v", ctrlKey: true }, edit)).toEqual({ type: "paste" });
+    expect(keyAction({ key: "a", ctrlKey: true }, edit)).toEqual({ type: "selectAll" });
+    expect(keyAction({ key: "Delete" }, play)).toBeNull();
+    expect(keyAction({ key: "c", ctrlKey: true }, { ...edit, typing: true })).toBeNull();
+  });
+
   it("leaves Tab, Escape and Ctrl+Space to the ghost layer", () => {
     expect(keyAction({ key: "Tab" }, edit)).toBeNull();
     expect(keyAction({ key: "Escape" }, edit)).toBeNull();
