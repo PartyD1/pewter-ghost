@@ -152,6 +152,27 @@ test("local server not running: says what to do instead of showing nothing", asy
   await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
 });
 
+test("if the editor's art cannot be loaded the replay still plays, in flat colours", async ({ page }) => {
+  await page.route("**/phaserAssets/**", (route) => route.abort());
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  await page.goto("./replay/");
+  await page.setInputFiles('input[type="file"]', { name: "s.jsonl", mimeType: "text/plain", buffer: Buffer.from(jsonl(scriptedSession("x"))) });
+  await expect(page.locator(".tl-seg").first()).toBeVisible();
+  await page.getByRole("button", { name: "Play", exact: true }).click();
+  await page.waitForTimeout(400);
+  // Something was drawn: the stage is not blank and the page did not throw.
+  const filled = await page.evaluate(() => {
+    const c = document.querySelector<HTMLCanvasElement>(".rp-stage canvas")!;
+    const d = c.getContext("2d")!.getImageData(0, 0, c.width, c.height).data;
+    let sky = 0;
+    for (let i = 0; i < d.length; i += 4) if (d[i] === 0xcf && d[i + 1] === 0xe8 && d[i + 2] === 0xff) sky++; // the flat sky
+    return sky;
+  });
+  expect(filled).toBeGreaterThan(200); // the fixture's level is only 2 x 1 tiles at zoom 1
+  expect(errors).toEqual([]);
+});
+
 test("an unknown session says so and shows the list again", async ({ page }) => {
   await serveProxy(page, REMOTE, SECRET);
   await page.goto(`./replay/?api=${encodeURIComponent(REMOTE)}`);

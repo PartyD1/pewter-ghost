@@ -21,6 +21,8 @@ export interface TimelineOptions {
   onPick?(item: { segment?: Segment; marker?: Marker }): void;
 }
 
+/** Room after the last millisecond, in px, for the final tick label. */
+const END_PAD = 16;
 const MIN_PPS = 0.002; // px per ms
 const MAX_PPS = 2;
 
@@ -97,7 +99,8 @@ export class Timeline {
   /** Show the whole session across the visible width. */
   fit(): void {
     const w = Math.max(200, this.scroller.clientWidth || 800);
-    this.setZoom(w / Math.max(1000, this.tracks.duration));
+    // Exactly the visible width, so a fitted timeline has no sideways scrollbar and its end can be clicked.
+    this.setZoom((w - END_PAD) / Math.max(1000, this.tracks.duration));
   }
 
   zoomBy(factor: number): void {
@@ -127,7 +130,7 @@ export class Timeline {
 
   private setZoom(pps: number, anchorMs?: number, anchorX?: number): void {
     this.pps = Math.max(MIN_PPS, Math.min(MAX_PPS, pps));
-    const width = Math.ceil(this.tracks.duration * this.pps) + 24;
+    const width = Math.round(this.tracks.duration * this.pps) + END_PAD;
     this.inner.style.width = `${width}px`;
     this.render();
     this.setPlayhead(this.t);

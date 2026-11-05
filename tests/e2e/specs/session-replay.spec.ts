@@ -74,30 +74,69 @@ test("a recorded session replays to the same level, and the viewer plays it", as
   const viewer = await browser.newPage({ viewport: { width: 1366, height: 820 } });
   const errors: string[] = [];
   viewer.on("pageerror", (e) => errors.push(String(e)));
-  viewer.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+  // /replay first looks for the local session server (no proxy runs in this test), which the browser logs.
+  viewer.on("console", (m) => m.type() === "error" && !m.text().includes("ERR_CONNECTION_REFUSED") && errors.push(m.text()));
   await viewer.goto("./replay/");
   await viewer.setInputFiles('input[type="file"]', { name: "session.jsonl", mimeType: "text/plain", buffer: Buffer.from(jsonl) });
   await expect(viewer.locator(".rp-stage canvas")).toBeVisible();
   await expect(viewer.locator(".tl-seg").first()).toBeVisible();
   expect(await viewer.locator(".tl-row").count()).toBe(6);
 
-  // The level is drawn from the very first frame (not the "no snapshot" message):
-  // dirt-coloured pixels (#8b5e3c) and sky (#cfe8ff) are on the stage.
-  const pixels = () =>
+  // The level is drawn from the very first frame (not the "no level" message), with the editor's real art:
+  // the backdrop's bands and the textured ground give the stage many colours (flat drawing has about four).
+  const colours = () =>
     viewer.evaluate(() => {
       const c = document.querySelector<HTMLCanvasElement>(".rp-stage canvas")!;
       const d = c.getContext("2d")!.getImageData(0, 0, c.width, c.height).data;
-      let dirt = 0;
-      let sky = 0;
-      for (let i = 0; i < d.length; i += 4) {
-        if (d[i] === 0x8b && d[i + 1] === 0x5e && d[i + 2] === 0x3c) dirt++;
-        else if (d[i] === 0xcf && d[i + 1] === 0xe8 && d[i + 2] === 0xff) sky++;
-      }
-      return { dirt, sky };
+      const seen = new Set<number>();
+      for (let i = 0; i < d.length; i += 4) seen.add((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]);
+      return seen.size;
     });
-  const first = await pixels();
-  expect(first.dirt).toBeGreaterThan(500);
-  expect(first.sky).toBeGreaterThan(500);
+  await expect.poll(colours).toBeGreaterThan(12);
+
+  // The strongest check: at the end of the session the stage looks like the editor's own canvas.
+  // The left part of the screen (the right side is the editor's DOM panel) agrees pixel for pixel
+  // except where the editor draws its dotted grid, the hover box and the cursor.
+  await viewer.locator(".rp-bar label", { hasText: "Highlight changes" }).locator("input").uncheck();
+  const bar = (await viewer.locator(".tl-ruler").boundingBox())!;
+  await viewer.mouse.click(bar.x + bar.width - 3, bar.y + 8); // the very end
+  await page.mouse.move(1200, 700); // park the editor's pointer away from the area compared
+  await page.waitForTimeout(300);
+  const editorPng = await page.evaluate(() => (window as any).__pewter.api.game.canvas.toDataURL("image/png") as string);
+  const match = await viewer.evaluate(async (png) => {
+    const img = new Image();
+    await new Promise((r) => ((img.onload = r), (img.src = png)));
+    const cmp = document.createElement("canvas");
+    cmp.width = 1280;
+    cmp.height = 720;
+    const cx = cmp.getContext("2d", { willReadFrequently: true })!;
+    cx.drawImage(img, 0, 0);
+    const W = 880;
+    const H = 720;
+    const a = cx.getImageData(0, 0, W, H).data;
+    const stage = document.querySelector<HTMLCanvasElement>(".rp-stage canvas")!;
+    const b = stage.getContext("2d")!.getImageData(0, 0, W, H).data;
+    const close = (p: Uint8ClampedArray, i: number, q: Uint8ClampedArray, j: number) =>
+      Math.abs(p[i] - q[j]) < 12 && Math.abs(p[i + 1] - q[j + 1]) < 12 && Math.abs(p[i + 2] - q[j + 2]) < 12;
+    // A pixel agrees if it equals the other image's pixel or one of that pixel's four neighbours (and the
+    // reverse): a one-pixel grid line drawn by only one of them is not a disagreement about the art.
+    const offsets = [0, 4, -4, W * 4, -W * 4];
+    const agrees = (p: Uint8ClampedArray, q: Uint8ClampedArray, i: number) => offsets.some((o) => i + o >= 0 && i + o < q.length && close(p, i, q, i + o));
+    let same = 0;
+    let total = 0;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        if (y < 64 && x < 500) continue; // the editor's minimap
+        const i = (y * W + x) * 4;
+        total++;
+        if (agrees(a, b, i) || agrees(b, a, i)) same++;
+      }
+    }
+    return same / total;
+  }, editorPng);
+  console.log(`viewer vs editor canvas: ${(match * 100).toFixed(1)}% of pixels match`);
+  expect(match).toBeGreaterThan(0.96);
+  await viewer.locator(".rp-bar label", { hasText: "Highlight changes" }).locator("input").check();
 
   // Play moves the clock; clicking the timeline seeks.
   const timeText = () => viewer.locator(".rp-bar .time").innerText();

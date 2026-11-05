@@ -15,8 +15,15 @@ import { navPoints, stepPoint, TRACK_ORDER, type Marker, type Segment, type Trac
 import { formatLength, isWatchable, sessionTitle } from "./format";
 import { Player, quietGaps, SPEEDS } from "./player";
 import { AuthError, fetchSessionLog, isLocalApi, listSessions, parseHash, shareLink, type SessionListing } from "./source";
+import { loadSprites, spritesNow } from "./sprites";
 import { drawFrame, STAGE_H, STAGE_W } from "./stage";
 import { fmt, Timeline, TRACK_LABEL } from "./timeline";
+
+// The page may be opened as /replay (the dev and preview servers rewrite it) or /replay/. Asset paths are
+// relative to the page, so settle on the slash form before anything is loaded.
+if (!location.pathname.endsWith("/") && !location.pathname.endsWith(".html")) {
+  history.replaceState(null, "", `${location.pathname}/${location.search}${location.hash}`);
+}
 
 const PW_KEY = "pewter-ghost.replay.password";
 /** Stops the playing viewer's animation loop and key handler (set by viewer()). */
@@ -215,6 +222,8 @@ function viewer(replay: Replay, src: { name: string; sessionId?: string; t?: num
   for (const s of SPEEDS) speed.append(h("option", { value: String(s) }, `${s}×`));
   speed.value = "1";
   const skip = h("input", { type: "checkbox" });
+  const highlight = h("input", { type: "checkbox", title: "Outline what the person changed in blue and what Ghost placed in purple" });
+  highlight.checked = true;
   const jumpKind = h("select", { title: "What the jump buttons move between" });
   const jumpOptions: [string, TrackId[]][] = [
     ["Suggestion", ["suggestions"]],
@@ -265,6 +274,7 @@ function viewer(replay: Replay, src: { name: string; sessionId?: string; t?: num
     time,
     speed,
     h("label", {}, skip, "Skip quiet stretches"),
+    h("label", {}, highlight, "Highlight changes"),
     h("span", { class: "sp" }),
     h("span", { class: "rp-jump" }, "Jump:", jumpKind, prev, next),
     zoomOut,
@@ -344,13 +354,14 @@ function viewer(replay: Replay, src: { name: string; sessionId?: string; t?: num
   function draw(force = false): void {
     const f = replay.stateAt(player.t);
     time.textContent = `${fmt(player.t)} / ${fmt(replay.duration)}`;
-    if (force || player.playing) drawFrame(ctx, f, { base });
+    if (force || player.playing) drawFrame(ctx, f, { base, sprites: spritesNow(), authorship: highlight.checked });
     updateHud(f);
   }
 
   playBtn.addEventListener("click", () => (player.toggle(), syncButtons()));
   speed.addEventListener("change", () => player.setSpeed(Number(speed.value)));
   skip.addEventListener("change", () => (player.skipQuiet = skip.checked));
+  highlight.addEventListener("change", () => draw(true));
   prev.addEventListener("click", () => jump(-1));
   next.addEventListener("click", () => jump(1));
   zoomOut.addEventListener("click", () => timeline.zoomBy(0.7));
@@ -420,6 +431,8 @@ function viewer(replay: Replay, src: { name: string; sessionId?: string; t?: num
   stopViewer = stop;
 
   renderGhosts();
+  // The editor's art may still be loading: draw flat now and redraw with sprites the moment they arrive.
+  void loadSprites().then(() => draw(true), () => {});
   timeline.setPlayhead(player.t);
   draw(true);
   syncButtons();
@@ -447,6 +460,7 @@ function boot(): void {
   if (initial && (getPw() || isLocalApi(apiBase))) void openRemote(initial.sessionId, initial.t);
   else void startScreen(initial ? "Enter the lab password to open this session." : undefined);
 }
+void loadSprites().catch(() => {}); // start fetching the art now; the start screen does not wait for it
 boot();
 // Pasting another link into the same tab only changes the hash: open that one.
 window.addEventListener("hashchange", boot);

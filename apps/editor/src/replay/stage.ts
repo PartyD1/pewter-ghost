@@ -1,11 +1,19 @@
 /**
  * Canvas2D drawing of one replay frame: the level, the ghost, the pointer and
- * its trail. A light stand-in for the editor's Phaser renderer (flat colours,
- * no sprites), at the editor's 1280x720 canvas size so recorded pixel
- * positions land exactly where the participant had them.
+ * its trail, at the editor's 1280x720 canvas size so recorded pixel positions
+ * land exactly where the participant had them.
+ *
+ * It draws with the editor's real art (sprites.ts: the same tile sheets, the
+ * same backdrop, the same grey ghost copy). Flat colours are only the
+ * fallback while the art loads or if a file is missing. Play mode's live
+ * objects (knight, enemies in motion) are not reproduced: the stage shows an
+ * overlay while the participant was playing.
  */
 import { TILE, TILE_PX, type EntityKind } from "../contracts";
+import { ENTITY_FRAME, FRAME, tileFrame } from "../editor/constants";
+import { backdropSource } from "../editor/tileComposite";
 import type { ReplayCamera, ReplayFrame } from "../research/replay/replay";
+import type { Sprites } from "./sprites";
 
 export const STAGE_W = 1280;
 export const STAGE_H = 720;
@@ -40,6 +48,8 @@ export interface DrawOptions {
    */
   authorship?: boolean;
   base?: readonly number[] | null;
+  /** The editor's real art. Without it (not loaded yet, or a file is missing) flat colours are drawn. */
+  sprites?: Sprites | null;
 }
 
 export function drawFrame(ctx: CanvasRenderingContext2D, f: ReplayFrame, opts: DrawOptions = {}): void {
@@ -64,14 +74,34 @@ export function drawFrame(ctx: CanvasRenderingContext2D, f: ReplayFrame, opts: D
     return;
   }
 
-  // Sky over the level's area.
-  ctx.fillStyle = "#cfe8ff";
-  ctx.fillRect(px(0), py(0), L.w * s, L.h * s);
-
+  const sp = opts.sprites ?? null;
+  ctx.imageSmoothingEnabled = false; // pixel art stays crisp when scaled
   const x0 = Math.max(0, Math.floor(cam.x));
   const x1 = Math.min(L.w - 1, Math.ceil(cam.x + STAGE_W / s));
   const y0 = Math.max(0, Math.floor(cam.y));
   const y1 = Math.min(L.h - 1, Math.ceil(cam.y + STAGE_H / s));
+  /** Draw one 16 px frame of `img` on level cell (x, y), edges snapped to whole pixels so zoomed tiles leave no seams. */
+  const blit = (img: CanvasImageSource, frame: number, x: number, y: number, alpha = 1): void => {
+    const l = Math.round(px(x));
+    const t = Math.round(py(y));
+    if (alpha !== 1) ctx.globalAlpha = alpha;
+    ctx.drawImage(img, frame * TILE_PX, 0, TILE_PX, TILE_PX, l, t, Math.round(px(x + 1)) - l, Math.round(py(y + 1)) - t);
+    if (alpha !== 1) ctx.globalAlpha = 1;
+  };
+
+  if (sp?.backdrop) {
+    // The editor's own backdrop: the default map's Background_Layer (sky, cloud edge, water, underground).
+    const bd = sp.backdrop;
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        const src = x < bd.w && y < bd.h ? backdropSource(bd.data[y * bd.w + x], bd.tilesets) : null;
+        if (src) blit(src.sheet === "brackeys" ? sp.brackeys : sp.extras, src.index, x, y);
+      }
+    }
+  } else {
+    ctx.fillStyle = "#cfe8ff";
+    ctx.fillRect(px(0), py(0), L.w * s, L.h * s);
+  }
 
   if (opts.grid !== false && s >= 10) {
     ctx.strokeStyle = "rgba(60,80,110,0.12)";
@@ -104,18 +134,21 @@ export function drawFrame(ctx: CanvasRenderingContext2D, f: ReplayFrame, opts: D
         }
         continue;
       }
-      ctx.fillStyle = TILE_COLOR[tile] ?? "#ff00ff";
-      ctx.fillRect(px(x), py(y), s, s);
-      if (tile === TILE.GRASS) {
-        ctx.fillStyle = "#6bbf59";
-        ctx.fillRect(px(x), py(y), s, s * 0.28);
-      }
-      if (tile === TILE.QUESTION) {
-        ctx.fillStyle = "#7a5a00";
-        ctx.font = `bold ${Math.round(s * 0.7)}px system-ui, sans-serif`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText("?", px(x) + s / 2, py(y) + s / 2);
+      if (sp) blit(sp.composite, tileFrame(tile), x, y);
+      else {
+        ctx.fillStyle = TILE_COLOR[tile] ?? "#ff00ff";
+        ctx.fillRect(px(x), py(y), s, s);
+        if (tile === TILE.GRASS) {
+          ctx.fillStyle = "#6bbf59";
+          ctx.fillRect(px(x), py(y), s, s * 0.28);
+        }
+        if (tile === TILE.QUESTION) {
+          ctx.fillStyle = "#7a5a00";
+          ctx.font = `bold ${Math.round(s * 0.7)}px system-ui, sans-serif`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText("?", px(x) + s / 2, py(y) + s / 2);
+        }
       }
       if (opts.authorship !== false) {
         const a = L.authors[i];
@@ -128,11 +161,20 @@ export function drawFrame(ctx: CanvasRenderingContext2D, f: ReplayFrame, opts: D
     }
   }
 
-  for (const e of L.entities) drawEntity(ctx, e.kind, px(e.x), py(e.y), s);
-  drawMarker(ctx, "start", px(L.start.x), py(L.start.y), s);
-  if (L.goal) drawMarker(ctx, "goal", px(L.goal.x), py(L.goal.y), s);
+  for (const e of L.entities) {
+    if (sp) blit(sp.composite, ENTITY_FRAME[e.kind], e.x, e.y);
+    else drawEntity(ctx, e.kind, px(e.x), py(e.y), s);
+  }
+  // The start pennant and the goal flag, as in the editor (the goal is drawn at 60 %).
+  if (sp) {
+    blit(sp.composite, FRAME.START, L.start.x, L.start.y);
+    if (L.goal) blit(sp.composite, FRAME.FLAG, L.goal.x, L.goal.y, 0.6);
+  } else {
+    drawMarker(ctx, "start", px(L.start.x), py(L.start.y), s);
+    if (L.goal) drawMarker(ctx, "goal", px(L.goal.x), py(L.goal.y), s);
+  }
 
-  if (f.ghost) drawGhost(ctx, f.ghost, px, py, s);
+  if (f.ghost) drawGhost(ctx, f.ghost, px, py, s, sp ? { blit, sprites: sp } : null);
 
   // Hovered tile (paint / erase tools only; it is what the editor highlights).
   if (f.pointer?.tile && f.pointer.inside && (f.tool?.mode === "paint" || f.tool?.mode === "erase")) {
@@ -187,19 +229,29 @@ function drawMarker(ctx: CanvasRenderingContext2D, kind: "start" | "goal", x: nu
   ctx.fill();
 }
 
-function drawGhost(ctx: CanvasRenderingContext2D, g: NonNullable<ReplayFrame["ghost"]>, px: (x: number) => number, py: (y: number) => number, s: number): void {
+/** How to draw a ghost with the real art: the grey copy of each tile, like the editor's ghost layer. */
+interface GhostArt {
+  blit: (img: CanvasImageSource, frame: number, x: number, y: number, alpha?: number) => void;
+  sprites: Sprites;
+}
+
+function drawGhost(ctx: CanvasRenderingContext2D, g: NonNullable<ReplayFrame["ghost"]>, px: (x: number) => number, py: (y: number) => number, s: number, art: GhostArt | null): void {
   ctx.save();
   ctx.setLineDash([5, 4]);
   ctx.lineWidth = 2;
   for (const [x, y, tile] of g.adds) {
-    ctx.fillStyle = "rgba(255,255,255,0.55)";
     ctx.strokeStyle = "rgba(112,72,232,0.95)";
-    ctx.fillRect(px(x), py(y), s, s);
+    if (art) art.blit(art.sprites.ghost, tileFrame(tile), x, y, 0.9);
+    else {
+      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      ctx.fillRect(px(x), py(y), s, s);
+      ctx.fillStyle = TILE_COLOR[tile] ?? "#999";
+      ctx.globalAlpha = 0.45;
+      ctx.fillRect(px(x) + 3, py(y) + 3, s - 6, s - 6);
+      ctx.globalAlpha = 1;
+    }
+    // The dashed outline stays: it is how a researcher tells a ghost from a placed tile at a glance.
     ctx.strokeRect(px(x) + 1, py(y) + 1, s - 2, s - 2);
-    ctx.fillStyle = TILE_COLOR[tile] ?? "#999";
-    ctx.globalAlpha = 0.45;
-    ctx.fillRect(px(x) + 3, py(y) + 3, s - 6, s - 6);
-    ctx.globalAlpha = 1;
   }
   ctx.strokeStyle = "rgba(224,49,49,0.95)";
   for (const [x, y] of g.removes) {
@@ -212,7 +264,10 @@ function drawGhost(ctx: CanvasRenderingContext2D, g: NonNullable<ReplayFrame["gh
     ctx.stroke();
   }
   ctx.globalAlpha = 0.6;
-  for (const [kind, x, y] of g.entities) drawEntity(ctx, kind, px(x), py(y), s);
+  for (const [kind, x, y] of g.entities) {
+    if (art) art.blit(art.sprites.ghost, ENTITY_FRAME[kind], x, y);
+    else drawEntity(ctx, kind, px(x), py(y), s);
+  }
   ctx.restore();
 
   // Caption above the first cell, like the editor's.
