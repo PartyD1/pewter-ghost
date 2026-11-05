@@ -13,4 +13,3 @@
 export * from "./playerPhysics";
 export * from "./jumpSolver";
 export * from "./movementCapabilities";
-export { LEGACY_KNIGHT } from "./legacyKnight";
