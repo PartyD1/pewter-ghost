@@ -1,5 +1,5 @@
 /**
- * Save format v2 (G-08) and import of old Pewter (v1) saves.
+ * Save format v2 (G-08).
  *
  * v2 is human-readable JSON:
  *   {
@@ -16,10 +16,6 @@
  */
 import { z } from "zod";
 import {
-  AUTHOR,
-  LEVEL_H,
-  LEVEL_W,
-  TILE,
   type Author,
   type Entity,
   type EntityKind,
@@ -32,10 +28,6 @@ import type { LevelModel } from "./LevelModel";
 import { checkSnapshot, MAX_ENTITIES, MAX_LEVEL_DIM } from "./snapshot";
 
 export const SAVE_VERSION = 2;
-
-/** Player spawn of old Pewter: pixel (100, 100) with 16 px tiles. */
-export const V1_START = { x: 6, y: 6 } as const;
-const V1_TILE_PX = 16;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -100,10 +92,7 @@ export type LoadResult =
   | {
       ok: true;
       snapshot: LevelSnapshot;
-      /** The file as v2 (migrated when it was v1). */
       file: SaveFileV2;
-      /** 1 when the input was an old Pewter save. */
-      migratedFrom?: 1;
       warnings: string[];
     }
   | { ok: false; error: string };
@@ -173,27 +162,6 @@ const saveV2Schema = z.object({
   savedAt: z.string().max(64).optional(),
   app: z.string().max(100).optional(),
 });
-
-/** Old Pewter save: tile layers as sparse lists plus enemies in pixels. */
-const v1TileSchema = z.object({ x: z.number(), y: z.number(), index: z.number() });
-const saveV1Schema = z
-  .object({
-    version: z.literal(1).optional(),
-    groundTiles: z.array(v1TileSchema).optional(),
-    collectablesTiles: z.array(v1TileSchema).optional(),
-    enemies: z
-      .array(
-        z
-          .object({
-            kind: z.string(),
-            spawnX: z.number(),
-            spawnY: z.number(),
-          })
-          .loose(),
-      )
-      .optional(),
-  })
-  .loose();
 
 // ---------------------------------------------------------------------------
 // Writing
@@ -298,8 +266,8 @@ function zodMessage(err: z.ZodError): string {
 }
 
 /**
- * Parse a save (JSON text or an already-parsed value). Accepts v2 and old
- * Pewter v1 saves. Never throws.
+ * Parse a save (JSON text or an already-parsed value). Accepts v2 only.
+ * Never throws.
  */
 export function parseSave(input: string | unknown): LoadResult {
   let data: unknown = input;
@@ -315,7 +283,6 @@ export function parseSave(input: string | unknown): LoadResult {
   const version = (data as { version?: unknown }).version;
   try {
     if (version === 2) return parseV2(data);
-    if (version === 1 || (version === undefined && "groundTiles" in data)) return importV1(data);
     if (typeof version === "number" && version > SAVE_VERSION)
       return { ok: false, error: `This level was saved by a newer Pewter (format ${version}).` };
     return { ok: false, error: "This file is not a Pewter level (no known version)." };
@@ -366,111 +333,6 @@ function parseV2(data: unknown): LoadResult {
     app: f.app,
   });
   return { ok: true, snapshot: checked.snapshot, file, warnings: checked.warnings };
-}
-
-const V1_TERRAIN = new Set<number>([TILE.BLOCK, TILE.GRASS_HALF, TILE.DIRT, TILE.GRASS, TILE.QUESTION]);
-const V1_ENTITY: Record<number, EntityKind> = { 2: "coin", 3: "fruit", 8: "ultraslime", 9: "slime" };
-
-/**
- * Convert an old Pewter save (tile layers + pixel enemies) to v2. Every tile
- * and entity gets author = PERSON. Bad entries are skipped with a warning
- * instead of wiping the level (the old loader's bug). Never throws.
- */
-export function importV1(data: unknown, size: { w: number; h: number } = { w: LEVEL_W, h: LEVEL_H }): LoadResult {
-  const parsed = saveV1Schema.safeParse(data);
-  if (!parsed.success) return { ok: false, error: `This old Pewter save is damaged: ${zodMessage(parsed.error)}` };
-  const v1 = parsed.data;
-  const { w, h } = size;
-  const n = w * h;
-  const cells = new Array<number>(n).fill(0);
-  const authors = new Array<number>(n).fill(0);
-  const entities: Entity[] = [];
-  const entityAuthors: Record<string, Author> = {};
-  const warnings: string[] = [];
-  const occupied = new Map<number, string>();
-  let outside = 0;
-  const unknown = new Map<number, number>();
-  let nextId = 0;
-
-  const inLevel = (x: number, y: number) => Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < w && y < h;
-  const addEntity = (kind: EntityKind, x: number, y: number): boolean => {
-    const i = y * w + x;
-    const there = occupied.get(i);
-    if (there) {
-      const other = entities.find((e) => e.id === there)!;
-      if (other.kind !== kind) warnings.push(`skipped ${kind} at x=${x} y=${y}: a ${other.kind} is already there`);
-      return false;
-    }
-    const id = `e${++nextId}`;
-    entities.push({ id, kind, x, y });
-    entityAuthors[id] = AUTHOR.PERSON;
-    occupied.set(i, id);
-    return true;
-  };
-
-  const tiles = [...(v1.groundTiles ?? []), ...(v1.collectablesTiles ?? [])];
-  // Terrain first so entities placed on solid cells can be detected.
-  for (const t of tiles) {
-    if (t.index < 0) continue; // -1 = empty in Phaser
-    if (!V1_TERRAIN.has(t.index)) continue;
-    if (!inLevel(t.x, t.y)) {
-      outside++;
-      continue;
-    }
-    cells[t.y * w + t.x] = t.index;
-    authors[t.y * w + t.x] = AUTHOR.PERSON;
-  }
-  for (const t of tiles) {
-    if (t.index <= 0 || V1_TERRAIN.has(t.index)) continue;
-    const kind = V1_ENTITY[t.index];
-    if (!kind) {
-      unknown.set(t.index, (unknown.get(t.index) ?? 0) + 1);
-      continue;
-    }
-    if (!inLevel(t.x, t.y)) {
-      outside++;
-      continue;
-    }
-    if (cells[t.y * w + t.x] !== 0) {
-      warnings.push(`skipped ${kind} at x=${t.x} y=${t.y}: the cell is solid`);
-      continue;
-    }
-    addEntity(kind, t.x, t.y);
-  }
-  for (const e of v1.enemies ?? []) {
-    const kind: EntityKind | undefined = e.kind === "Slime" ? "slime" : e.kind === "UltraSlime" ? "ultraslime" : undefined;
-    if (!kind) {
-      warnings.push(`skipped a "${String(e.kind).slice(0, 40)}" enemy: custom enemies are not supported`);
-      continue;
-    }
-    const x = Math.floor(e.spawnX / V1_TILE_PX);
-    const y = Math.floor(e.spawnY / V1_TILE_PX);
-    if (!inLevel(x, y)) {
-      outside++;
-      continue;
-    }
-    if (cells[y * w + x] !== 0) {
-      warnings.push(`skipped ${kind} at x=${x} y=${y}: the cell is solid`);
-      continue;
-    }
-    // Enemies also present as tiles 8/9 at the same cell are the same enemy.
-    addEntity(kind, x, y);
-  }
-  if (outside) warnings.push(`skipped ${outside} item(s) outside the ${w}x${h} level`);
-  for (const [idx, count] of unknown) warnings.push(`skipped ${count} tile(s) with unknown index ${idx}`);
-
-  const start = { x: Math.min(V1_START.x, w - 1), y: Math.min(V1_START.y, h - 1) };
-  const snap: LevelSnapshot = { w, h, cells, authors, provenance: {}, entities, entityAuthors, start };
-  if (cells[start.y * w + start.x] !== 0) warnings.push("the old start cell is solid; move the start");
-  const checked = checkSnapshot(snap);
-  if (!checked.ok) return { ok: false, error: `Could not convert this old Pewter save: ${checked.error}` };
-  return {
-    ok: true,
-    snapshot: checked.snapshot,
-    file: snapshotToSave(checked.snapshot, { savedAt: null }),
-    migratedFrom: 1,
-    warnings: [...warnings, ...checked.warnings],
-  };
 }
 
 /**
