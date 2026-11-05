@@ -92,6 +92,7 @@ export const PANEL_HTML = `
               <div class="pt-tabs-inline pg-suggest-switch" role="radiogroup" aria-label="Ghost filler" data-variant="filler"></div>
               <span class="pg-variant-label">Timing</span>
               <div class="pt-tabs-inline pg-suggest-switch" role="radiogroup" aria-label="Timing policy" data-variant="timing"></div>
+              <a class="pg-replay-link" id="pg-replay-link" href="./replay/" target="_blank" rel="noopener">Watch recorded sessions ↗</a>
             </div>
           </div>
           <div id="pg-toasts" class="pg-toasts" role="status" aria-live="polite"></div>
