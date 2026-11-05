@@ -509,7 +509,14 @@ describe("GET /replay (researcher read API)", () => {
     await withLogs(h);
     const res = await h.handler(get("/replay/sessions"));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ sessions: [{ sessionId: "p01" }, { sessionId: "p02" }] });
+    const body = (await res.json()) as { sessions: { sessionId: string; events: number; durationMs: number; hasReplay: boolean }[]; total: number };
+    expect(body.total).toBe(2);
+    expect(body.sessions.map((s) => s.sessionId).sort()).toEqual(["p01", "p02"]);
+    expect(body.sessions.find((s) => s.sessionId === "p01")).toMatchObject({ events: 2, durationMs: 1, hasReplay: false });
+    // ?limit= caps how many logs are read; the total still counts them all.
+    const one = (await (await h.handler(get("/replay/sessions?limit=1"))).json()) as { sessions: unknown[]; total: number };
+    expect(one.sessions).toHaveLength(1);
+    expect(one.total).toBe(2);
   });
 
   it("serves one session's log as JSONL, uncached", async () => {

@@ -304,6 +304,8 @@ export type LogEvent =
       config: Record<string, unknown>;
       /** Replay log version (absent in logs from before the replay work). */
       replay?: number;
+      /** Wall clock (epoch ms) when the session began, so replays can be listed by date. */
+      startedAt?: number;
     }
   | ({ type: "place" | "erase" } & PlacementEvent)
   | {

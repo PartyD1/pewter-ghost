@@ -224,6 +224,7 @@ export function sessionEvent(
     filler: info.filler,
     config: structuredClone(cfg) as unknown as Record<string, unknown>,
     replay: REPLAY_VERSION,
+    startedAt: Date.now(),
   };
 }
 

@@ -43,6 +43,7 @@ function build(mode: Mode) {
     filler: z.union([fillerName, z.literal("none")]),
     config: z.record(z.string(), z.unknown()),
     replay: int().min(0).optional(),
+    startedAt: nonNeg().optional(),
   });
 
   const placementShape = {

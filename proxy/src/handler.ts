@@ -44,6 +44,7 @@ import {
   type TokenStore,
 } from "./sessions";
 import { isSafeSessionId, jevKey, logKey, recordingKey, rejectedLogKey, type ProxyStore } from "./store";
+import { listSessionSummaries } from "./summary";
 import { UpstreamError, type Upstream, type UpstreamResult } from "./upstream";
 
 export interface HandlerDeps {
@@ -402,13 +403,10 @@ export function createHandler(deps: HandlerDeps): ProxyHandler {
     if (!r.ok) throw new HttpError(429, "rate limit exceeded", { "Retry-After": String(Math.max(1, Math.ceil(r.retryAfterMs / 1000))) });
 
     if (path === "/replay/sessions") {
-      const keys = await deps.store.list("logs/");
-      const sessions = keys
-        .filter((k) => k.endsWith(".jsonl") && !k.endsWith(".rejected.jsonl"))
-        .map((k) => k.slice("logs/".length, -".jsonl".length))
-        .filter((id) => isSafeSessionId(id))
-        .map((sessionId) => ({ sessionId }));
-      return json(200, { sessions });
+      const asked = Number(new URL(request.url).searchParams.get("limit"));
+      const limit = Number.isInteger(asked) && asked > 0 ? Math.min(asked, 300) : 60;
+      const { sessions, total } = deps.store.summaries ? await deps.store.summaries(limit) : await listSessionSummaries(deps.store, limit);
+      return json(200, { sessions, total });
     }
     let id = "";
     try {

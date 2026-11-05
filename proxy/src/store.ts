@@ -14,6 +14,11 @@ export interface ProxyStore {
   read(key: string): Promise<string | null>;
   /** Every key that starts with `prefix` (e.g. "logs/"), sorted. Used by the replay read API. */
   list(prefix: string): Promise<string[]>;
+  /**
+   * Optional fast path for the replay list: newest-first summaries without
+   * reading every log (the Firestore store keeps them). Absent = computed from the logs.
+   */
+  summaries?(limit: number): Promise<{ sessions: import("./summary").SessionSummary[]; total: number }>;
 }
 
 export class MemoryStore implements ProxyStore {
