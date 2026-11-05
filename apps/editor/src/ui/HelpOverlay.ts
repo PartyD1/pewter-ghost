@@ -36,6 +36,9 @@ export const HELP_SECTIONS: readonly [string, readonly [string, string][]][] = [
     [
       [MODES.map((m) => MODE_KEY[m]).join(" / "), `${MODES.map((m) => MODE_LABEL[m]).join(" / ")} mode`],
       ["Ctrl + Z / Ctrl + Shift + Z", "Undo / redo (one ghost = one step)"],
+      ["Select: drag", "Box-select a stretch; drag inside the box to move it (hold Alt to copy)"],
+      ["Delete", "Delete what is in the selection"],
+      ["Ctrl + C / X / V / A", "Copy / cut / paste at the pointer / select the whole level"],
       ["Space + drag", "Pan (any mode); two-finger drag on a trackpad"],
       ["WASD / arrows", "Move camera (Press Shift to move faster)"],
       ["Ctrl + S", "Save task"],
