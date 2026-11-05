@@ -80,6 +80,12 @@ export interface GhostConfig {
    * flip to another before they can take it. Requests and patrol fixes ignore it.
    */
   ghostMinShowMs: number;
+  /**
+   * Most suggestions the person can cycle through at once (the shown ghost
+   * included). A newer automatic suggestion over the same spot joins as a
+   * choice while there is room; 1 = never. Usually there is just one.
+   */
+  maxChoices: number;
   /** After Ctrl+Space with nothing held, a suggestion arriving within this many ms shows as "requested". */
   requestWindowMs: number;
   /** Painting outside a shown ghost dismisses it ("keep drawing and it goes away"). */
@@ -193,6 +199,7 @@ export const DEFAULT_CONFIG: GhostConfig = {
   ghostTimeoutMs: 30000,
   ghostDrawGraceMs: 1500,
   ghostMinShowMs: 6000,
+  maxChoices: 3,
   requestWindowMs: 3000,
   dismissOnDrawElsewhere: true,
   adaptThresholds: true,

@@ -38,6 +38,10 @@
  *    within ghostDrawGraceMs of it appearing.
  *  - Busy: for ghostMinShowMs after a ghost shows, a newer automatic suggestion
  *    is dropped ("busy") instead of replacing it; requests and patrol fixes still do.
+ *  - Choices: a newer automatic suggestion that overlaps the shown ghost is kept
+ *    as another choice (up to maxChoices in all, never for fixes), ranked with it
+ *    by confidence; `cycle()` swaps which one is on screen (the one it replaces ends
+ *    "replaced", not a dismissal). Choices go when the ghost ends or their cells are drawn.
  *  - Cool-down: after a dismissal (Esc or drawn-over), no ghost whose bounding
  *    box overlaps the dismissed one (grown by cooldownMarginTiles) for
  *    cooldownAfterDismissMs.
@@ -130,6 +134,8 @@ export interface ManagerListeners {
   /** A suggestion was dropped without showing. */
   onDrop?(s: Suggestion, reason: DropReason, t: number): void;
   onStateChange?(state: ManagerState, prev: ManagerState): void;
+  /** The shown ghost's rank (0-based) among its choices changed or a choice came or went. */
+  onChoices?(index: number, total: number): void;
   onThresholdChange?(change: ThresholdChange): void;
 }
 
@@ -154,6 +160,8 @@ export interface OfferOptions {
 export type OfferResult =
   | { status: "shown"; because: ShownBecause }
   | { status: "held"; when: TimerDecision["when"] | "locked" }
+  /** Kept as another choice behind the ghost on screen; `index` is its 0-based rank among `total`. */
+  | { status: "alternate"; index: number; total: number }
   | { status: "dropped"; reason: DropReason };
 
 export type RequestResult = "shown" | "already-showing" | "pending";
@@ -199,6 +207,8 @@ export class SuggestionManager {
   private readonly on: ManagerListeners;
 
   private held: Slot | null = null;
+  /** Other choices behind the shown ghost (same area, ranked with it by confidence); cleared when it ends. */
+  private alts: Slot[] = [];
   /** Stroke id of the person's latest placement (to tell a stroke still under way from a new one). */
   private lastStroke: string | null = null;
   private showing: Slot | null = null;
@@ -236,6 +246,12 @@ export class SuggestionManager {
   }
   get shownBecause(): ShownBecause | null {
     return this.showing?.because ?? null;
+  }
+  /** Rank of the shown ghost among the choices, 0-based, and how many there are; null when nothing shows. */
+  get choices(): { index: number; total: number } | null {
+    if (!this.showing) return null;
+    const ring = this.ring();
+    return { index: ring.indexOf(this.showing), total: ring.length };
   }
   /** The suggestion waiting for its moment, if any. */
   get waiting(): VerifiedSuggestion | null {
@@ -297,17 +313,6 @@ export class SuggestionManager {
       return this.dropNew(s, "blocked", now);
     }
 
-    // A ghost the person has had little time to look at is not replaced by a newer automatic one.
-    if (
-      this.showing &&
-      !slot.requested &&
-      !slot.patrolFix &&
-      cfg.ghostMinShowMs > 0 &&
-      now - this.showing.shownAt < cfg.ghostMinShowMs
-    ) {
-      return this.dropNew(s, "busy", now);
-    }
-
     if (s.kind === "fix") {
       for (const k of slot.keys) {
         const ch = this.cellChanges.get(k);
@@ -326,6 +331,16 @@ export class SuggestionManager {
     if (!slot.requested) {
       this.expireCooldowns(now);
       if (this.inCooldown(s, now)) return this.dropNew(s, "cooldown", now);
+    }
+
+    if (this.showing && !slot.requested && !slot.patrolFix) {
+      // Another take on the same spot becomes a choice behind the ghost on screen (up to maxChoices in all).
+      const alt = this.tryAlternate(slot, now);
+      if (alt) return alt;
+      // A ghost the person has had little time to look at is not replaced by a newer automatic one.
+      if (cfg.ghostMinShowMs > 0 && now - this.showing.shownAt < cfg.ghostMinShowMs) {
+        return this.dropNew(s, "busy", now);
+      }
     }
 
     // One slot: the newer suggestion replaces whatever is there.
@@ -391,6 +406,7 @@ export class SuggestionManager {
     this.lastStroke = ev.stroke;
 
     if (this.held && this.held.keys.has(key)) this.dropHeld("stale", now);
+    this.dropAltsWhere((a) => a.keys.has(key), "stale", now);
 
     this.evaluate(now);
   }
@@ -414,6 +430,7 @@ export class SuggestionManager {
     }
     if (hitShowing) this.endShowing("drawn-over", now, stroke);
     if (hitHeld) this.dropHeld("stale", now);
+    this.dropAltsWhere((a) => cells.some((p) => a.keys.has(cellKey(p.x, p.y))), "stale", now);
     this.evaluate(now);
   }
 
@@ -570,10 +587,11 @@ export class SuggestionManager {
     this.on.onShow?.(slot.s, because, now);
   }
 
-  private endShowing(outcome: GhostOutcome, now: number, stroke?: string): void {
+  private endShowing(outcome: GhostOutcome, now: number, stroke?: string, keepAlts = false): void {
     const sl = this.showing;
     if (!sl) return;
     this.showing = null;
+    if (!keepAlts) this.dropAltsWhere(() => true, "superseded", now);
     const acceptedCount = sl.accepted.size;
     let final: GhostOutcome = outcome;
     if (outcome !== "accepted" && acceptedCount > 0) final = "partial";
@@ -598,6 +616,58 @@ export class SuggestionManager {
       this.dismissStreak = 0;
       this.dismissedBoxes = [];
     }
+  }
+
+  /** The shown ghost and its choices, best first (ties: the earlier offer). */
+  private ring(): Slot[] {
+    const all = this.showing ? [this.showing, ...this.alts] : [...this.alts];
+    return all.sort((a, b) => b.s.confidence - a.s.confidence || a.offeredAt - b.offeredAt);
+  }
+
+  private tryAlternate(slot: Slot, now: number): OfferResult | null {
+    const cfg = this.cfg();
+    const sh = this.showing;
+    if (!sh || cfg.maxChoices <= 1 || this.alts.length + 1 >= cfg.maxChoices) return null;
+    if (sh.s.kind === "fix" || slot.s.kind === "fix") return null;
+    if (!boxesOverlap(sh.box, slot.box, cfg.newStructureTiles)) return null;
+    if (this.alts.some((a) => a.sig === slot.sig)) return null;
+    this.alts.push(slot);
+    const ring = this.ring();
+    this.updateState(now);
+    this.on.onChoices?.(ring.indexOf(sh), ring.length);
+    return { status: "alternate", index: ring.indexOf(slot), total: ring.length };
+  }
+
+  private dropAltsWhere(pred: (a: Slot) => boolean, reason: DropReason, now: number): void {
+    if (this.alts.length === 0) return;
+    const gone = this.alts.filter(pred);
+    if (gone.length === 0) return;
+    this.alts = this.alts.filter((a) => !gone.includes(a));
+    for (const a of gone) this.on.onDrop?.(a.s, reason, now);
+    if (this.showing) {
+      const ring = this.ring();
+      this.on.onChoices?.(ring.indexOf(this.showing), ring.length);
+    }
+  }
+
+  /**
+   * Show another choice (dir 1 = next, -1 = previous, in rank order, wrapping).
+   * The ghost on screen ends "replaced" (not a dismissal) and stays among the
+   * choices. Not possible once some of its cells were painted by hand.
+   */
+  cycle(dir: 1 | -1 = 1): boolean {
+    const cur = this.showing;
+    if (!cur || this.alts.length === 0 || cur.accepted.size > 0) return false;
+    const now = this.clock.now();
+    const ring = this.ring();
+    const next = ring[(ring.indexOf(cur) + dir + ring.length) % ring.length]!;
+    if (next === cur) return false;
+    this.alts = ring.filter((x) => x !== next);
+    this.endShowing("replaced", now, undefined, true);
+    this.show(next, cur.because ?? "now", now);
+    this.on.onChoices?.(ring.indexOf(next), ring.length);
+    this.evaluate(now);
+    return true;
   }
 
   private dropHeld(reason: DropReason, now: number): void {

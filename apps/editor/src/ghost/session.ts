@@ -224,7 +224,9 @@ export class GhostSession {
     if (this.disposed) return { status: "dropped", reason: "reset" };
     if (s.levelGuess) this.setLevelGuess(s.levelGuess);
     const r = this.manager.offer(s, o);
-    if (r.status !== "shown") this.devEvent(r.status === "held" ? `held "${s.label}" (${r.when})` : `dropped "${s.label}": ${r.reason}`);
+    if (r.status === "held") this.devEvent(`held "${s.label}" (${r.when})`);
+    else if (r.status === "alternate") this.devEvent(`choice ${r.index + 1}/${r.total}: "${s.label}"`);
+    else if (r.status === "dropped") this.devEvent(`dropped "${s.label}": ${r.reason}`);
     return r;
   }
 
