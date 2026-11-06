@@ -5,7 +5,7 @@
  * this.add.dom(460, 692).setDepth(1001)).
  *
  * The markup is copied from pewter-platfomer src/phaser/UIScene.ts create()
- * (lines 140-236 and 517-526) and styled by legacy/chatbox.css. Changes for
+ * (lines 140-236 and 517-526) and styled by styles/chrome.css. Changes for
  * Pewter Ghost, per docs/PLAN.md ("Proposed Information Architecture",
  * "Keep, Fix, or Drop"):
  * - No chat: the Chat tab, chat log, typing indicator and chat input are gone.

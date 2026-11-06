@@ -1,11 +1,11 @@
 /* ============================================================
-   Pewter — dark game UI  (Space Grotesk, platformer theme)
+   Chrome: dark game UI  (Space Grotesk, platformer theme)
    ============================================================ */
 
-/* Pewter Ghost: the Google Fonts @import that stood here is replaced by the
-   self-hosted copy of the same stylesheet (public/fonts/space-grotesk/,
-   linked from index.html). Everything else in this file is a verbatim copy of
-   pewter-platfomer/src/phaser/chatbox.css at 47b7a93. */
+/* Fonts: Space Grotesk is self-hosted (public/fonts/space-grotesk/, linked
+   from index.html). Design tokens, the side panel, toolbar pills, dialogs,
+   toasts and the Play HUD. Page layout is base.css; the chrome pieces added
+   for Pewter Ghost are editor.css. */
 
 /* Design tokens */
 :root {
@@ -117,102 +117,6 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-}
-
-/* ============================================================
-   CHAT TAB
-   ============================================================ */
-.pt-chat-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.pt-chat-log {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 16px 14px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  box-sizing: border-box;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(124, 92, 250, 0.2) transparent;
-}
-
-.pt-chat-log::-webkit-scrollbar {
-  width: 3px;
-}
-.pt-chat-log::-webkit-scrollbar-thumb {
-  background: rgba(124, 92, 250, 0.25);
-  border-radius: 2px;
-}
-
-/* ---- Message bubbles (no labels) ---- */
-.pt-msg-human,
-.pt-msg-ai {
-  padding: 10px 13px;
-  border-radius: 10px;
-  font-size: 13.5px;
-  line-height: 1.6;
-  word-break: break-word;
-  box-sizing: border-box;
-}
-
-/* User — right-aligned, indigo tint */
-.pt-msg-human {
-  background: rgba(96, 165, 250, 0.12);
-  border: 1px solid rgba(96, 165, 250, 0.22);
-  color: #c7dcff;
-  align-self: flex-end;
-  max-width: 88%;
-  border-bottom-right-radius: 3px;
-}
-
-/* AI — left-aligned, dark surface */
-.pt-msg-ai {
-  background: var(--pt-surface);
-  border: 1px solid var(--pt-border-hi);
-  color: var(--pt-text);
-  align-self: flex-start;
-  max-width: 96%;
-  border-bottom-left-radius: 3px;
-}
-
-/* Markdown inside messages */
-.pt-msg-ai strong,
-.pt-msg-human strong {
-  font-weight: 600;
-}
-
-.pt-msg-ai code,
-.pt-msg-human code {
-  background: rgba(255, 255, 255, 0.08);
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
-  font-size: 12px;
-}
-
-.pt-msg-ai ul,
-.pt-msg-human ul {
-  margin: 5px 0 2px;
-  padding-left: 18px;
-}
-
-.pt-msg-ai li,
-.pt-msg-human li {
-  margin: 3px 0;
-}
-
-/* ---- Input area ---- */
-.pt-chat-input-area {
-  padding: 10px 14px 14px;
-  flex-shrink: 0;
-  box-sizing: border-box;
-  border-top: 1px solid var(--pt-border);
 }
 
 .pt-chat-input {
@@ -442,15 +346,6 @@
   text-align: right;
 }
 
-/* ============================================================
-   TYPING INDICATOR
-   ============================================================ */
-.pt-typing-dots::after {
-  content: "   ";
-  animation: pt-dots 1.2s steps(4, end) infinite;
-  letter-spacing: 2px;
-}
-
 @keyframes pt-dots {
   0% {
     content: "   ";
@@ -572,84 +467,6 @@
   background: rgba(22, 100, 55, 0.95);
   border-color: rgba(74, 222, 128, 0.8);
   color: #bbf7d0;
-}
-
-/* Reload */
-.pt-tbtn-reload {
-  background: rgba(100, 55, 10, 0.85);
-  border-color: rgba(251, 146, 60, 0.5);
-  color: #fdba74;
-}
-.pt-tbtn-reload:hover {
-  background: rgba(124, 68, 12, 0.95);
-  border-color: rgba(251, 146, 60, 0.8);
-  color: #fed7aa;
-}
-
-/* ============================================================
-   PLAY MODE HUD
-   ============================================================ */
-.pt-play-hud {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 46px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 18px;
-  background: rgba(8, 8, 15, 0.78);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-  box-sizing: border-box;
-  font-family: "Space Grotesk", system-ui, sans-serif;
-  z-index: 9999;
-}
-
-.pt-play-hud-left,
-.pt-play-hud-right {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-}
-
-.pt-play-hearts {
-  font-size: 16px;
-  letter-spacing: 3px;
-  color: #f87171;
-  user-select: none;
-}
-
-.pt-play-coins {
-  font-size: 13px;
-  font-weight: 500;
-  color: #fbbf24;
-  user-select: none;
-}
-
-.pt-play-boxes-btn {
-  padding: 5px 13px;
-  border-radius: 7px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  background: rgba(22, 22, 38, 0.9);
-  color: #c8c8e8;
-  cursor: pointer;
-  font-family: "Space Grotesk", system-ui, sans-serif;
-  font-size: 12px;
-  font-weight: 600;
-  transition:
-    background 0.12s,
-    color 0.12s,
-    border-color 0.12s;
-  user-select: none;
-}
-
-.pt-play-boxes-btn:hover {
-  background: rgba(36, 36, 58, 0.98);
-  border-color: rgba(255, 255, 255, 0.45);
-  color: #ffffff;
 }
 
 .pt-play-hint {

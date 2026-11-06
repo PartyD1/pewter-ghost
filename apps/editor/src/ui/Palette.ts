@@ -11,7 +11,7 @@
  *   "selected" class follows the mode and brush (so keys 1-4 update it);
  * - items the old palette did not have (Start, Goal flag, Sign) use
  *   the same icon span, cut from the composite pg-tiles texture
- *   (.pg-block-icon-tiles, style.css);
+ *   (.pg-block-icon-tiles, styles/editor.css);
  * - the Sign item shows the "Sign text" group while the sign brush is on.
  */
 import type { Brush, ModeState } from "../editor/modes";

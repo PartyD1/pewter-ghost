@@ -1,7 +1,7 @@
 /**
  * A minimal modal dialog. While one is open the editor's shortcuts are off.
  *
- * Old glass style: the box is the old panel (.pt-chatbox values, style.css
+ * Old glass style: the box is the old panel (.pt-chatbox values, styles/editor.css
  * .pg-dialog), its head is the old panel header (.pt-chatbox-header with the
  * .pt-brand title), its close button an old .pt-tab, and its body the old
  * Controls tab body (.pt-controls-content), so h3 headings and

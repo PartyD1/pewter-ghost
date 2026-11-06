@@ -1,10 +1,6 @@
 /* ============================================================
-   Pewter Ghost: styles for the few chrome elements the old Pewter Platformer
-   did not have. Everything else is legacy/style.css and legacy/chatbox.css,
-   verbatim copies of the old app's CSS (imported before this file).
-
-   Every value here is taken from an old rule (named in the comment) unless
-   it is marked NEW (no old source).
+   Editor chrome: the stage, side panel slot, Help, Level goal and ghost
+   switches. Imported after base.css and chrome.css, which it builds on.
    ============================================================ */
 
 /* The stage: the Phaser parent inside the old #phaser. Positioned so the

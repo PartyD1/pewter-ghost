@@ -5,8 +5,8 @@
  * "pt-temp-message"> at a time (a new one replaces the old), at the foot of
  * the panel where the old chat log showed it, faded over 0.5 s and removed
  * after `ms` (old default 3000). Styled by the old .pt-temp-message rule
- * (legacy/chatbox.css: amber, italic 12px). An error uses the old eraser
- * group's red (style.css .pg-toast-error) and stays a little longer.
+ * (styles/chrome.css: amber, italic 12px). An error uses the old eraser
+ * group's red (styles/editor.css .pg-toast-error) and stays a little longer.
  *
  * No buttons: actions that used to sit on notices (Reload from save, Start a
  * new level) are in Help. Warning details go in the text's tooltip.

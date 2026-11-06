@@ -6,8 +6,7 @@
  * research log, the session token / condition, the fillers, the agent and the
  * patrol, and starts the ghost session (ghost/session.ts) once the editor is ready.
  *
- * The page is the old Pewter Platformer's (index.html, legacy/style.css,
- * legacy/chatbox.css): the "PEWTER GHOST" label over a fixed 1280x720
+ * The page (index.html, styles/base.css, styles/chrome.css): the "PEWTER GHOST" label over a fixed 1280x720
  * Phaser CANVAS game (old src/main.ts:63-91), with the old floating panel and
  * bottom toolbar mounted over it by ui/ChromeScene.ts.
  *
@@ -17,9 +16,9 @@
  * (the default is the old app's Canvas renderer; ?renderer=canvas is accepted too);
  * ?filler=llm|stub|none, ?token=, ?proxy=, ?callTimeoutMs= (session.ts); ?dev=1 dev overlay.
  */
-import "./legacy/style.css";
-import "./legacy/chatbox.css";
-import "./style.css";
+import "./styles/base.css";
+import "./styles/chrome.css";
+import "./styles/editor.css";
 import Phaser from "phaser";
 import type { LogEvent } from "./contracts";
 import { LevelModel } from "./level/LevelModel";
@@ -154,7 +153,7 @@ const gameConfig: Phaser.Types.Core.GameConfig & { resolution?: number } = {
     },
   },
   // 928 = the old 1280 px canvas minus the 340 px panel and a 12 px gap: the
-  // panel now sits beside the canvas instead of over it (style.css #pg-frame).
+  // panel now sits beside the canvas instead of over it (styles/editor.css #pg-frame).
   width: 928,
   height: 720,
   parent: stage,
