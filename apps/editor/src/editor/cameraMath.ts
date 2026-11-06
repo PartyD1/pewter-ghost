@@ -137,3 +137,18 @@ export function snapScroll(scroll: number, zoom: number, origin: number): number
   const screenOrigin = Math.round(origin - zoom * (scroll + origin));
   return (origin - screenOrigin) / zoom - origin;
 }
+
+/** Share of the gap the Play camera closes per 1/60 s (the old startFollow lerp). */
+export const FOLLOW_LERP_60HZ = 0.1;
+
+/**
+ * Follow lerp for a frame lasting `dtSeconds`, so the camera trails the same
+ * way at any screen rate: exactly FOLLOW_LERP_60HZ at 60 Hz, and two frames at
+ * 120 Hz close the same gap as one at 60 Hz. A fixed lerp per frame catches up
+ * twice as fast at 120 Hz, and also moves on the frames where the 60 Hz physics
+ * left the knight still, which shows as the knight jumping back on screen.
+ */
+export function followLerp(dtSeconds: number): number {
+  if (!(dtSeconds > 0)) return 0;
+  return 1 - Math.pow(1 - FOLLOW_LERP_60HZ, dtSeconds * 60);
+}

@@ -1,10 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { clampCenter, easeOutCubic, fitZoom, nudgeTarget, screenToWorld, snapScroll, wheelIntent, zoomAround, zoomLimits } from "./cameraMath";
+import { clampCenter, easeOutCubic, fitZoom, FOLLOW_LERP_60HZ, followLerp, nudgeTarget, screenToWorld, snapScroll, wheelIntent, zoomAround, zoomLimits } from "./cameraMath";
 
 const level = { w: 3200, h: 320 };
 const vp = { w: 1280, h: 720 };
 
 describe("camera math", () => {
+  it("the follow lerp keeps its old value at 60 Hz and closes the same gap at any rate", () => {
+    expect(followLerp(1 / 60)).toBeCloseTo(FOLLOW_LERP_60HZ, 10);
+    const gapAfter = (hz: number) => Math.pow(1 - followLerp(1 / hz), hz);
+    expect(gapAfter(120)).toBeCloseTo(gapAfter(60), 10);
+    expect(gapAfter(144)).toBeCloseTo(gapAfter(60), 10);
+    expect(followLerp(0)).toBe(0);
+    expect(followLerp(-1)).toBe(0);
+    expect(followLerp(10)).toBeLessThanOrEqual(1);
+  });
+
   it("fit zoom shows the whole level height", () => {
     const z = fitZoom(vp, level);
     expect(320 * z).toBeLessThanOrEqual(720);
