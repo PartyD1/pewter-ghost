@@ -311,7 +311,14 @@ function sugg(id, over) {
     await page.keyboard.press("Control+Space");
     assert(/^asked/.test((await strip()).main), "Ctrl+Space: strip says asked");
     await page.keyboard.press("Escape");
-    assert((await strip()).main === "quiet · Ctrl+Space to ask", "Esc cancels the request");
+    // The strip redraws a frame or two after the key (about 35 ms), so give it a moment.
+    const escAt = Date.now();
+    let afterEsc = (await strip()).main;
+    while (afterEsc !== "quiet · Ctrl+Space to ask" && Date.now() - escAt < 2000) {
+      await page.waitForTimeout(16);
+      afterEsc = (await strip()).main;
+    }
+    assert(afterEsc === "quiet · Ctrl+Space to ask", `Esc cancels the request ("${afterEsc}")`);
 
     // ---- Fix: removals crossed out, one undo restores exactly --------------------------
     const before = await G(() => JSON.stringify(window.__pewter.model.snapshot()));
