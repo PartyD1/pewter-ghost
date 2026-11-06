@@ -1,7 +1,7 @@
 # Notes for builders (humans and agents)
 
 - Everything lives under `pewter-ghost/`. Run commands from there.
-- Spec: `docs/PLAN.md` (generated from the published plans; work items G-01..G-38 at the end).
+- Design: the original plan (work items G-01..G-38, cited in code comments) is in git history only: `git show c9c7a7e:docs/PLAN.md`.
 - Contracts: `apps/editor/src/contracts.ts`. Tunables: `apps/editor/src/suggest/config.ts`.
   Do not change a contract silently: if you must, add a line to `docs/decisions.md` and keep old fields working.
 - Import aliases: `@app/*` -> apps/editor/src, `@physsim`, `@measure`, `@jump-tables`, `@chunks` -> packages/*/src/index.ts.

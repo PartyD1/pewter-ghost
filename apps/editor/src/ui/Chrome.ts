@@ -5,9 +5,8 @@
  * this.add.dom(460, 692).setDepth(1001)).
  *
  * The markup is copied from pewter-platfomer src/phaser/UIScene.ts create()
- * (lines 140-236 and 517-526) and styled by legacy/chatbox.css. Changes for
- * Pewter Ghost, per docs/PLAN.md ("Proposed Information Architecture",
- * "Keep, Fix, or Drop"):
+ * (lines 140-236 and 517-526) and styled by styles/chrome.css. Changes for
+ * Pewter Ghost, per the original design plan (see README):
  * - No chat: the Chat tab, chat log, typing indicator and chat input are gone.
  * - No tabs at all: the Blocks tab's content is shown directly in the panel
  *   (the old Controls tab is replaced by Help and the visible modes).
@@ -23,8 +22,7 @@
  * - Notices (#pg-toasts) are the old temporary message at the panel's foot,
  *   where the old chat log showed it (ui/Toast.ts).
  * - Toolbar: "✕ Deselect" is gone (no selection boxes); "? Help" is the
- *   neutral .pt-tbtn pill (Deselect's style); "↺ Save & Reload" is
- *   "↺ Save task". The four modes, and Undo / Redo, are each one neutral
+ *   neutral .pt-tbtn pill (Deselect's style). The four modes, and Undo / Redo, are each one neutral
  *   pill holding buttons in the pill's own type (600 14px #c8c8e8; the
  *   active mode is the old violet active tab): eleven separate 20px-padded
  *   pills do not fit the old 910px row left of the panel (measured
@@ -115,10 +113,7 @@ export const TOOLBAR_HTML = `
           <button class="pt-tab" id="tbtn-undo" type="button" data-cmd="undo" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
           <button class="pt-tab" id="tbtn-redo" type="button" data-cmd="redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo">↷</button>
         </div>
-        <button class="pt-tbtn pt-tbtn-save" id="tbtn-save" data-cmd="save" title="Download the level and keep a copy in this browser (Ctrl+S)">💾 Save</button>
-        <button class="pt-tbtn pt-tbtn-load" id="tbtn-load" data-cmd="load" title="Open a saved level file">📂 Load</button>
-        <button class="pt-tbtn pt-tbtn-reload" id="tbtn-reload" data-cmd="reload" title="Save the task file, then reload">↺ Save task</button>
-        <button class="pt-tbtn" id="tbtn-help" data-cmd="help" title="Keys, share code, play settings (?)">? Help</button>
+        <button class="pt-tbtn" id="tbtn-help" data-cmd="help" title="Keys, level goal, new level (?)">? Help</button>
       </div>
     `;
 

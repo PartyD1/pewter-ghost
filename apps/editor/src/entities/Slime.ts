@@ -15,7 +15,7 @@ export class Slime extends EnemySprite {
   }
 
   protected think(deltaMs: number): BrainStep {
-    return stepSlime(this.brain, deltaMs, this.x, this.range, this.host.tuning());
+    return stepSlime(this.brain, deltaMs, this.x, this.range);
   }
 
   protected pelletFor(_shot: Shot) {

@@ -10,7 +10,7 @@ test("boots with the replayed proxy and no console errors", async ({ page }) => 
   const ed = await Editor.open(page, { proxy: { condition: "llm", sessionId: "e2e-smoke" } });
 
   await expect(page.locator("canvas")).toBeVisible();
-  await expect(page.locator('[data-cmd="save"]')).toBeVisible();
+  await expect(page.locator('[data-cmd="play"]')).toBeVisible();
   await expect(page.locator('[data-item="grass"]')).toBeVisible();
   await expect(page.locator("#ghost-status")).toBeVisible();
 

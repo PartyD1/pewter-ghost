@@ -6,14 +6,12 @@ import { AUTHOR, LEVEL_H, LEVEL_W, TILE } from "../contracts";
 import { LevelModel } from "./LevelModel";
 import {
   formatSave,
-  importV1,
   loadSaveInto,
   parseSave,
   saveFileName,
   serializeSave,
   summariseHistory,
   toSaveFile,
-  V1_START,
   type SaveFileV2,
 } from "./save";
 
@@ -48,7 +46,6 @@ describe("save v2", () => {
         { id: "sug-7", kind: "extend", label: "two blocks", outcome: "accepted", cells: 3, acceptedCells: 3 },
         { id: "sug-8", kind: "finish", label: "close gap", outcome: "esc" },
       ]),
-      playSettings: { gravityScale: 1.2, enemyAggression: 0.5 },
     });
     const res = parseSave(text);
     expect(res.ok).toBe(true);
@@ -57,7 +54,6 @@ describe("save v2", () => {
     expect(res.warnings).toEqual([]);
     expect(res.file.history?.outcomes).toEqual({ accepted: 1, esc: 1 });
     expect(res.file.history?.shown).toBe(2);
-    expect(res.file.playSettings).toEqual({ gravityScale: 1.2, enemyAggression: 0.5 });
     // Re-serialising the parsed file is byte-identical.
     expect(formatSave(res.file)).toBe(text);
   });
@@ -183,13 +179,10 @@ describe("malformed files never load and never touch the model", () => {
     ["start outside", () => ({ ...good(), start: { x: 200, y: 0 } })],
     ["start missing", () => ({ ...good(), start: undefined })],
     ["goal outside", () => ({ ...good(), goal: { x: 0, y: 20 } })],
-    ["bad play settings", () => ({ ...good(), playSettings: { gravityScale: 0 } })],
-    ["unknown play setting", () => ({ ...good(), playSettings: { warp: 2 } })],
     ["bad history", () => ({ ...good(), history: { shown: -1, outcomes: {}, recent: [] } })],
     ["huge dims", () => ({ ...good(), w: 100000 })],
     ["w mismatch", () => ({ ...good(), w: 199 })],
-    ["v1 with bad tiles", () => ({ version: 1, groundTiles: "lots" })],
-    ["v1 with bad enemy", () => ({ version: 1, groundTiles: [], enemies: [{ kind: "Slime" }] })],
+    ["old v1 file", () => ({ version: 1, groundTiles: [] })],
   ];
 
   for (const [name, make] of cases) {
@@ -251,67 +244,5 @@ describe("malformed files never load and never touch the model", () => {
     expect(res.snapshot.authors[0]).toBe(0);
     expect(res.snapshot.provenance[15 * LEVEL_W]).toBeUndefined();
     expect(res.warnings.length).toBe(3);
-  });
-});
-
-describe("v1 import (old Pewter saves)", () => {
-  it("imports the audit's malformed save instead of wiping the level", () => {
-    const res = parseSave(fixture("v1-malformed-dynamic-enemy.json"));
-    expect(res.ok).toBe(true);
-    if (!res.ok) return;
-    expect(res.migratedFrom).toBe(1);
-    expect(res.snapshot.cells[3 * LEVEL_W + 3]).toBe(TILE.GRASS);
-    expect(res.snapshot.authors[3 * LEVEL_W + 3]).toBe(AUTHOR.PERSON);
-    expect(res.snapshot.entities).toEqual([]);
-    expect(res.warnings.some((w) => w.includes("Dynamic"))).toBe(true);
-    expect(res.snapshot.start).toEqual(V1_START);
-  });
-
-  it("maps terrain, collectables and enemies with author = person", () => {
-    const res = parseSave(fixture("v1-typical.json"));
-    expect(res.ok).toBe(true);
-    if (!res.ok) return;
-    const s = res.snapshot;
-    const at = (x: number, y: number) => s.cells[y * LEVEL_W + x];
-    expect([at(0, 15), at(1, 15), at(2, 15), at(3, 15), at(4, 15), at(5, 15)]).toEqual([6, 6, 6, 4, 1, 7]);
-    expect([at(0, 16), at(1, 16)]).toEqual([5, 5]);
-    expect(at(3, 3)).toBe(0);
-    for (let i = 0; i < s.cells.length; i++) expect(s.authors[i]).toBe(s.cells[i] ? AUTHOR.PERSON : AUTHOR.NONE);
-    expect(s.entities.map((e) => [e.kind, e.x, e.y])).toEqual([
-      ["slime", 10, 14],
-      ["ultraslime", 12, 14],
-      ["coin", 2, 12],
-      ["fruit", 3, 12],
-      ["ultraslime", 20, 14],
-    ]);
-    for (const e of s.entities) expect(s.entityAuthors[e.id]).toBe(AUTHOR.PERSON);
-    expect(res.warnings).toEqual(
-      expect.arrayContaining([
-        "skipped coin at x=0 y=15: the cell is solid",
-        "skipped slime at x=12 y=14: a ultraslime is already there",
-        "skipped 1 item(s) outside the 200x20 level",
-        "skipped 1 tile(s) with unknown index 42",
-      ]),
-    );
-    expect(Object.keys(s.provenance)).toHaveLength(0);
-  });
-
-  it("loads into the model and saves back as v2", () => {
-    const m = new LevelModel();
-    const res = loadSaveInto(m, fixture("v1-typical.json"));
-    expect(res.ok).toBe(true);
-    expect(m.tileAt(4, 15)).toBe(TILE.BLOCK);
-    const again = parseSave(serializeSave(m));
-    expect(again.ok && again.migratedFrom).toBe(undefined);
-    expect(again.ok && again.snapshot).toEqual(m.snapshot());
-  });
-
-  it("accepts an old save without a version field and with missing layers", () => {
-    const res = importV1({ groundTiles: [{ x: 1, y: 1, index: 1 }] });
-    expect(res.ok).toBe(true);
-    const res2 = parseSave({ groundTiles: [] });
-    expect(res2.ok).toBe(true);
-    const res3 = parseSave({ version: 1 });
-    expect(res3.ok).toBe(true);
   });
 });

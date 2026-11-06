@@ -6,7 +6,6 @@
 import Phaser from "phaser";
 import type { Entity } from "../contracts";
 import { ASSET, DEPTH, ENTITY_FRAME, TILE_PX } from "../editor/constants";
-import type { EnemyTuning } from "../editor/playSettings";
 import { patrolRangePx, type BrainStep, type Shot } from "./brains";
 
 export interface PelletSpec {
@@ -23,7 +22,6 @@ export interface PelletSpec {
 
 export interface EnemyHost {
   spawnPellet(p: PelletSpec): void;
-  tuning(): EnemyTuning;
 }
 
 export abstract class EnemySprite extends Phaser.Physics.Arcade.Sprite {

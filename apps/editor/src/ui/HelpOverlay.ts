@@ -3,9 +3,8 @@
  * (pewter-platfomer src/phaser/UIScene.ts:174-233: h3 headings and
  * .control-item rows of .control-key / .control-desc), inside an old-style
  * glass dialog. It replaces the Controls tab (plan: "Replaced by visible
- * modes and three keys that matter"). Two links at the foot open the Share
- * code and Play settings dialogs; two more (Reload save, New level) hold the
- * actions that used to sit on notices. The footer buttons are old .pt-tab
+ * modes and three keys that matter"). Links at the foot open the Level
+ * goal and start a New level. The footer buttons are old .pt-tab
  * buttons (the old panel's size), "Got it" the old active tab.
  */
 import { MODE_KEY, MODE_LABEL, MODES } from "../editor/modes";
@@ -41,7 +40,6 @@ export const HELP_SECTIONS: readonly [string, readonly [string, string][]][] = [
       ["Ctrl + C / X / V / A", "Copy / cut / paste at the pointer / select the whole level"],
       ["Space + drag", "Pan (any mode); two-finger drag on a trackpad"],
       ["WASD / arrows", "Move camera (Press Shift to move faster)"],
-      ["Ctrl + S", "Save task"],
       ["U", "Toggle UI"],
     ],
   ],
@@ -52,9 +50,6 @@ export const HELP_KEYS: readonly [string, string][] = HELP_SECTIONS.flatMap(([, 
 
 export interface HelpLinks {
   intent?: () => void;
-  share: () => void;
-  settings: () => void;
-  reloadSave?: () => void;
   newLevel?: () => void;
 }
 
@@ -92,9 +87,6 @@ export function toggleHelp(links?: HelpLinks): void {
           "div",
           { class: "pg-dialog-actions pg-help-links" },
           links?.intent ? link("intent", "Level goal", links.intent) : null,
-          link("share", "Share code", links?.share),
-          link("settings", "Play settings", links?.settings),
-          links?.reloadSave ? link("reload-save", "Reload save", links.reloadSave) : null,
           links?.newLevel ? link("new-level", "New level", links.newLevel) : null,
           h("button", { class: "pt-tab active pg-btn-primary pg-help-done", type: "button", text: "Got it", onclick: close }),
         ),

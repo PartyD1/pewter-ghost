@@ -10,7 +10,7 @@ sources so anyone can look back.
 |---|---|---|
 | Pewter (the study editor) | **83e2239** (2026-05-07, "fix: enhance clearTile functionality…") | this repository, `src/` and `public/` at that commit |
 | Player Physics Fork | **b36ff59** (2026-09-03, merge of PR #9) | `PartyD1/Pewter-The-Platformer` |
-| Audit prototypes | the commits that added `audit-prototypes/` here (44c21be, 12491d3) | `audit-prototypes/` in this repository |
+| Audit prototypes | the commits that added `audit-prototypes/` here (44c21be, 12491d3) | `audit-prototypes/` in this repository's history (the directory is gone from the tree) |
 
 The old editor at 83e2239 stays as it was, so the original study build remains reproducible there.
 
@@ -22,7 +22,7 @@ The old editor at 83e2239 stays as it was, so the original study build remains r
   (`Tilemap_Platformer_V1.0.png` and its Tiled files), the Kenney particles, the
   background, and the audio (`bgm`, `jump`, `landing`, `collect`, `gameOver`).
   Tile indices are unchanged (`TILE` in `contracts.ts`: 1 block, 4 grass-half,
-  5 dirt, 6 grass, 7 question), so v1 saves map directly.
+  5 dirt, 6 grass, 7 question), so the default map's ground layer maps directly.
 - `public/favicon.png`.
 
 **Ported, rewritten around the level model**
@@ -38,9 +38,10 @@ The old editor at 83e2239 stays as it was, so the original study build remains r
 - `src/phaser/ExternalClasses/Slime.ts`, `UltraSlime.ts` → `entities/` with pure,
   time-based `brains.ts` (the old ones counted frames, so they fired 2.4× as often
   at 144 Hz) and patrol spans taken from the model (G-06).
-- The old play-mode knight's constants are kept for reference only in
-  `player/legacyKnight.ts`. Nothing runs on them.
-- Save format: v1 files still load (`level/save.ts` migrates them); new saves are v2.
+- Removed since: the old knight's constants (`player/legacyKnight.ts`), the v1
+  save format and its importer (the starter level now stamps the default map's
+  ground layer directly), Share codes, file Load, Save and Save task, and the
+  Play settings sliders. See the 2026-11-05 cleanup line in `docs/decisions.md`.
 
 **Dropped, never copied**
 

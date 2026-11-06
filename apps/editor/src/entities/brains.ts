@@ -9,7 +9,6 @@
  * model (entity.patrol, inclusive tiles of the floor the enemy stands on), so
  * an enemy never leaves the span the model and the validator reason about.
  */
-import type { EnemyTuning } from "../editor/playSettings";
 
 export const ENEMY_TILE_PX = 16;
 
@@ -60,7 +59,7 @@ export const createSlimeState = (): SlimeState => ({ dir: 1, fireTimerMs: 0 });
  * Advance a slime by `dtMs`. `x` is its current centre; `range` the allowed
  * centre range from the patrol span. Fires at most one shot per step.
  */
-export function stepSlime(state: SlimeState, dtMs: number, x: number, range: [number, number], tuning: EnemyTuning): BrainStep {
+export function stepSlime(state: SlimeState, dtMs: number, x: number, range: [number, number]): BrainStep {
   const dt = Math.max(0, dtMs);
   const [lo, hi] = range;
   const shots: Shot[] = [];
@@ -70,16 +69,14 @@ export function stepSlime(state: SlimeState, dtMs: number, x: number, range: [nu
   } else if (state.dir > 0 && x >= hi) state.dir = -1;
   else if (state.dir < 0 && x <= lo) state.dir = 1;
 
-  if (tuning.fireMul > 0) {
-    state.fireTimerMs += dt;
-    const interval = SLIME.fireIntervalMs / tuning.fireMul;
-    if (state.fireTimerMs >= interval) {
-      state.fireTimerMs -= interval;
-      if (state.fireTimerMs > interval) state.fireTimerMs = interval * 0.5; // never queue a volley after a stall
-      shots.push({ dir: state.dir, mega: false });
-    }
+  state.fireTimerMs += dt;
+  const interval = SLIME.fireIntervalMs;
+  if (state.fireTimerMs >= interval) {
+    state.fireTimerMs -= interval;
+    if (state.fireTimerMs > interval) state.fireTimerMs = interval * 0.5; // never queue a volley after a stall
+    shots.push({ dir: state.dir, mega: false });
   }
-  const vx = hi - lo < 0.5 ? 0 : SLIME.speed * tuning.speedMul * state.dir;
+  const vx = hi - lo < 0.5 ? 0 : SLIME.speed * state.dir;
   return { vx, facing: state.dir, shots };
 }
 
@@ -131,7 +128,6 @@ export function stepUltraSlime(
   pos: { x: number; y: number },
   player: { x: number; y: number } | undefined,
   range: [number, number],
-  tuning: EnemyTuning,
 ): BrainStep {
   const dt = Math.max(0, dtMs);
   const [lo, hi] = range;
@@ -140,55 +136,52 @@ export function stepUltraSlime(
 
   const dx = player ? player.x - pos.x : 0;
   const near =
-    !!player && tuning.chase && Math.abs(dx) <= ULTRA.chaseRangePx && Math.abs(player.y - pos.y) <= ULTRA.chaseHeightPx;
+    !!player && Math.abs(dx) <= ULTRA.chaseRangePx && Math.abs(player.y - pos.y) <= ULTRA.chaseHeightPx;
 
   let vx = 0;
   if (near) {
     state.dir = dx >= 0 ? 1 : -1;
-    const want = ULTRA.speed * tuning.speedMul * state.dir;
+    const want = ULTRA.speed * state.dir;
     // Stay on the floor: stop at the span edge instead of walking off it.
     if (canWalk && !((state.dir > 0 && pos.x >= hi) || (state.dir < 0 && pos.x <= lo)) && Math.abs(dx) > 2) vx = want;
   } else if (canWalk) {
     if (state.dir > 0 && pos.x >= hi) state.dir = -1;
     else if (state.dir < 0 && pos.x <= lo) state.dir = 1;
-    vx = ULTRA.patrolSpeed * tuning.speedMul * state.dir;
+    vx = ULTRA.patrolSpeed * state.dir;
   }
 
   let warning = false;
-  if (tuning.fireMul > 0) {
-    const rate = tuning.fireMul;
-    state.phaseMs += dt;
-    if (state.phase === "calm") {
-      state.fireTimerMs += dt;
-      const interval = ULTRA.fireIntervalMs / rate;
-      if (state.fireTimerMs >= interval) {
-        state.fireTimerMs = Math.min(state.fireTimerMs - interval, interval * 0.5);
-        shots.push({ dir: state.dir, mega: false });
-      }
-      if (state.phaseMs >= ULTRA.burstEveryMs / rate) {
-        state.phase = "warn";
-        state.phaseMs = 0;
-      }
-    } else if (state.phase === "warn") {
-      warning = true;
-      vx = 0; // stands still while it winds up: a fair tell
-      if (state.phaseMs >= ULTRA.warnMs) {
-        state.phase = "burst";
-        state.phaseMs = ULTRA.burstGapMs; // first burst shot fires immediately
-        state.burstLeft = ULTRA.burstShots;
-      }
-    } else {
-      vx = 0;
-      if (state.phaseMs >= ULTRA.burstGapMs && state.burstLeft > 0) {
-        state.phaseMs = 0;
-        state.burstLeft--;
-        shots.push({ dir: state.dir, mega: true });
-      }
-      if (state.burstLeft === 0) {
-        state.phase = "calm";
-        state.phaseMs = 0;
-        state.fireTimerMs = 0;
-      }
+  state.phaseMs += dt;
+  if (state.phase === "calm") {
+    state.fireTimerMs += dt;
+    const interval = ULTRA.fireIntervalMs;
+    if (state.fireTimerMs >= interval) {
+      state.fireTimerMs = Math.min(state.fireTimerMs - interval, interval * 0.5);
+      shots.push({ dir: state.dir, mega: false });
+    }
+    if (state.phaseMs >= ULTRA.burstEveryMs) {
+      state.phase = "warn";
+      state.phaseMs = 0;
+    }
+  } else if (state.phase === "warn") {
+    warning = true;
+    vx = 0; // stands still while it winds up: a fair tell
+    if (state.phaseMs >= ULTRA.warnMs) {
+      state.phase = "burst";
+      state.phaseMs = ULTRA.burstGapMs; // first burst shot fires immediately
+      state.burstLeft = ULTRA.burstShots;
+    }
+  } else {
+    vx = 0;
+    if (state.phaseMs >= ULTRA.burstGapMs && state.burstLeft > 0) {
+      state.phaseMs = 0;
+      state.burstLeft--;
+      shots.push({ dir: state.dir, mega: true });
+    }
+    if (state.burstLeft === 0) {
+      state.phase = "calm";
+      state.phaseMs = 0;
+      state.fireTimerMs = 0;
     }
   }
   return { vx, facing: state.dir, shots, warning };

@@ -29,7 +29,7 @@ export function fitStageZoom({ view, stage, reserved }: StageFitInput): number {
 
 /** Breathing room between the layout and the window edges, CSS px (total per axis). */
 const WINDOW_MARGIN = 16;
-/** The panel slot's width and the gap before it (style.css #pg-panel-slot, #pg-frame). */
+/** The panel slot's width and the gap before it (styles/editor.css #pg-panel-slot, #pg-frame). */
 const PANEL_W = 340 + 12;
 
 export interface StageFitTarget {

@@ -1,8 +1,8 @@
 /**
  * CSS for the ghost's DOM pieces (canvas caption, edge arrow, dev overlay).
- * Injected once; style.css belongs to the editor module.
+ * Injected once; styles/editor.css belongs to the editor module.
  *
- * Old Pewter Platformer look (legacy/chatbox.css): the caption and arrow are
+ * Old Pewter Platformer look (styles/chrome.css): the caption and arrow are
  * small pills of the old panel's glass (.pt-chatbox background
  * rgba(6,6,16,.78)) in the old panel font (--pt-font) with the old tab radius
  * (6px); their dashed white border is the plan's ghost mark (not colour

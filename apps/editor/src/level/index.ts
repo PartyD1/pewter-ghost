@@ -4,5 +4,4 @@ export * from "./entities";
 export * from "./events";
 export * from "./snapshot";
 export * from "./save";
-export * from "./share";
 export { commandWhat, type Command, type CommandKind, type CellState, type CellChange, type Delta, type EntityOp } from "./commands";

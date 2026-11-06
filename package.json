@@ -19,7 +19,6 @@
     "jump-tables": "tsx packages/jump-tables/src/export.ts"
   },
   "dependencies": {
-    "easystarjs": "^0.4.4",
     "phaser": "^3.90.0",
     "zod": "^4.2.1"
   },

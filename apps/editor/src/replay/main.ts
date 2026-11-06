@@ -1,6 +1,6 @@
 /**
  * Session replay viewer, served at /replay. Loads a session log from the
- * proxy's read endpoints (shared lab password) or from a local .jsonl file,
+ * proxy's read endpoints (shared lab password),
  * then plays it back: the editor view re-rendered from events, a cursor
  * trail, and a timeline. The model is never called.
  *
@@ -94,7 +94,6 @@ function shell(content: Node, message?: string): HTMLElement {
     h("p", { class: "rp-muted" }, "Watch back a recorded session: the level as it was built, the suggestions shown, and where the pointer went."),
     message ? h("div", { class: "rp-err" }, message) : null,
     content,
-    fileCard(),
   );
 }
 
@@ -162,25 +161,6 @@ function listScreen(all: SessionListing[], total: number, message?: string): voi
   const more = total > all.length ? ` · showing the newest ${all.length} of ${total}` : "";
   content.append(h("p", { class: "rp-foot rp-muted" }, `${watchable.length} replay${watchable.length === 1 ? "" : "s"}${more} · `, refresh));
   app.replaceChildren(shell(content, message));
-}
-
-/** Drop or choose a downloaded .jsonl log (kept out of the way: most people use the list). */
-function fileCard(): HTMLElement {
-  const fileInput = h("input", { type: "file", accept: ".jsonl,.ndjson,.json,text/plain" });
-  const drop = h("div", { class: "rp-drop" }, "Drop a session .jsonl file here, or ", fileInput);
-  const openFile = async (f: File | undefined) => {
-    if (!f) return;
-    openText(await f.text(), { name: f.name });
-  };
-  fileInput.addEventListener("change", () => void openFile(fileInput.files?.[0]));
-  drop.addEventListener("dragover", (e) => (e.preventDefault(), drop.classList.add("over")));
-  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
-  drop.addEventListener("drop", (e) => {
-    e.preventDefault();
-    drop.classList.remove("over");
-    void openFile(e.dataTransfer?.files?.[0]);
-  });
-  return h("details", { class: "rp-file" }, h("summary", {}, "Have a downloaded log file instead?"), drop);
 }
 
 async function openRemote(sessionId: string, t: number): Promise<void> {
