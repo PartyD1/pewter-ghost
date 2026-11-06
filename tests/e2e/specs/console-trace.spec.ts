@@ -64,7 +64,7 @@ test("pewterLog in the console: switch the trace on and off, read and download t
   expect(stats).toMatchObject({ failedPosts: 0, invalid: 0 });
   expect((stats as { logged: number }).logged).toBeGreaterThan(5);
 
-  // download() hands the person a .jsonl file the replay page opens.
+  // download() hands the person the session log as a .jsonl file.
   const [file] = await Promise.all([page.waitForEvent("download"), page.evaluate(() => (window as any).pewterLog.download())]);
   expect(file.suggestedFilename()).toMatch(/\.jsonl$/);
   ed.expectNoErrors();

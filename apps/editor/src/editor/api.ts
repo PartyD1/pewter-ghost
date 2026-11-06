@@ -13,11 +13,10 @@
 import type Phaser from "phaser";
 import type { LogEvent, Point } from "../contracts";
 import type { LevelModel } from "../level/LevelModel";
-import type { PlaySettings, SuggestionHistorySummary } from "../level/save";
+import type { SuggestionHistorySummary } from "../level/save";
 import type { GhostConfig } from "../suggest/config";
 import type { Brush, Mode, ModeState } from "./modes";
 import type { StrokeInfo } from "./paint";
-import type { PlaySettingsStore } from "./playSettings";
 
 export type EditorLogger = (event: LogEvent) => void;
 
@@ -37,7 +36,7 @@ export interface EditorEvents {
   /** Hovered cell in edit mode (undefined when off the level/canvas). */
   hover: Point | undefined;
   /** The editor loaded a whole level (file, share code, autosave). */
-  "level:loaded": { source: "file" | "share" | "autosave" | "new" | "reload"; warnings: string[] };
+  "level:loaded": { source: "autosave" | "new" | "reload"; warnings: string[] };
   /** Undo / redo were applied by the editor. */
   undo: { what: "own" | "ghost" | "mixed"; redo: boolean };
 }
@@ -63,7 +62,6 @@ export interface EditorApi {
   readonly scene: Phaser.Scene;
   readonly camera: CameraApi;
   readonly modes: ModeState;
-  readonly playSettings: PlaySettingsStore;
   readonly config: GhostConfig;
   /** Mount point for the status strip (#ghost-status). */
   readonly statusSlot: HTMLElement;
@@ -75,8 +73,6 @@ export interface EditorApi {
   on<K extends EditorEventName>(name: K, fn: (payload: EditorEvents[K]) => void): () => void;
   /** Supplies the suggestion-history summary written into saves. */
   setHistoryProvider(fn: (() => SuggestionHistorySummary | undefined) | null): void;
-  /** Current play settings as saved (undefined when default). */
-  savedPlaySettings(): PlaySettings | undefined;
   /** Show a short message in the editor's toast area. */
   notify(text: string, opts?: { kind?: "info" | "warn" | "error"; ms?: number }): void;
 }

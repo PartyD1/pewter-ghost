@@ -1,0 +1,314 @@
+/* ============================================================
+   Editor chrome: the stage, side panel slot, Help, Level goal and ghost
+   switches. Imported after base.css and chrome.css, which it builds on.
+   ============================================================ */
+
+/* The stage: the Phaser parent inside the old #phaser. Positioned so the
+   ghost caption / arrow layer can sit over the canvas. */
+#pg-stage {
+  position: relative;
+}
+
+/* Layout: nothing sits on the drawing area. The old app floated its panel
+   and toolbar over the canvas (Phaser DOM at (1095, 360) and (460, 692)),
+   which blocked drawing under them (audit UX-04). Pewter Ghost keeps the
+   old 1280 px footprint and the old pieces, side by side instead of on top:
+   canvas (928 x 720) | 12 px | panel (340 px), toolbar on its own row below
+   the canvas. Hidden chrome (Play, U) keeps its space so the canvas never moves. */
+#pg-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+#pg-frame {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+#pg-panel-slot {
+  width: 340px;
+  flex: 0 0 340px;
+}
+#pg-toolbar-slot {
+  display: flex;
+  min-height: 44px;
+}
+#pg-panel-slot.pg-hidden,
+#pg-toolbar-slot.pg-hidden {
+  visibility: hidden;
+}
+/* display: block drops the inline baseline gap under the canvas. */
+#pg-stage canvas {
+  display: block;
+  touch-action: none;
+}
+
+/* Fit the window (editor/stageFit.ts sets the variables as the canvas shrinks):
+   the title and toolbar follow the layout's width and the panel never outgrows
+   the canvas (its contents scroll). "safe" keeps the top left reachable by
+   scrolling when the window is below the smallest zoom. */
+body {
+  justify-content: safe center;
+  align-items: safe center;
+}
+.emoji-container {
+  width: var(--pg-layout-w, 1280px);
+}
+#pg-layout {
+  width: var(--pg-layout-w, 1280px);
+}
+#pg-frame .pt-chatbox {
+  height: min(700px, var(--pg-stage-h, 700px));
+}
+#pg-toolbar-slot > * {
+  min-width: 0;
+  max-width: 100%;
+}
+#pg-toolbar-slot .pt-toolbar {
+  max-width: 100%;
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
+/* --- Toolbar: mode pills, Undo / Redo, Help ------------------------------ */
+/* A group pill: the old neutral pill (.pt-tbtn, Deselect's style) holding
+   old tab buttons (.pt-tab, 2px apart as in .pt-tabs-inline); the active
+   mode is the old active tab (.pt-tab.active). The group itself is not a
+   button, so it keeps the rest look on hover. Padding NEW: 3px, which makes
+   the group as tall as the other pills (36px around the 28px tabs). */
+.pt-tbtn.pg-tbtn-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  cursor: default;
+}
+.pt-tbtn.pg-tbtn-group:hover {
+  background: rgba(22, 22, 38, 0.95);
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #c8c8e8;
+  transform: none;
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.7),
+    0 1px 4px rgba(0, 0, 0, 0.5);
+}
+/* The buttons inside a group pill use the pill's own type (old .pt-tbtn:
+   600 14px, #c8c8e8, letter-spacing 0.02em, line-height 1) on the old tab
+   shape (.pt-tab: radius 6px, 1px border); padding NEW: 6px 9px, which
+   keeps the group as tall as the other pills (36px) and the row inside the
+   old 910px toolbar (with "↶ Undo" / "↷ Redo" words it measured 971px, so
+   Undo / Redo are their arrows, named by title and aria-label). The active
+   mode is the old active tab (.pt-tab.active, violet). */
+.pg-tbtn-group .pt-tab {
+  padding: 6px 9px;
+  color: #c8c8e8;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  white-space: nowrap;
+}
+/* Undo / Redo arrows: NEW size 16px (an arrow at 14px reads as a speck);
+   padding 5px keeps the 36px pill. */
+.pg-tbtn-group #tbtn-undo,
+.pg-tbtn-group #tbtn-redo {
+  font-size: 16px;
+  padding: 5px 9px;
+}
+.pg-tbtn-group .pt-tab:hover:not(.active):not(:disabled) {
+  color: #ffffff;
+}
+.pg-tbtn-group .pt-tab.active {
+  color: #ffffff;
+}
+/* Space held: the mode in effect for now (Pan) gets the active tab's border,
+   dashed (NEW: dashed). */
+.pg-tbtn-group .pt-tab.pg-temp {
+  border-color: rgba(124, 92, 250, 0.4);
+  border-style: dashed;
+}
+/* Disabled (Undo / Redo with nothing to undo). NEW: the old app had no
+   disabled buttons; the label only dims a little (#c8c8e8 at 0.6, NEW),
+   the pill keeps its rest look. */
+.pg-tbtn-group .pt-tab:disabled {
+  color: rgba(200, 200, 232, 0.6);
+  cursor: default;
+  background: transparent;
+  border-color: transparent;
+}
+
+/* --- Panel: palette icons for the items the old palette lacked ----------- */
+/* Block, Start, Goal flag, Sign: the old .pt-block-icon (16x16, pixelated,
+   scale 2 like the old terrain icons) cut from the composite pg-tiles
+   texture (16 frames of 16 px) instead of the old tileset strip. */
+.pt-block-icon.pg-block-icon-tiles {
+  background-image: var(--pg-tiles-url);
+  background-size: 256px 16px;
+  background-position: calc(var(--frame, 0) * -16px) 0;
+  transform: scale(2);
+  transform-origin: center;
+}
+/* Sign text: a chip like the old block buttons (.pt-blocks-list button:
+   padding 8px 14px, radius 8px, var(--pt-border), var(--pt-surface),
+   #c0c0e0, 12.5px / 500), focus border the old hover border. Width NEW: 200px. */
+.pg-sign-text {
+  flex: 0 1 200px;
+  min-width: 0;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--pt-border);
+  background: var(--pt-surface);
+  color: #c0c0e0;
+  font-family: var(--pt-font);
+  font-size: 12.5px;
+  font-weight: 500;
+  outline: none;
+  box-sizing: border-box;
+}
+.pg-sign-text:focus {
+  border-color: var(--pt-border-hi);
+  background: var(--pt-raised);
+}
+.pt-blocks-group[hidden] {
+  display: none;
+}
+
+/* --- Panel: notices (the old temporary message, ui/Toast.ts) ------------ */
+/* The slot sits at the panel's foot with the old chat log's side padding
+   (.pt-chat-log: 14px) and bottom (8px), so the message lands where the
+   old one did. */
+.pg-toasts {
+  display: flex;
+  flex-direction: column;
+  padding: 0 14px 8px;
+  flex-shrink: 0;
+}
+.pg-toasts:empty {
+  display: none;
+}
+.pg-toasts .pt-temp-message {
+  margin: 0;
+}
+/* Error: the old eraser group's red (#blocks-list-eraser button). */
+.pt-temp-message.pg-toast-error {
+  color: #fca5a5 !important;
+  background: rgba(220, 38, 38, 0.1) !important;
+  border-color: rgba(239, 68, 68, 0.25) !important;
+}
+
+/* --- Panel: ghost status and suggestions switch -------------------------- */
+/* One more palette group after Markers. Human-only sessions have no status
+   line (empty #ghost-status) and no group. */
+.pg-ghost-area:has(#ghost-status:empty) {
+  display: none;
+}
+.pg-suggest-switch {
+  margin: 6px 0 0;
+  flex-wrap: wrap;
+}
+/* Dev variant switch (ui/VariantSwitch.ts): two switches, each under a small
+   label in the heading's colour. */
+.pg-variant-group .pg-suggest-switch {
+  margin: 2px 0 6px;
+}
+.pg-variant-label {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: rgba(180, 170, 220, 0.6);
+}
+/* Dev panel link to the session replay page (/replay). */
+.pg-replay-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #b9a8ff;
+}
+
+/* --- Dialogs: the old panel's glass ------------------------------------- */
+/* NEW: the backdrop (the old app had no dialogs): the page colour #08080f at 45%. */
+.pg-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 8, 15, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+/* The old panel (.pt-chatbox) look; width and max-height NEW (the panel was
+   340x700). */
+.pg-dialog {
+  width: 460px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  background: rgba(6, 6, 16, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 14px;
+  box-shadow:
+    0 8px 48px rgba(0, 0, 0, 0.7),
+    0 2px 8px rgba(0, 0, 0, 0.4);
+  color: #e8e8ff;
+  font-family: "Space Grotesk", system-ui, sans-serif;
+  font-size: 14px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.pg-dialog-wide {
+  width: 560px;
+}
+.pg-dialog-head h2.pt-brand {
+  margin: 0;
+}
+.pg-dialog-close {
+  margin-left: auto;
+}
+.pg-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+/* Help: the dialog fits the canvas frame above the toolbar (NEW: 640px, the
+   720px frame less the toolbar row); the key list scrolls and the links sit
+   under it like the old chat input area (.pt-chat-input-area: padding
+   10px 14px 14px, top border var(--pt-border)), as old tabs 2px apart
+   (.pt-tabs-inline). */
+#pg-help {
+  max-height: min(640px, calc(100vh - 32px));
+}
+.pg-dialog-actions.pg-help-links {
+  margin: 0;
+  gap: 2px;
+  justify-content: flex-start;
+  padding: 10px 14px 14px;
+  border-top: 1px solid var(--pt-border);
+  flex-shrink: 0;
+}
+
+.pg-help-links .pg-help-done {
+  margin-left: auto;
+}
+
+/* Body text: the old .control-desc grey. */
+.pg-help-lead {
+  color: #b0b0d8;
+  font-size: 12px;
+  margin: 4px 0 8px;
+}
+.pt-chat-input.pg-code {
+  font-family: "JetBrains Mono", "Fira Code", "Consolas", monospace;
+  font-size: 12px;
+  resize: vertical;
+  word-break: break-all;
+}
+/* Level goal dialog: preset chips wrap over the full width, left-aligned. */
+.pg-dialog-actions.pg-intent-presets {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  margin: 0 0 10px;
+}

@@ -19,7 +19,7 @@ export class UltraSlime extends EnemySprite {
   }
 
   protected think(deltaMs: number, player: { x: number; y: number } | undefined): BrainStep {
-    const out = stepUltraSlime(this.brain, deltaMs, { x: this.x, y: this.y }, player, this.range, this.host.tuning());
+    const out = stepUltraSlime(this.brain, deltaMs, { x: this.x, y: this.y }, player, this.range);
     if (out.warning) {
       this.blinkMs += deltaMs;
       if (Math.floor(this.blinkMs / 100) % 2 === 0) this.setTint(WARN_TINT);

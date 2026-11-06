@@ -11,6 +11,7 @@
 import { expect, test } from "@playwright/test";
 import { Replay } from "../../../apps/editor/src/research/replay/replay";
 import { A, Editor, T } from "../support/editor";
+import { openLogInViewer } from "../support/replayProxy";
 
 test("a recorded session replays to the same level, and the viewer plays it", async ({ page, browser }, info) => {
   const ed = await Editor.open(page, { proxy: null, params: { filler: "none" } });
@@ -70,14 +71,12 @@ test("a recorded session replays to the same level, and the viewer plays it", as
   expect(tracks.markers.some((m) => m.kind === "undo")).toBe(true);
 
   // ---- the viewer
-  const jsonl = events.map((e) => JSON.stringify(e)).join("\n") + "\n";
   const viewer = await browser.newPage({ viewport: { width: 1366, height: 820 } });
   const errors: string[] = [];
   viewer.on("pageerror", (e) => errors.push(String(e)));
   // /replay first looks for the local session server (no proxy runs in this test), which the browser logs.
   viewer.on("console", (m) => m.type() === "error" && !m.text().includes("ERR_CONNECTION_REFUSED") && errors.push(m.text()));
-  await viewer.goto("./replay/");
-  await viewer.setInputFiles('input[type="file"]', { name: "session.jsonl", mimeType: "text/plain", buffer: Buffer.from(jsonl) });
+  await openLogInViewer(viewer, events);
   await expect(viewer.locator(".rp-stage canvas")).toBeVisible();
   await expect(viewer.locator(".tl-seg").first()).toBeVisible();
   expect(await viewer.locator(".tl-row").count()).toBe(6);

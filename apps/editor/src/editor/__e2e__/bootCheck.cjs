@@ -7,7 +7,7 @@
  * Checks: boots without console errors; paints with mouse strokes (one undo
  * step per stroke); a stroke stops when the pointer goes over DOM UI;
  * right-click does nothing; Select mode does not paint; undo/redo keys;
- * Play starts and stops; Save task autosaves. Writes a screenshot.
+ * Play starts and stops. Writes a screenshot.
  * Exits non-zero on failure.
  */
 /* eslint-disable */
@@ -37,6 +37,7 @@ function findChromium() {
 
 const url = process.argv[2] || "http://localhost:5199/";
 const shot = process.argv[3] || "docs/screens/editor.png";
+fs.mkdirSync(path.dirname(path.resolve(shot)), { recursive: true });
 
 function assert(cond, msg) {
   if (!cond) throw new Error(`ASSERT: ${msg}`);
@@ -249,25 +250,6 @@ function assert(cond, msg) {
     ends = await page.evaluate(() => window.__pewterEnds);
     assert(ends[1].reachedGoal === true, "touching the flag ends Play with reachedGoal");
     assert(!(await page.evaluate(() => window.__pewter.api.isPlaying())), "editor is back after the goal");
-
-    // Play settings dialog changes a stored setting.
-    await page.click('[data-cmd="help"]'); // Play settings is a link in Help
-    await page.click('#pg-help [data-cmd="settings"]');
-    await page.locator('input[data-setting="gravityScale"]').fill("1.25");
-    await page.keyboard.press("Escape");
-    assert((await page.evaluate(() => window.__pewter.settings.get().gravityScale)) === 1.25, "gravity setting stored");
-
-    // Save task downloads a v2 file carrying the settings.
-    const [dl] = await Promise.all([page.waitForEvent("download"), page.click('[data-cmd="save"]')]);
-    const file = JSON.parse(fs.readFileSync(await dl.path(), "utf8"));
-    assert(file.version === 2 && file.playSettings && file.playSettings.gravityScale === 1.25, `Save task file ${dl.suggestedFilename()}`);
-
-    // Share code dialog produces a code.
-    await page.click('[data-cmd="help"]'); // Share code is a link in Help
-    await page.click('#pg-help [data-cmd="share"]');
-    await page.waitForFunction(() => (document.querySelector("#pg-share-out") || {}).value?.startsWith("pg1."), null, { timeout: 5000 });
-    await page.keyboard.press("Escape");
-    assert(true, "share code generated");
 
     assert(errors.length === 0, `no console errors${errors.length ? ": " + errors.join(" | ") : ""}`);
     console.log("BOOT CHECK PASSED");

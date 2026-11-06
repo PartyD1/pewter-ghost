@@ -1,6 +1,6 @@
 /**
  * Ghost status line (G-19), mounted in #ghost-status (ui/Chrome.ts): one
- * short line in the old panel's secondary text style (old chatbox.css
+ * short line in the old panel's secondary text style (styles/chrome.css
  * .control-desc: 12px, #b0b0d8), never wrapping:
  *
  *  - "staircase · 2 tiles · Tab to keep" while a ghost shows, "quiet ·

@@ -6,7 +6,7 @@
 import Phaser from "phaser";
 import { NAME_BY_TILE, type Point } from "../contracts";
 import type { LevelModel } from "../level/LevelModel";
-import type { PlaySettings, SuggestionHistorySummary } from "../level/save";
+import type { SuggestionHistorySummary } from "../level/save";
 import type { GhostConfig } from "../suggest/config";
 import {
   EditorEmitter,
@@ -25,7 +25,6 @@ import { panDirection } from "./keys";
 import type { ModeState } from "./modes";
 import { StrokePainter } from "./paint";
 import { PlayController, type PlayHud } from "./play";
-import type { PlaySettingsStore } from "./playSettings";
 import { PointerBinding } from "./pointer";
 import { Renderer } from "./render";
 import { SelectionController, type Rect } from "./selection";
@@ -48,7 +47,6 @@ const HIGHLIGHT_COLOR = { paint: 0xff0000, erase: 0xff0000, select: 0xff0000, pa
 export interface EditorSceneDeps {
   model: LevelModel;
   modes: ModeState;
-  settings: PlaySettingsStore;
   config: GhostConfig;
   log: EditorLogger;
   statusSlot: HTMLElement;
@@ -177,7 +175,6 @@ export class EditorScene extends Phaser.Scene {
       model,
       renderer: this.levelRenderer,
       camera: this.camera,
-      settings: this.deps.settings,
       log: this.deps.log,
       clock: this.clock,
       onHud: (hud: PlayHud) => this.game.events.emit(UI_EVENT.hud, hud),
@@ -335,10 +332,6 @@ export class EditorScene extends Phaser.Scene {
       console.error("history provider failed", err);
       return undefined;
     }
-  }
-
-  savedPlaySettings(): PlaySettings | undefined {
-    return this.deps.settings.forSave();
   }
 
   // ---------------------------------------------------------------------------
@@ -571,7 +564,6 @@ export class EditorScene extends Phaser.Scene {
       scene: this,
       camera: this.camera,
       modes: this.deps.modes,
-      playSettings: this.deps.settings,
       config: this.deps.config,
       statusSlot: this.deps.statusSlot,
       stage: this.deps.stage,
@@ -584,7 +576,6 @@ export class EditorScene extends Phaser.Scene {
       setHistoryProvider: (fn) => {
         scene.historyProvider = fn;
       },
-      savedPlaySettings: () => scene.savedPlaySettings(),
       notify: (text, opts) => scene.deps.notify(text, opts),
     };
   }

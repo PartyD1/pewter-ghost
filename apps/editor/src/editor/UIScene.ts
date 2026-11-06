@@ -6,7 +6,7 @@
  * src/phaser/editorScene.ts startGame, lines 395-432, its update at
  * 1220-1229 and its removal at 2252-2273), copied verbatim: a
  * `.pt-play-stats` pill (hearts and coins) at the top-left and
- * `.pt-play-hint-q` key pills at the top-right, styled by legacy/chatbox.css.
+ * `.pt-play-hint-q` key pills at the top-right, styled by styles/chrome.css.
  * The old app appended them to Phaser's DOM container; here they go there
  * when the game has one, else to the canvas's parent (the stage).
  *

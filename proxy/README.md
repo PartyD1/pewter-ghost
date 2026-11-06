@@ -65,7 +65,6 @@ The viewer is the page at **`/replay`** (built beside the editor; `/replay/` on 
 running `npm run dev` it needs nothing: it signs in with the local password (`dev`) and lists the newest
 sessions with a "Watch the latest session" button. Elsewhere open `/replay?api=<proxy url>`, type the lab
 password, and pick a session. `#<sessionId>` (add `@<ms>` to land on a moment) opens one directly.
-A downloaded `.jsonl` can also be dropped onto the page's start screen.
 
 ## Firebase (session logs)
 

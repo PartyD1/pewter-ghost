@@ -5,8 +5,6 @@
  * - Reaching the flag ends Play with reachedGoal = true.
  * - Deaths (health gone or a fall) are counted; the knight respawns at the
  *   last checkpoint touched (else the start) and enemies/collectables reset.
- * - Play settings (G-37) scale gravity, run speed, jump and enemy aggression;
- *   they apply live and are saved with the level.
  * - Emits play.start / play.end through the injected logger.
  *
  * Play never writes to the level model or the tile layer; it reads the
@@ -25,15 +23,6 @@ import type { EditorLogger, PlayResult } from "./api";
 import type { CameraController } from "./camera";
 import { CheckpointTracker } from "./checkpoints";
 import { ASSET, DEPTH, ENTITY_FRAME, FRAME, TILE_PX } from "./constants";
-import {
-  enemyTuning,
-  playGravity,
-  scaledJumpVelocity,
-  toBodyVx,
-  toControllerVx,
-  type EnemyTuning,
-  type PlaySettingsStore,
-} from "./playSettings";
 import type { Renderer } from "./render";
 
 export const MAX_HEALTH = 5;
@@ -79,7 +68,6 @@ export interface PlayDeps {
   model: LevelModel;
   renderer: Renderer;
   camera: CameraController;
-  settings: PlaySettingsStore;
   log: EditorLogger;
   clock?: () => number;
   onHud?: (hud: PlayHud) => void;
@@ -108,8 +96,6 @@ export class PlayController implements EnemyHost {
   private goalReached = false;
   private checkpoints = new CheckpointTracker({ x: 0, y: 0 }, []);
   private startedAt = 0;
-  private _tuning: EnemyTuning = enemyTuning(1);
-  private unsubscribeSettings: (() => void) | null = null;
   private readonly clock: () => number;
 
   constructor(private readonly deps: PlayDeps) {
@@ -130,10 +116,6 @@ export class PlayController implements EnemyHost {
   }
 
   // EnemyHost
-  tuning(): EnemyTuning {
-    return this._tuning;
-  }
-
   spawnPellet(p: PelletSpec): void {
     if (!this.pellets) return;
     // Old pellets (Slime.ts:130-131, UltraSlime.ts:146-161): "pellets" frame 1
@@ -167,8 +149,7 @@ export class PlayController implements EnemyHost {
     // Side walls at the level's edges (the knight collides with world bounds).
     scene.physics.world.setBounds(0, 0, renderer.widthPx, renderer.heightPx);
     scene.physics.world.setBoundsCollision(true, true, false, false);
-    this.applySettings();
-    this.unsubscribeSettings = this.deps.settings.subscribe(() => this.applySettings());
+    scene.physics.world.gravity.y = WORLD_GRAVITY_Y;
 
     const start = model.start;
     const knight = scene.physics.add.sprite(
@@ -180,13 +161,8 @@ export class PlayController implements EnemyHost {
     knight.setDepth(DEPTH.player);
     configurePlayerSprite(knight);
     this.knight = knight;
-    this.applySettings();
-    this.controller = new PlayerController(scene, knight, {
-      onJump: () => {
-        const s = this.deps.settings.get();
-        knight.body.velocity.y = scaledJumpVelocity(knight.body.velocity.y, s);
-      },
-    });
+    knight.setMaxVelocity(MAX_RUN_SPEED_PX, Math.max(TERMINAL_VELOCITY_PX, Math.abs(JUMP_VELOCITY_PX) + 1));
+    this.controller = new PlayerController(scene, knight);
 
     this.pellets = scene.physics.add.group({ allowGravity: false });
     this.enemyGroup = scene.physics.add.group();
@@ -224,8 +200,6 @@ export class PlayController implements EnemyHost {
     this.knight?.destroy();
     this.knight = null;
     this.controller = null;
-    this.unsubscribeSettings?.();
-    this.unsubscribeSettings = null;
     scene.physics.world.gravity.y = 0;
     // The controller registered cursor and WASD keys (with capture); release them
     // so Space and arrows work in the editor and in text fields again.
@@ -247,7 +221,6 @@ export class PlayController implements EnemyHost {
       return;
     }
     const knight = this.knight;
-    const s = this.deps.settings.get();
     this.elapsedMs += deltaMs;
 
     if (this.dyingMs >= 0) {
@@ -258,9 +231,7 @@ export class PlayController implements EnemyHost {
       return;
     }
 
-    knight.body.velocity.x = toControllerVx(knight.body.velocity.x, s.speedScale);
     this.controller.update(deltaMs);
-    knight.body.velocity.x = toBodyVx(knight.body.velocity.x, s.speedScale);
 
     const target = { x: knight.x, y: knight.y };
     for (const e of this.enemies) e.step(deltaMs, target);
@@ -289,17 +260,6 @@ export class PlayController implements EnemyHost {
     const fell = knight.y > this.deps.renderer.heightPx + FALL_MARGIN_PX;
     if (fell || this.health <= 0) this.die();
     if (this.active) this.emitHud();
-  }
-
-  private applySettings(): void {
-    const s = this.deps.settings.get();
-    this._tuning = enemyTuning(s.enemyAggression);
-    if (!this.active) return;
-    this.deps.scene.physics.world.gravity.y = playGravity(WORLD_GRAVITY_Y, s);
-    if (this.knight) {
-      const maxY = Math.max(TERMINAL_VELOCITY_PX, Math.abs(JUMP_VELOCITY_PX) * s.jumpScale + 1);
-      this.knight.setMaxVelocity(MAX_RUN_SPEED_PX * s.speedScale, maxY);
-    }
   }
 
   private spawnWorld(): void {
@@ -353,7 +313,7 @@ export class PlayController implements EnemyHost {
     const body = this.knight.body;
     if (isStomp({ bottom: body.bottom, prevBottom: body.prev.y + body.height, vy: body.velocity.y }, e.headY)) {
       e.stomp();
-      body.velocity.y = scaledJumpVelocity(STOMP_BOUNCE_PX, this.deps.settings.get());
+      body.velocity.y = STOMP_BOUNCE_PX;
       return;
     }
     if (this.invulnerableMs > 0) return;

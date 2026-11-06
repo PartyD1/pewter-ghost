@@ -115,13 +115,8 @@ kbd { background: var(--panel-2); border: 1px solid var(--line); border-radius: 
 .rp-link:hover { color: #a28cff; }
 .rp-foot { font-size: 12px; margin-top: 16px; }
 .rp-foot .rp-link { margin: 0; font-size: 12px; }
-.rp-file { margin-top: 28px; color: var(--muted); font-size: 13px; }
-.rp-file summary { cursor: pointer; }
-.rp-file .rp-drop { margin-top: 8px; }
 .rp-start a { color: var(--accent); }
 .rp-err { color: var(--bad); margin-top: 8px; }
-.rp-drop { border: 2px dashed var(--line); border-radius: 10px; padding: 18px; text-align: center; color: var(--muted); }
-.rp-drop.over { border-color: var(--accent); color: var(--text); }
 
 @media (max-width: 900px) {
   .rp-main { grid-template-columns: 1fr; }

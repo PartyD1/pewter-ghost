@@ -1,5 +1,5 @@
 /**
- * The session's ghost history: written into Save task / autosave files
+ * The session's ghost history: written into autosave files
  * (SuggestionHistorySummary) and sent to the model as `lastGhosts`
  * (GhostHistoryItem). Pure.
  */
