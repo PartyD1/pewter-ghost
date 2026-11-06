@@ -146,6 +146,8 @@ test.describe("ghost keys", () => {
     expect((await ed.strip())?.main).toMatch(/6 of 7 left/);
 
     // Paint somewhere else: the ghost ends, the remaining cells are not applied.
+    // (Not within ghostDrawGraceMs, 1500 ms, of it appearing.)
+    await page.waitForTimeout(1600);
     await ed.clickTile(26, 6);
     expect(await ed.ghost()).toBeNull();
     for (const [x, y] of FINISH.slice(1)) expect(await ed.tileAt(x, y)).toBe(T.EMPTY);

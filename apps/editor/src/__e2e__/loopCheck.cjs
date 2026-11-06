@@ -120,7 +120,7 @@ function killServer(child) {
 
     const query = LLM
       ? `?fresh=1&dev=1&intent=&filler=llm&token=${encodeURIComponent(opt("--token", "dev"))}&callTimeoutMs=${opt("--timeout", "6000")}`
-      : "?fresh=1&dev=1&filler=stub";
+      : "?fresh=1&dev=1&intent=&filler=stub";
     await page.goto(URL0 + query, { waitUntil: "load" });
     await page.waitForFunction(() => !!(window.__pewter && window.__pewter.api && window.__pewter.ghost && window.__pewter.app), null, {
       timeout: 30000,
@@ -207,15 +207,20 @@ function killServer(child) {
       assert(s.verified === true && s.__verified === true, "the ghost is a VerifiedSuggestion");
       assert(s.filler === "stub" && s.kind === "extend", `stub extend "${s.label}"`);
       assert(Array.isArray(s.path) && s.path.length >= 2, `agent route attached (${s.path.length} points)`);
+      // The call fires on the first placement, so the ghost can appear before the
+      // last steps are painted; steps painted on its cells are kept (partial accept).
       const adds = s.adds.map((a) => `${a.x},${a.y}`).join(" ");
-      assert(adds === "15,11 16,10 17,9", `continues the staircase (${adds})`);
-      for (const a of s.adds) assert((await tileAt(a.x, a.y)) === 0, `(${a.x},${a.y}) still empty while the ghost shows`);
+      assert(s.adds.every((a) => a.x + a.y === 26) && adds.includes("15,11"), `continues the staircase (${adds})`);
+      const left = s.adds.filter((a) => !steps.some(([x, y]) => a.x === x && a.y === y));
+      assert(left.length > 0, `cells left to accept (${left.length})`);
+      for (const a of left) assert((await tileAt(a.x, a.y)) === 0, `(${a.x},${a.y}) still empty while the ghost shows`);
       await page.waitForTimeout(300);
       const L = await G(() => window.__pewter.ghost.layer());
-      assert(L.visible && L.adds === 3, `ghost layer draws 3 faint tiles (${JSON.stringify({ adds: L.adds, caption: L.caption })})`);
+      assert(L.visible && L.adds === left.length, `ghost layer draws ${left.length} faint tiles (${JSON.stringify({ adds: L.adds, caption: L.caption })})`);
       const ev0 = await events();
       const ok = ev0.filter((e) => e.type === "fill.call" && e.verdictStage === "ok");
-      assert(ok.length >= 1 && ok[ok.length - 1].requestHash === s.requestHash, "fill.call logged with verdict ok and the request hash");
+      // Later calls can also pass while this ghost stays up (ghostMinShowMs), so it need not be the newest.
+      assert(ok.some((e) => e.requestHash === s.requestHash), "fill.call logged with verdict ok and the request hash");
       assert(ev0.some((e) => e.type === "ghost.show" && e.suggestionId === s.id), "ghost.show logged");
       fs.mkdirSync(path.dirname(shot), { recursive: true });
       await page.screenshot({ path: shot });
@@ -223,14 +228,14 @@ function killServer(child) {
 
       // ---- Tab accepts ---------------------------------------------------------
       await page.keyboard.press("Tab");
-      for (const a of s.adds) assert((await tileAt(a.x, a.y)) === a.tile && (await authorAt(a.x, a.y)) === 2, `Tab applied (${a.x},${a.y}) as GHOST`);
+      for (const a of left) assert((await tileAt(a.x, a.y)) === a.tile && (await authorAt(a.x, a.y)) === 2, `Tab applied (${a.x},${a.y}) as GHOST`);
       assert((await G(() => window.__pewter.ghost.current())) === null, "ghost gone after Tab");
       const ev1 = await events();
       assert(ev1.some((e) => e.type === "ghost.end" && e.suggestionId === s.id && e.outcome === "accepted"), "ghost.end accepted logged");
 
       // ---- Undo ---------------------------------------------------------------
       await page.keyboard.press("Control+z");
-      for (const a of s.adds) assert((await tileAt(a.x, a.y)) === 0, `undo cleared (${a.x},${a.y})`);
+      for (const a of left) assert((await tileAt(a.x, a.y)) === 0, `undo cleared (${a.x},${a.y})`);
       for (const [x, y] of steps) assert((await tileAt(x, y)) === 6, `undo kept the person's step (${x},${y})`);
       const ev2 = await events();
       assert(ev2.some((e) => e.type === "undo" && e.what === "ghost"), "undo logged as 'ghost'");

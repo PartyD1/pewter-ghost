@@ -137,7 +137,7 @@ function sugg(id, over) {
 
     // filler=stub turns the ghost UI on; the fill loop is then suspended so only
     // this script's hand-made suggestions reach the manager (see session.ts).
-    await page.goto(URL0 + "?fresh=1&dev=1&filler=stub", { waitUntil: "load" });
+    await page.goto(URL0 + "?fresh=1&dev=1&intent=&filler=stub", { waitUntil: "load" });
     await page.waitForFunction(() => !!(window.__pewter && window.__pewter.api), null, { timeout: 30000 });
     await page.evaluate(async () => {
       const app = window.__pewter.app;
@@ -291,6 +291,8 @@ function sugg(id, over) {
     assert(cur && cur.remaining.length === 3, "ghost stays with 3 cells left (partial accept)");
     assert((await layer()).adds === 3, "layer stops drawing the painted cell");
     assert(/3 of 4 left/.test((await strip()).main), "strip counts cells left");
+    // Drawing elsewhere does not end a ghost within ghostDrawGraceMs (1500) of it appearing.
+    await page.waitForTimeout(1600);
     p = await screenOf(30, 6);
     await page.mouse.click(p.x, p.y);
     assert((await G(() => window.__pewter.ghost.current())) === null, "painting elsewhere dismissed it");
