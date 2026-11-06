@@ -20,11 +20,23 @@ export interface DialogHandle {
 
 export function openDialog(title: string, build: (body: HTMLElement, close: () => void) => void, opts: { wide?: boolean; id?: string } = {}): DialogHandle {
   let closed = false;
+  // Centre the box over the level canvas (not the whole window, which has the
+  // side panel on the right and looks off-centre). The backdrop still dims everything.
+  const centreOnStage = () => {
+    const r = document.getElementById("pg-stage")?.getBoundingClientRect();
+    if (!r || r.width === 0 || r.height === 0) {
+      backdrop.style.padding = "";
+      return;
+    }
+    const px = (n: number) => `${Math.max(0, Math.round(n))}px`;
+    backdrop.style.padding = `${px(r.top)} ${px(window.innerWidth - r.right)} ${px(window.innerHeight - r.bottom)} ${px(r.left)}`;
+  };
   const close = () => {
     if (closed) return;
     closed = true;
     openCount--;
     document.removeEventListener("keydown", onKey, true);
+    window.removeEventListener("resize", centreOnStage);
     backdrop.remove();
   };
   const onKey = (e: KeyboardEvent) => {
@@ -49,6 +61,8 @@ export function openDialog(title: string, build: (body: HTMLElement, close: () =
   const backdrop = h("div", { class: "pg-backdrop", onmousedown: (e: Event) => e.target === backdrop && close() }, dialog);
   document.body.append(backdrop);
   openCount++;
+  centreOnStage();
+  window.addEventListener("resize", centreOnStage);
   document.addEventListener("keydown", onKey, true);
   build(body, close);
   const first = dialog.querySelector<HTMLElement>("textarea, input, button.pg-btn-primary");
