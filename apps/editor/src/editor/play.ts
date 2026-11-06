@@ -197,7 +197,7 @@ export class PlayController implements EnemyHost {
     );
     this.spawnWorld();
 
-    camera.follow(knight);
+    camera.follow(knight, (dx, dy) => this.motion.shiftDrawn(knight, dx, dy));
     this.stepsSinceDraw = 0;
     scene.physics.world.on(Phaser.Physics.Arcade.Events.WORLD_STEP, this.onWorldStep);
     scene.game.events.on(Phaser.Core.Events.PRE_RENDER, this.onPreRender);

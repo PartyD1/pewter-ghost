@@ -85,6 +85,20 @@ describe("MotionInterpolator", () => {
     m.endDraw();
   });
 
+  it("a drawn shift is undone by endDraw and never touches an object outside a draw", () => {
+    const m = new MotionInterpolator();
+    const o = at(10, 20);
+    m.shiftDrawn(o, 5, 5);
+    expect(o).toEqual({ x: 10, y: 20 });
+    m.beginDraw([o], 0, 0);
+    m.shiftDrawn(o, 0.25, -0.25);
+    expect(o).toEqual({ x: 10.25, y: 19.75 });
+    m.endDraw();
+    expect(o).toEqual({ x: 10, y: 20 });
+    m.shiftDrawn(o, 5, 5);
+    expect(o).toEqual({ x: 10, y: 20 });
+  });
+
   it("clamps alpha, and beginning twice cannot lose the real position", () => {
     const m = new MotionInterpolator();
     const o = at(0);

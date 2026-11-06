@@ -77,6 +77,11 @@ for (const [hz, jitterMs] of [
     // One pixel is rounding; more is a visible judder.
     expect(Math.min(...moves)).toBeGreaterThanOrEqual(-1);
     expect(Math.max(...moves)).toBeLessThanOrEqual(6);
+    // At a steady run the knight holds its place in the view: a 1 px twitch at
+    // about 10 Hz is slow enough to see, unlike the fast judder it replaced.
+    const nonZero = moves.filter((m) => m !== 0);
+    const reversals = nonZero.slice(1).filter((m, i) => Math.sign(m) !== Math.sign(nonZero[i]!)).length;
+    expect(reversals / (run.screenX.length / hz)).toBeLessThan(2);
   });
 }
 

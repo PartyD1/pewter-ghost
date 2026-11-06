@@ -59,6 +59,9 @@ export class CameraController implements CameraApi {
   private tween: Tween | null = null;
   private pending: PendingNudge | null = null;
   private following = false;
+  /** The follow's scroll before snapping; only the snapped one is drawn. */
+  private trueScroll: Vec | null = null;
+  private onSnap: ((dx: number, dy: number) => void) | null = null;
   /** Edit-mode view to restore after Play. */
   private savedView: { center: Vec; zoom: number } | null = null;
 
@@ -249,7 +252,9 @@ export class CameraController implements CameraApi {
    * 349-353): the zoom stays where it was (2.25 by default), the bounds are
    * the map, startFollow(player, false, 0.1, 0.1).
    */
-  follow(target: Phaser.GameObjects.GameObject & { x: number; y: number }): void {
+  follow(target: Phaser.GameObjects.GameObject & { x: number; y: number }, onSnap?: (dx: number, dy: number) => void): void {
+    this.onSnap = onSnap ?? null;
+    this.trueScroll = null;
     this.savedView = { center: { ...this.center }, zoom: this._zoom };
     this.tween = null;
     this.pending = null;
@@ -266,6 +271,11 @@ export class CameraController implements CameraApi {
     if (!this.following) return;
     const lerp = followLerp(deltaMs / 1000);
     this.cam.setLerp(lerp, lerp);
+    // The follow carries on from the true position, not the snapped one drawn last frame.
+    if (this.trueScroll) {
+      this.cam.scrollX = this.trueScroll.x;
+      this.cam.scrollY = this.trueScroll.y;
+    }
   }
 
   /**
@@ -276,10 +286,19 @@ export class CameraController implements CameraApi {
    * thin lines between the backdrop's tiles and a blurry ground and knight in
    * Play. Phaser's own roundPixels floors to whole WORLD pixels (still
    * fractional on screen at 2.25) and only rounds sprites at integer zoom.
+   *
+   * onSnap gets how far the snap moved the scroll, so the followed sprite can
+   * be drawn relative to the true scroll. Rounded on its own, it twitches 1 px
+   * against the view each time the snap's fraction wraps (about 10 times a
+   * second at a full run), which is easy to see on an otherwise steady sprite.
    */
   private snapFollow(cam: Phaser.Cameras.Scene2D.Camera): void {
-    cam.scrollX = snapScroll(cam.scrollX, cam.zoomX, cam.width * cam.originX);
-    cam.scrollY = snapScroll(cam.scrollY, cam.zoomY, cam.height * cam.originY);
+    const x = cam.scrollX;
+    const y = cam.scrollY;
+    this.trueScroll = { x, y };
+    cam.scrollX = snapScroll(x, cam.zoomX, cam.width * cam.originX);
+    cam.scrollY = snapScroll(y, cam.zoomY, cam.height * cam.originY);
+    this.onSnap?.(cam.scrollX - x, cam.scrollY - y);
     // Typed read-only, but it is plain state that preRender recomputes every frame.
     (cam as { renderRoundPixels: boolean }).renderRoundPixels = true;
   }
@@ -290,6 +309,8 @@ export class CameraController implements CameraApi {
     const cam = this.cam;
     cam.off(Phaser.Cameras.Scene2D.Events.FOLLOW_UPDATE, this.snapFollow, this);
     cam.stopFollow();
+    this.onSnap = null;
+    this.trueScroll = null;
     if (this.savedView) {
       this.center = this.savedView.center;
       this._zoom = this.savedView.zoom;

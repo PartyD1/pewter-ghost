@@ -49,6 +49,13 @@ export class MotionInterpolator<T extends Movable & object> {
     }
   }
 
+  /** During drawing only: nudge an object's drawn position. endDraw still restores the real one. */
+  shiftDrawn(object: T, dx: number, dy: number): void {
+    if (!this.drawn.some((d) => d.object === object)) return;
+    object.x += dx;
+    object.y += dy;
+  }
+
   /** Call just after drawing. Puts every object back at its real position. */
   endDraw(): void {
     for (const d of this.drawn) {
