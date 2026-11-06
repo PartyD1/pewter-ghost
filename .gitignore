@@ -11,3 +11,6 @@ playwright-report
 firebase-key*.json
 service-account*.json
 .firebase/
+
+# Screenshots written by the browser checks (CI uploads them as an artifact)
+docs/screens/

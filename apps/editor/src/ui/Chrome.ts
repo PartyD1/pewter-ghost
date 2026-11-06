@@ -6,8 +6,7 @@
  *
  * The markup is copied from pewter-platfomer src/phaser/UIScene.ts create()
  * (lines 140-236 and 517-526) and styled by styles/chrome.css. Changes for
- * Pewter Ghost, per docs/PLAN.md ("Proposed Information Architecture",
- * "Keep, Fix, or Drop"):
+ * Pewter Ghost, per the original design plan (see README):
  * - No chat: the Chat tab, chat log, typing indicator and chat input are gone.
  * - No tabs at all: the Blocks tab's content is shown directly in the panel
  *   (the old Controls tab is replaced by Help and the visible modes).

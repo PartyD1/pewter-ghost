@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Pewter Ghost is an LLM autofill for a 2D platformer level editor (Phaser 3 + TypeScript + Vite, Node 22). As the person paints, a model proposes the next stretch of level as a faint "ghost"; nothing reaches the screen unless a validator and a physics-exact playtest agent both pass it. See `README.md` for the user-facing description, `docs/PLAN.md` for the full design (work items G-01..G-38; code comments cite these IDs), and `ORIGIN.md` for where copied code came from.
+Pewter Ghost is an LLM autofill for a 2D platformer level editor (Phaser 3 + TypeScript + Vite, Node 22). As the person paints, a model proposes the next stretch of level as a faint "ghost"; nothing reaches the screen unless a validator and a physics-exact playtest agent both pass it. See `README.md` for the user-facing description and `ORIGIN.md` for where copied code came from. Code comments cite work-item IDs (G-01..G-38) from the original design plan, which was removed from the tree: read it with `git show c9c7a7e:docs/PLAN.md`.
 
 ## Commands
 
@@ -54,5 +54,5 @@ idle -> patrol (agent plays start -> frontier) -> blocked? -> Fix ghost (model, 
 
 - **Never read `import.meta.env` as a whole object** (Vite would inline `VITE_LLM_API_KEY` into the bundle). Only static properties like `import.meta.env.VITE_COMMIT`; `session.test.ts` scans for violations and CI builds with a canary key and greps `dist/`.
 - Never print, log or commit the model key; it is read by the proxy only (`GEMINI_API_KEY` / `VITE_LLM_API_KEY`).
-- `docs/PLAN.md`, `README.md` and `docs/decisions.md` lag the code in places (e.g. the route overlay / `R` key was removed, and suggestion timing has changed since); trust the code and recent git log, and add a line to `docs/decisions.md` when you change behavior.
+- `docs/decisions.md` lags the code in places (e.g. the route overlay / `R` key was removed, and suggestion timing has changed since); trust the code and recent git log, and add a line to `docs/decisions.md` when you change behavior.
 - Tests are `*.test.ts` next to the code (Vitest includes `apps`, `packages`, `proxy`, `eval`); fast-check is used for property tests.
