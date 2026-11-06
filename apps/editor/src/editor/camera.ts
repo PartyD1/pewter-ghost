@@ -10,6 +10,8 @@ import type { CameraApi } from "./api";
 import {
   clampCenter,
   easeOutCubic,
+  FOLLOW_LERP_60HZ,
+  followLerp,
   nudgeTarget,
   screenToWorld,
   snapScroll,
@@ -255,8 +257,15 @@ export class CameraController implements CameraApi {
     const cam = this.cam;
     cam.setZoom(this._zoom);
     cam.setBounds(0, 0, this.levelPx.w, this.levelPx.h);
-    cam.startFollow(target, false, 0.1, 0.1);
+    cam.startFollow(target, false, FOLLOW_LERP_60HZ, FOLLOW_LERP_60HZ);
     cam.on(Phaser.Cameras.Scene2D.Events.FOLLOW_UPDATE, this.snapFollow, this);
+  }
+
+  /** Play mode, once per frame: scale the follow lerp to this frame's length (cameraMath.followLerp). */
+  setFollowFrame(deltaMs: number): void {
+    if (!this.following) return;
+    const lerp = followLerp(deltaMs / 1000);
+    this.cam.setLerp(lerp, lerp);
   }
 
   /**

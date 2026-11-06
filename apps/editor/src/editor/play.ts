@@ -242,6 +242,7 @@ export class PlayController implements EnemyHost {
 
   update(deltaMs: number): void {
     if (!this.active || !this.knight || !this.controller) return;
+    this.deps.camera.setFollowFrame(deltaMs);
     if (this.goalReached) {
       this.stop(true);
       return;
