@@ -1,6 +1,7 @@
 /// <reference types="vitest/config" />
 import { defineConfig, type Plugin } from "vite";
 import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
@@ -18,11 +19,34 @@ const replayRoute = (): Plugin => {
   };
 };
 
+/**
+ * The default Tiled map is imported from JS (editor/newLevel.ts) and fetched by
+ * URL (Phaser, replay), so it lives in apps/editor/assets, not public/ (Vite
+ * forbids importing from public/). Serve and emit it at phaserAssets/.
+ */
+const defaultMapAsset = (): Plugin => {
+  const name = "pewterPlatformerDefaultMap.json";
+  const file = r(`./apps/editor/assets/${name}`);
+  const serve = (req: { url?: string }, res: { setHeader(k: string, v: string): void; end(b: Buffer): void }, next: () => void) => {
+    if ((req.url ?? "").split("?")[0].endsWith(`/phaserAssets/${name}`)) {
+      res.setHeader("Content-Type", "application/json");
+      res.end(readFileSync(file));
+    } else next();
+  };
+  return {
+    name: "pewter-default-map-asset",
+    configureServer: (s) => void s.middlewares.use(serve),
+    generateBundle() {
+      this.emitFile({ type: "asset", fileName: `phaserAssets/${name}`, source: readFileSync(file) });
+    },
+  };
+};
+
 export default defineConfig({
   root: r("./apps/editor"),
   base: "./",
   publicDir: r("./apps/editor/public"),
-  plugins: [replayRoute()],
+  plugins: [replayRoute(), defaultMapAsset()],
   resolve: {
     alias: [
       { find: /^@app\/(.*)$/, replacement: r("./apps/editor/src/") + "$1" },

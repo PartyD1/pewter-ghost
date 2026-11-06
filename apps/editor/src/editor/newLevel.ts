@@ -1,7 +1,8 @@
 /**
  * The level a new session opens on: the old Pewter Platformer default map.
  *
- * public/phaserAssets/pewterPlatformerDefaultMap.json is the old Pewter
+ * apps/editor/assets/pewterPlatformerDefaultMap.json (served at
+ * phaserAssets/ by the vite config) is the old Pewter
  * Platformer's Tiled map; Phaser loads it for the backdrop and this file
  * reads its ground layer (one copy, imported from here).
  * The old editor opened on this map (editorScene.ts:487-525): a full grass
@@ -16,7 +17,7 @@
 import { AUTHOR, LEVEL_H, LEVEL_W, TILE, type LevelSnapshot, type Point } from "../contracts";
 import { DEFAULT_START } from "../level/LevelModel";
 import { emptySnapshot } from "../level/snapshot";
-import defaultMap from "../../public/phaserAssets/pewterPlatformerDefaultMap.json";
+import defaultMap from "../../assets/pewterPlatformerDefaultMap.json";
 
 export interface StarterOptions {
   w?: number;
