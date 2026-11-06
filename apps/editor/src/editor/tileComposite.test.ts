@@ -69,7 +69,7 @@ describe("paintGhost", () => {
 });
 
 describe("backdropSource", () => {
-  const map = JSON.parse(readFileSync(new URL("../../public/phaserAssets/pewterPlatformerDefaultMap.json", import.meta.url), "utf8")) as {
+  const map = JSON.parse(readFileSync(new URL("../../assets/pewterPlatformerDefaultMap.json", import.meta.url), "utf8")) as {
     tilesets: { firstgid: number; name: string }[];
     layers: { name: string; data: number[] }[];
   };
