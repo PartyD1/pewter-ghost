@@ -25,6 +25,7 @@ import type { EditorLogger, PlayResult } from "./api";
 import type { CameraController } from "./camera";
 import { CheckpointTracker } from "./checkpoints";
 import { ASSET, DEPTH, ENTITY_FRAME, FRAME, TILE_PX } from "./constants";
+import { MotionInterpolator } from "./motionSmoothing";
 import {
   enemyTuning,
   playGravity,
@@ -111,6 +112,24 @@ export class PlayController implements EnemyHost {
   private _tuning: EnemyTuning = enemyTuning(1);
   private unsubscribeSettings: (() => void) | null = null;
   private readonly clock: () => number;
+  private readonly motion = new MotionInterpolator<Phaser.GameObjects.GameObject & { x: number; y: number }>();
+  private stepsSinceDraw = 0;
+
+  private readonly onWorldStep = (): void => {
+    this.stepsSinceDraw++;
+  };
+
+  /** Runs before the camera's follow, which then tracks the knight's drawn position. */
+  private readonly onPreRender = (): void => {
+    const world = this.deps.scene.physics.world as unknown as { _elapsed: number; _frameTimeMS: number; timeScale: number };
+    const alpha = world._elapsed / (world._frameTimeMS * world.timeScale);
+    this.motion.beginDraw(this.movingObjects(), this.stepsSinceDraw, alpha);
+    this.stepsSinceDraw = 0;
+  };
+
+  private readonly onPostRender = (): void => {
+    this.motion.endDraw();
+  };
 
   constructor(private readonly deps: PlayDeps) {
     this.clock = deps.clock ?? (() => performance.now());
@@ -203,6 +222,10 @@ export class PlayController implements EnemyHost {
     this.spawnWorld();
 
     camera.follow(knight);
+    this.stepsSinceDraw = 0;
+    scene.physics.world.on(Phaser.Physics.Arcade.Events.WORLD_STEP, this.onWorldStep);
+    scene.game.events.on(Phaser.Core.Events.PRE_RENDER, this.onPreRender);
+    scene.game.events.on(Phaser.Core.Events.POST_RENDER, this.onPostRender);
     this.deps.log({ type: "play.start", t: this.startedAt });
     this.emitHud();
     return true;
@@ -213,6 +236,10 @@ export class PlayController implements EnemyHost {
     if (!this.active) return undefined;
     const { scene, renderer, camera } = this.deps;
     this.active = false;
+    scene.physics.world.off(Phaser.Physics.Arcade.Events.WORLD_STEP, this.onWorldStep);
+    scene.game.events.off(Phaser.Core.Events.PRE_RENDER, this.onPreRender);
+    scene.game.events.off(Phaser.Core.Events.POST_RENDER, this.onPostRender);
+    this.motion.endDraw();
     for (const c of this.colliders) c.destroy();
     this.colliders = [];
     this.clearWorld();
@@ -290,6 +317,12 @@ export class PlayController implements EnemyHost {
     const fell = knight.y > this.deps.renderer.heightPx + FALL_MARGIN_PX;
     if (fell || this.health <= 0) this.die();
     if (this.active) this.emitHud();
+  }
+
+  /** Everything physics moves. Pickups and signs stand still. */
+  private movingObjects(): (Phaser.GameObjects.GameObject & { x: number; y: number })[] {
+    const pellets = (this.pellets?.getChildren() ?? []) as Phaser.Physics.Arcade.Sprite[];
+    return [...(this.knight ? [this.knight] : []), ...this.enemies, ...pellets];
   }
 
   private applySettings(): void {
