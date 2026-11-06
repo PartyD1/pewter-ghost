@@ -90,6 +90,44 @@ test("smoothing is drawing only: physics covers the same ground at any screen ra
   expect(at120.maxBodyDrift).toBeLessThan(0.001);
 });
 
+test("a walking enemy is drawn moving on every frame at 120 Hz, not every other frame", async ({ page }) => {
+  await Editor.open(page, { proxy: null });
+  const r = await page.evaluate(() => {
+    const { game, scene, model } = (window as any).__pewter;
+    const s = model.snapshot();
+    // On the starter's floor, near the start so nothing else interferes.
+    const floorY = (() => {
+      for (let y = 0; y < s.h; y++) if (s.cells[y * s.w + 30]) return y;
+      return s.h - 1;
+    })();
+    s.entities.push({ id: "e2e-slime", kind: "slime", x: 30, y: floorY - 1, patrol: [24, 36] });
+    model.load(s);
+    game.loop.stop();
+    scene.startPlay();
+    const enemy = scene.play.enemies.find((e: { entityId: string }) => e.entityId === "e2e-slime");
+    const cam = scene.cameras.main;
+    const drawn: number[] = [];
+    const record = () => drawn.push(enemy.x);
+    cam.on("followupdate", record);
+    let t = performance.now();
+    for (let i = 0; i < 480; i++) {
+      t += 1000 / 120;
+      game.loop.step(t);
+    }
+    cam.off("followupdate", record);
+    const endedAlive = enemy.alive;
+    scene.stopPlay();
+    return { drawn, endedAlive };
+  });
+  expect(r.endedAlive).toBe(true);
+  const moves = steps(r.drawn).map(Math.abs);
+  const moving = moves.filter((m) => m > 0.001).length;
+  // It has to be walking at all, or this proves nothing.
+  expect(Math.max(...moves)).toBeGreaterThan(0.05);
+  // Unsmoothed, only half the frames move (the physics steps).
+  expect(moving / moves.length).toBeGreaterThan(0.8);
+});
+
 test("respawning jumps straight to the spawn, with no slide across the level", async ({ page }) => {
   await Editor.open(page, { proxy: null });
   const r = await page.evaluate(() => {
