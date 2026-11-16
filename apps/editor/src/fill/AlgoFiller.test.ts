@@ -11,6 +11,7 @@ import {
   algoDelayMs,
   AlgoFiller,
   extendConfidence,
+  extendLabel,
   finishConfidence,
   parseWindowGrid,
   similarityToHistory,
@@ -147,7 +148,9 @@ describe("AlgoFiller Extend", () => {
     const filler = new AlgoFiller({ config: EXTEND_ONLY });
     const s = (await filler.fill(req))!;
     expect(s.kind).toBe("extend");
-    expect(s.label).toMatch(/^extend: /);
+    expect(s.label).not.toMatch(/^extend/);
+    expect(s.label.split(" ").length).toBeLessThanOrEqual(8);
+    expect(s.label).toBe(extendLabel(filler.lastProposal!.chunk!));
     expect(s.confidence).toBe(0.5); // paused at the frontier
     const fx = req.origin.x + req.frontier.x;
     expect(s.adds.every((a) => a.x > fx)).toBe(true);

@@ -61,6 +61,7 @@ import { config as liveConfig, type GhostConfig } from "../suggest/config";
 import { validateSuggestion } from "../verify/validate";
 import { modelAnswerToSuggestion } from "./answer";
 import { sleep, throwIfAborted } from "./Filler";
+import { extendCaption, finishCaption } from "./algoCaption";
 import { intentFromBrief } from "./intent";
 import { requestHash, requestHashSync } from "./hash";
 import { parseWindowGrid, type WindowGrid } from "./windowGrid";
@@ -292,7 +293,9 @@ export class AlgoFiller implements Filler {
       // among the rest, the first that passes the window validator.
       const rest = proposals.slice(attempt);
       if (rest.length) {
-        const answers = rest.map((f) => ({ f, answer: this.finishAnswer(f) }));
+        const read = readRequest(req, grid);
+        const guess = levelGuessFor({ measured: req.measured, themes: read.themes, evidence: read.evidence });
+        const answers = rest.map((f) => ({ f, answer: this.finishAnswer(f, guess) }));
         const ok = this.prevalidateOn ? answers.findIndex((a) => this.windowValid(req, grid, a.answer)) : -1;
         const pick = answers[Math.max(0, ok)];
         return done({
@@ -330,7 +333,7 @@ export class AlgoFiller implements Filler {
     }
   }
 
-  private finishAnswer(f: FinishProposal): ModelAnswer {
+  private finishAnswer(f: FinishProposal, guess: string | null): ModelAnswer {
     return {
       act: true,
       kind: "finish",
@@ -338,8 +341,8 @@ export class AlgoFiller implements Filler {
       removes: [],
       entities: f.entities.map((e) => ({ kind: e.kind as EntityKind, x: e.x, y: e.y })),
       confidence: finishConfidence(f, this.timing),
-      label: f.label,
-      levelGuess: "algo",
+      label: finishCaption(f.label),
+      ...(guess ? { levelGuess: guess } : {}),
     };
   }
 
@@ -634,11 +637,9 @@ function slimeFloorOk(solid: Uint8Array, w: number, h: number, x: number, y: num
   return b - a + 1 >= 4 && x - a >= 1 && b - x >= 1;
 }
 
-/** "extend: pit 3, step up 1, coin arc 4" (flat runs left out unless that is all there is). */
-export function extendLabel(chunk: Pick<ComposedChunk, "desc">): string {
-  const parts = chunk.desc.filter((d) => !d.startsWith("flat"));
-  const shown = parts.slice(0, 3).join(", ") + (parts.length > 3 ? ", ..." : "");
-  return `extend: ${shown || "a flat run"}`.slice(0, 80);
+/** The caption for an Extend section (see algoCaption.ts): "3-wide gap, then stairs up". */
+export function extendLabel(chunk: Pick<ComposedChunk, "pieces">): string {
+  return extendCaption(chunk.pieces);
 }
 
 const words = (s: string) =>
