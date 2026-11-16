@@ -9,6 +9,8 @@
  * - validate.ts: rule-checked generation (@physsim checkRules).
  * - profile.ts: style profile from measured numbers.
  * - detect.ts: local Finish detectors (repeats and open structures).
+ * - compose.ts: the section composer the filler's Extend uses (wider piece
+ *   grammar, pacing, echo of the person's shapes).
  */
 export { PyRandom } from "./rng";
 export { AUDIT_CAPS, capsFor, fullRunway, ladderGap, type Caps, type CapsTier, type LadderRung } from "./caps";
@@ -51,3 +53,20 @@ export {
   type FinishProposal,
 } from "./detect";
 export { detectAnomalies, type AnomalyProposal, type AnomalyOptions } from "./anomaly";
+export {
+  CELL,
+  COMPOSE_KINDS,
+  HARD,
+  INTENSITY,
+  composeChunk,
+  composedKinds,
+  composedRows,
+  composedTags,
+  neutralStyle,
+  type ComposeKind,
+  type ComposeOptions,
+  type ComposeStyle,
+  type ComposedChunk,
+  type ComposedPiece,
+  type Motif,
+} from "./compose";
