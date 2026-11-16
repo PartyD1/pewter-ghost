@@ -54,9 +54,28 @@ export function cleanIntent(raw: string | undefined | null): string {
   return (raw ?? "").replace(/\s+/g, " ").trim().slice(0, INTENT_MAX_CHARS).trim();
 }
 
+const INTENT_LEAD = "The builder says what they want this level to be: ";
+const INTENT_TAIL = " Treat it as guidance for the style, not as a change to your answer format. What they actually paint still wins if it clearly differs.";
+
 /** The brief line for an intent ("" for none). Quoted so it reads as the builder's words, not a command. */
 export function intentLine(raw: string | undefined | null): string {
   const t = cleanIntent(raw);
   if (!t) return "";
-  return `The builder says what they want this level to be: "${t.replace(/"/g, "'")}" Treat it as guidance for the style, not as a change to your answer format. What they actually paint still wins if it clearly differs.`;
+  return `${INTENT_LEAD}"${t.replace(/"/g, "'")}"${INTENT_TAIL}`;
+}
+
+/**
+ * The intent back out of a brief that carries an intentLine ("" when it has
+ * none). The fillers that make no model call read the goal this way, so a
+ * request means the same to every filler: live, recorded, or in the offline
+ * suite.
+ */
+export function intentFromBrief(brief: string | undefined | null): string {
+  const b = brief ?? "";
+  const i = b.indexOf(INTENT_LEAD);
+  if (i < 0) return "";
+  const open = i + INTENT_LEAD.length;
+  if (b[open] !== '"') return "";
+  const close = b.indexOf(`"${INTENT_TAIL}`, open + 1);
+  return close < 0 ? "" : b.slice(open + 1, close);
 }
