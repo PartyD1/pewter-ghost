@@ -5,13 +5,15 @@
  * - Reaching the flag ends Play with reachedGoal = true.
  * - Deaths (health gone or a fall) are counted; the knight respawns at the
  *   last checkpoint touched (else the start) and enemies/collectables reset.
+ * - Question blocks are roulette blocks (rouletteBlock.ts): hit one from below
+ *   and it pays out the face it is showing.
  * - Emits play.start / play.end through the injected logger.
  *
  * Play never writes to the level model or the tile layer; it reads the
  * renderer's layer for collisions and creates its own live objects.
  */
 import Phaser from "phaser";
-import { COLLECTABLE_KINDS, ENEMY_KINDS, type Entity } from "../contracts";
+import { COLLECTABLE_KINDS, ENEMY_KINDS, TILE, type Entity } from "../contracts";
 import type { LevelModel } from "../level/LevelModel";
 import { configurePlayerSprite, PlayerController, WORLD_GRAVITY_Y } from "../player/playerController";
 import { JUMP_VELOCITY_PX, MAX_RUN_SPEED_PX, TERMINAL_VELOCITY_PX } from "../player/playerPhysics";
@@ -25,6 +27,7 @@ import { CheckpointTracker } from "./checkpoints";
 import { ASSET, DEPTH, ENTITY_FRAME, FRAME, TILE_PX } from "./constants";
 import { MotionInterpolator } from "./motionSmoothing";
 import type { Renderer } from "./render";
+import { bumpTarget, RouletteBlocks, type BumpCounts, type RouletteFace } from "./rouletteBlock";
 
 export const MAX_HEALTH = 5;
 /** Keys PlayerController registers (createCursorKeys + W,A,S,D). */
@@ -96,6 +99,7 @@ export class PlayController implements EnemyHost {
   private signs: Phaser.GameObjects.Image[] = [];
   private goalReached = false;
   private checkpoints = new CheckpointTracker({ x: 0, y: 0 }, []);
+  private roulette = new RouletteBlocks();
   private startedAt = 0;
   private readonly clock: () => number;
   private readonly motion = new MotionInterpolator<Phaser.GameObjects.GameObject & { x: number; y: number }>();
@@ -127,6 +131,11 @@ export class PlayController implements EnemyHost {
 
   get stats(): { deaths: number; coins: number; health: number; timeMs: number } {
     return { deaths: this.deaths, coins: this.coins, health: this.health, timeMs: this.elapsedMs };
+  }
+
+  /** What the question blocks have paid out in this Play, by face. */
+  get bumps(): BumpCounts {
+    return this.roulette.counts;
   }
 
   /** The live knight sprite (e2e tests). */
@@ -163,6 +172,7 @@ export class PlayController implements EnemyHost {
     this.startedAt = this.clock();
     this.entities = model.entities.map((e) => ({ ...e, patrol: e.patrol ? [e.patrol[0], e.patrol[1]] : undefined }));
     this.checkpoints = new CheckpointTracker(model.start, this.entities);
+    this.roulette = new RouletteBlocks();
 
     renderer.setEditView(false);
     // Side walls at the level's edges (the knight collides with world bounds).
@@ -260,6 +270,7 @@ export class PlayController implements EnemyHost {
     }
 
     this.controller.update(deltaMs);
+    this.checkHeadBump();
 
     const target = { x: knight.x, y: knight.y };
     for (const e of this.enemies) e.step(deltaMs, target);
@@ -301,6 +312,7 @@ export class PlayController implements EnemyHost {
     this.health = MAX_HEALTH;
     this.coins = 0;
     this.coinsTotal = 0;
+    this.roulette.refill();
     for (const e of this.entities) {
       if (ENEMY_KINDS.has(e.kind)) {
         const enemy = e.kind === "slime" ? new Slime(scene, e, this) : new UltraSlime(scene, e, this);
@@ -372,6 +384,26 @@ export class PlayController implements EnemyHost {
     if (kind === "coin") this.coins++;
     if (kind === "fruit") this.health = Math.min(MAX_HEALTH, this.health + 1);
     o.destroy();
+  }
+
+  /**
+   * The knight's head stopped against a tile on the last physics step: if that
+   * tile is a question block that has not paid out yet, it pays out now. The
+   * flag can still be set on a frame with no step; a spent block ignores it.
+   */
+  private checkHeadBump(): void {
+    const body = this.knight?.body;
+    if (!body || !body.blocked.up) return;
+    const { model } = this.deps;
+    const hit = bumpTarget(body, (x, y) => model.tileAt(x, y) === TILE.QUESTION, TILE_PX);
+    if (!hit) return;
+    const face = this.roulette.bump(hit.x, hit.y, this.elapsedMs);
+    if (face) this.payOut(face, hit.x, hit.y);
+  }
+
+  private payOut(face: RouletteFace, _x: number, _y: number): void {
+    if (face === "coin") this.coins++;
+    else if (face === "fruit") this.health = Math.min(MAX_HEALTH, this.health + 1);
   }
 
   private showActiveCheckpoint(): void {
