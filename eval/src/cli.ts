@@ -25,6 +25,7 @@ import { acceptanceByRequest, loadSessions } from "./logs";
 import { chooseCell, DEFAULT_TARGETS, judgeCell, matrixConfigs, matrixMarkdown, type MatrixCell, type MatrixTargets } from "./matrix";
 import { computeMetrics, type SurveyAnswer } from "./metrics";
 import { compareReport, headline, runReport } from "./report";
+import { isLocalFiller } from "./fillers";
 import { DEFAULT_RUN_CONFIG, runSuite } from "./run";
 import { analyseTiming, timingMarkdown } from "./timing";
 import type { EvalCase, RunConfig, RunResult } from "./types";
@@ -50,7 +51,9 @@ Requests (run, compare, calibrate, matrix)
   --family f --tag t --mode auto|requested|patrol --match s --limit n
 
 Configuration (run, calibrate, matrix; prefix with a- / b- for compare)
-  --model id|recorded    model for the live runner, or the answers stored with each case
+  --model id|recorded|algo|markov
+                         model for the live runner, the answers stored with each case,
+                         or a filler that makes no model call (no key needed)
   --window 24x12         window size (rebuilds seed cases; recordings are skipped)
   --summary on|off       one-line summary of the level outside the window
   --examples             reference examples in the brief (G-31)
@@ -153,7 +156,7 @@ class Ctx {
   }
 
   caller(cfg: RunConfig): ModelCaller | undefined {
-    if (cfg.model === "recorded") return undefined;
+    if (cfg.model === "recorded" || isLocalFiller(cfg.model)) return undefined;
     const o = { refresh: bool(this.flags, "refresh"), cacheErrors: bool(this.flags, "cache-errors") };
     if (this.deps.makeCaller) return this.deps.makeCaller(cfg, o);
     if (!hasApiKey(this.deps.env)) throw new ArgError(`model key not set: export VITE_LLM_API_KEY to call ${cfg.model}, or use --model recorded`);
