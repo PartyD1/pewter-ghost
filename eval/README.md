@@ -11,6 +11,7 @@ npx tsx eval/src/cli.ts help
 npx tsx eval/src/cli.ts seed                                   # eval/data/seed.jsonl (52 fixture requests)
 npx tsx eval/src/cli.ts run --name baseline                    # eval/reports/baseline.md
 npx tsx eval/src/cli.ts run --model recorded --data proxy/.data/recordings   # score recorded answers, no API calls
+npx tsx eval/src/cli.ts run --model algo --name algo           # the rule-based filler (no model, no key); also --model markov
 npx tsx eval/src/cli.ts compare --a-model gemini-3.7-flash --b-model gemini-2.5-flash-lite
 npx tsx eval/src/cli.ts compare baseline other-run             # two saved runs (eval/runs/*.json)
 npx tsx eval/src/cli.ts calibrate --logs proxy/.data/logs      # G-27

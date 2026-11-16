@@ -2,6 +2,7 @@ import { AgentClient } from "@physsim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AUTHOR, TILE, type FillRequest, type Filler, type LogEvent, type Suggestion, type VerifiedSuggestion } from "./contracts";
 import { starterSnapshot } from "./editor/newLevel";
+import { AlgoFiller } from "./fill/AlgoFiller";
 import { FillerRegistry, StubFiller, sleep } from "./fill/Filler";
 import { LevelModel } from "./level/LevelModel";
 import { checkCompleteness } from "./research/completeness";
@@ -108,13 +109,14 @@ describe("config resolution (G-33)", () => {
     expect(DEFAULT_CONFIG.filler).toBe("llm"); // never mutated
   });
 
-  it("registers the LLM filler only with a token; unknown fillers run as none", () => {
+  it("registers the LLM filler only with a token; the rule-based fillers always", () => {
     const noTok = buildRegistry(cfgWith({ filler: "llm" }), { sessionId: "s", token: null });
     expect(noTok.activeName).toBe("none");
     expect(noTok.has("stub")).toBe(true);
     const tok = buildRegistry(cfgWith({ filler: "llm" }), { sessionId: "s", token: "t" });
     expect(tok.activeName).toBe("llm");
-    expect(buildRegistry(cfgWith({ filler: "algo" }), { sessionId: "s", token: "t" }).activeName).toBe("none");
+    expect(buildRegistry(cfgWith({ filler: "algo" }), { sessionId: "s", token: "t" }).activeName).toBe("algo");
+    expect(buildRegistry(cfgWith({ filler: "algo" }), { sessionId: "s", token: null }).activeName).toBe("algo");
     expect(buildRegistry(cfgWith({ filler: "none" }), { sessionId: "s", token: "t" }).activeName).toBe("none");
   });
 });
@@ -249,6 +251,36 @@ describe("FillLoop", () => {
       expect(c.requestHash).toMatch(/^[0-9a-f]{64}$/);
       expect(validateEvent(c).ok).toBe(true);
     }
+  });
+
+  it("algo: drawn stairs get a verified finish from the rule-based filler, with no network", async () => {
+    const l = makeLoop(new AlgoFiller());
+    const { sink, offers } = managerSink(() => cfg);
+    l.setGhost(sink);
+    expect(l.activeFiller).toBe("algo");
+    drawStairs(model);
+    await waitFor(() => offers.length > 0);
+    const s = offers[offers.length - 1];
+    expect(s.verified).toBe(true);
+    expect(s.filler).toBe("algo");
+    expect(s.kind).toBe("finish");
+    expect(s.adds.length).toBeGreaterThan(0);
+    const calls = log.filter((e): e is Extract<LogEvent, { type: "fill.call" }> => e.type === "fill.call");
+    expect(calls.some((c) => c.verdictStage === "ok")).toBe(true);
+    for (const c of calls) expect(validateEvent(c).ok).toBe(true);
+  });
+
+  it("algo: asked on the bare starter level, it offers a verified next stretch", async () => {
+    const l = makeLoop(new AlgoFiller());
+    const { sink, offers } = managerSink(() => cfg);
+    l.setGhost(sink);
+    const out = await l.request();
+    expect(out?.mode).toBe("requested");
+    await waitFor(() => offers.length > 0);
+    const s = offers[offers.length - 1];
+    expect(s.verified).toBe(true);
+    expect(s.kind).toBe("extend");
+    expect(s.adds.length).toBeGreaterThan(3);
   });
 
   it("none = human-only: placements are logged, no calls, no ghosts, no patrol", async () => {
@@ -1075,7 +1107,7 @@ describe("PewterApp boot", () => {
     const agent = new AgentClient({ worker: null });
     const app = new PewterApp({ model, search: "?filler=stub", agent, fetch: (async () => { throw new Error("offline"); }) as unknown as typeof fetch, eventLog: { autoStart: false } });
     await app.ready;
-    expect(app.fillerChoices).toEqual(["markov", "stub", "none"]); // no token: no LLM
+    expect(app.fillerChoices).toEqual(["algo", "markov", "stub", "none"]); // no token: no LLM
     expect(app.setVariant({ filler: "markov" })).toEqual({ filler: "markov", timing: "llm" });
     expect(app.loop.activeFiller).toBe("markov");
     expect(app.setVariant({ timing: "cdhf" })).toEqual({ filler: "markov", timing: "cdhf" });

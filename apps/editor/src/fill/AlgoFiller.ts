@@ -26,17 +26,25 @@ import { checkRules, type SolidGrid } from "@physsim";
 import type { Tier } from "@jump-tables";
 import {
   capsFor,
-  chunkTags,
+  CELL,
+  composeChunk,
+  composedTags,
   detectFinish,
-  generateChunk,
-  profileFromMeasured,
-  type DetectGrid,
+  levelGuessFor,
+  mineMotifs,
+  styleFor,
+  themesFromText,
+  type ComposeKind,
+  type ComposedChunk,
+  type ComposeStyle,
   type DetectOptions,
   type FinishProposal,
-  type GeneratedChunk,
+  type Motif,
+  type ThemeHits,
 } from "@chunks";
 import {
   AUTHOR,
+  LEVEL_W,
   NAME_BY_TILE,
   TILE_BY_NAME,
   type EntityKind,
@@ -52,7 +60,9 @@ import {
 import { config as liveConfig, type GhostConfig } from "../suggest/config";
 import { validateSuggestion } from "../verify/validate";
 import { modelAnswerToSuggestion } from "./answer";
-import { throwIfAborted } from "./Filler";
+import { sleep, throwIfAborted } from "./Filler";
+import { extendCaption, finishCaption } from "./algoCaption";
+import { intentFromBrief } from "./intent";
 import { requestHash, requestHashSync } from "./hash";
 import { parseWindowGrid, type WindowGrid } from "./windowGrid";
 
@@ -154,7 +164,7 @@ export interface AlgoFillerOptions {
   seed?: number;
   /** Extend candidates generated per call (default 8). */
   candidates?: number;
-  /** Extend width bounds in columns (default 6..14). */
+  /** Extend width bounds in columns (default 6..16). */
   minWidth?: number;
   maxWidth?: number;
   /**
@@ -176,6 +186,15 @@ export interface AlgoFillerOptions {
    * judges the answer on the whole level; this only saves send-backs.
    */
   prevalidate?: boolean;
+  /**
+   * Hold each answer as long as a model call would take (see
+   * GhostConfig.algoDelayMedianMs), or a function read at every call (the
+   * live session passes the live config). Default none: generation, the
+   * offline suite and tests get answers at once.
+   */
+  delay?: AlgoDelay | (() => AlgoDelay | null);
+  /** Wait used for the delay (default Filler.sleep; tests pass a fake). */
+  sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
   clock?: () => number;
 }
 
@@ -183,10 +202,12 @@ export interface AlgoProposal {
   answer: ModelAnswer;
   source: "finish" | "extend" | "none";
   finish?: FinishProposal;
-  chunk?: GeneratedChunk;
+  chunk?: ComposedChunk;
   /** Extend: candidates generated and how many passed the rule check. */
   candidates?: number;
   valid?: number;
+  /** Extend: the offered candidate's score (candidateScore). */
+  score?: number;
   /** Whether the answer passed the window pre-validation (absent when it did not run). */
   prevalidated?: boolean;
   /** Times this same request (ignoring previousFailure) has been answered, 0 = first. */
@@ -232,6 +253,14 @@ export class AlgoFiller implements Filler {
     const p = this.propose(request);
     const hash = await requestHash(request);
     throwIfAborted(signal);
+    const d = typeof this.opts.delay === "function" ? this.opts.delay() : this.opts.delay;
+    if (d) {
+      const wait = algoDelayMs(hash, d) - (this.clock() - t0);
+      if (wait > 0) await (this.opts.sleep ?? sleep)(wait, signal);
+      throwIfAborted(signal);
+    }
+    // latencyMs includes the delay, as a model call's includes the network: the
+    // log looks the same for both. The work itself is lastProposal.ms.
     return modelAnswerToSuggestion(p.answer, request, { filler: this.name, requestHash: hash, latencyMs: this.clock() - t0 });
   }
 
@@ -264,7 +293,9 @@ export class AlgoFiller implements Filler {
       // among the rest, the first that passes the window validator.
       const rest = proposals.slice(attempt);
       if (rest.length) {
-        const answers = rest.map((f) => ({ f, answer: this.finishAnswer(f) }));
+        const read = readRequest(req, grid);
+        const guess = levelGuessFor({ measured: req.measured, themes: read.themes, evidence: read.evidence });
+        const answers = rest.map((f) => ({ f, answer: this.finishAnswer(f, guess) }));
         const ok = this.prevalidateOn ? answers.findIndex((a) => this.windowValid(req, grid, a.answer)) : -1;
         const pick = answers[Math.max(0, ok)];
         return done({
@@ -302,7 +333,7 @@ export class AlgoFiller implements Filler {
     }
   }
 
-  private finishAnswer(f: FinishProposal): ModelAnswer {
+  private finishAnswer(f: FinishProposal, guess: string | null): ModelAnswer {
     return {
       act: true,
       kind: "finish",
@@ -310,14 +341,14 @@ export class AlgoFiller implements Filler {
       removes: [],
       entities: f.entities.map((e) => ({ kind: e.kind as EntityKind, x: e.x, y: e.y })),
       confidence: finishConfidence(f, this.timing),
-      label: f.label,
-      levelGuess: "algo",
+      label: finishCaption(f.label),
+      ...(guess ? { levelGuess: guess } : {}),
     };
   }
 
   private extend(req: FillRequest, g: WindowGrid, attempt: number): Omit<AlgoProposal, "attempt" | "ms"> | null {
     const { w, h } = g;
-    const fx = req.frontier.x;
+    let fx = req.frontier.x;
     const fy = req.frontier.y;
     if (!Number.isInteger(fx) || !Number.isInteger(fy) || fx < 0 || fx >= w || fy < 0 || fy >= h) return null;
     const solid = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h && g.solid[y * w + x] === 1;
@@ -327,10 +358,19 @@ export class AlgoFiller implements Filler {
     for (let y = fy; y < h && sy < 0; y++) if (solid(fx, y) && !solid(fx, y - 1)) sy = y;
     for (let y = fy - 1; y >= 0 && sy < 0; y--) if (solid(fx, y) && !solid(fx, y - 1)) sy = y;
     if (sy < 1) return null;
+    // Start where the floor the frontier stands on ends, so the section adds to
+    // the level instead of being laid over ground that is already there. When
+    // that floor runs on past the room a section needs (the starter level's
+    // floor spans the whole level), build on top of it from the frontier.
+    let end = fx;
+    while (solid(end + 1, sy) && !solid(end + 1, sy - 1)) end++;
+    const minWidth = this.opts.minWidth ?? 6;
+    const solidFloor = w - (end + 1) < minWidth;
+    if (!solidFloor) fx = end;
 
     const x0 = fx + 1;
-    const width = Math.min(this.opts.maxWidth ?? 14, w - x0);
-    if (width < (this.opts.minWidth ?? 6)) return null;
+    const width = Math.min(this.opts.maxWidth ?? 16, w - x0);
+    if (width < minWidth) return null;
     let depth = 0;
     while (depth < 3 && solid(fx, sy + depth)) depth++;
     const tileName = (x: number, y: number): TileName | undefined => NAME_BY_TILE[g.tiles[y * w + x]];
@@ -339,43 +379,59 @@ export class AlgoFiller implements Filler {
 
     const tier = this.opts.tier ?? "NORMAL";
     const caps = capsFor(tier);
-    const profile = profileFromMeasured(req.measured, req.knight, { fillDepth: Math.max(1, depth) });
-    const n = Math.max(1, this.opts.candidates ?? 8);
+    const read = readRequest(req, g);
+    const style = styleFor({
+      measured: req.measured,
+      knight: req.knight,
+      themes: read.themes,
+      motifs: read.motifs,
+      evidence: read.evidence,
+      progress: read.progress,
+      fillDepth: Math.max(1, depth),
+      caps,
+    });
+    const avoid = kindsInHistory(req.lastGhosts);
+    const calmLead = needsCalmLead(req, g, fx, sy) ? CALM_LEAD : 0;
+    const guess = levelGuessFor({ measured: req.measured, themes: read.themes, evidence: read.evidence }) ?? undefined;
+    const n = Math.max(1, this.opts.candidates ?? 24);
     const seedBase =
       ((this.opts.seed ?? 0) * 7919 + (req.origin.x + fx) * 131 + (req.origin.y + sy) * 17 + attempt * n) % 2147483647;
     const entityAt = new Set(g.entities.map((e) => `${e.x},${e.y}`));
     const free = (x: number, y: number) =>
       x >= 0 && y >= 0 && x < w && y < h && !g.solid[y * w + x] && !g.blocked[y * w + x] && !entityAt.has(`${x},${y}`);
 
-    type Cand = { chunk: GeneratedChunk; answer: ModelAnswer; score: number; passes: boolean };
+    type Cand = { chunk: ComposedChunk; answer: ModelAnswer; score: number; passes: boolean };
     let best: Cand | null = null;
     let valid = 0;
     for (let k = 0; k < n; k++) {
-      const chunk = generateChunk({
+      const chunk = composeChunk({
         w: width,
         h,
         ground: sy,
         seed: Math.abs(seedBase + k),
-        profile,
+        style,
         caps,
         startRun: this.opts.startRun ?? 1,
         endRun: this.opts.endRun ?? 2,
+        avoid,
+        calmLead,
+        solidFloor,
       });
-      const platform = new Set(chunk.platforms.map((p) => `${p.x},${p.y}`));
+      if (fillsOpenSpace(chunk, g, x0)) continue;
       const adds: ModelAnswer["adds"] = [];
       const merged = Uint8Array.from(g.solid);
       let clash = false;
       for (let cy = 0; cy < chunk.h && !clash; cy++)
         for (let cx = 0; cx < chunk.w; cx++) {
-          if (!chunk.grid[cy * chunk.w + cx]) continue;
+          const code = chunk.cell[cy * chunk.w + cx];
+          if (code === CELL.NONE) continue;
           const x = x0 + cx;
           if (solid(x, cy)) continue;
           if (!free(x, cy)) {
             clash = true;
             break;
           }
-          const top = platform.has(`${cx},${cy}`) || chunk.heights[cx] === cy;
-          adds.push({ x, y: cy, tile: top ? surfaceTile : fillTile });
+          adds.push({ x, y: cy, tile: code === CELL.BRICK ? BRICK_TILE : code === CELL.SURFACE ? surfaceTile : fillTile });
           merged[cy * w + x] = 1;
         }
       if (clash || adds.length === 0) continue;
@@ -394,7 +450,7 @@ export class AlgoFiller implements Filler {
         const x = x0 + s.x;
         if (isFree(x, s.y) && slimeFloorOk(merged, w, h, x, s.y)) entities.push({ kind: "slime", x, y: s.y });
       }
-      const tags = chunkTags(chunk);
+      const tags = composedTags(chunk);
       const answer: ModelAnswer = {
         act: true,
         kind: "extend",
@@ -403,12 +459,12 @@ export class AlgoFiller implements Filler {
         entities,
         confidence: extendConfidence(req, this.cfg.pauseMs, this.timing),
         label: extendLabel(chunk),
-        levelGuess: "algo",
+        ...(guess ? { levelGuess: guess } : {}),
       };
-      const score = similarityToHistory(tags, answer.label, req.lastGhosts);
+      const score = candidateScore(chunk, answer, tags, style, req.lastGhosts);
       const passes = !this.prevalidateOn || this.windowValid(req, g, answer);
-      // Validator-passing candidates first, then the least like recent ghosts.
-      if (!best || (passes && !best.passes) || (passes === best.passes && score < best.score)) best = { chunk, answer, score, passes };
+      // Validator-passing candidates first, then the best score (the earliest on a tie).
+      if (!best || (passes && !best.passes) || (passes === best.passes && score > best.score)) best = { chunk, answer, score, passes };
     }
     if (!best) return null;
     return {
@@ -417,9 +473,156 @@ export class AlgoFiller implements Filler {
       chunk: best.chunk,
       candidates: n,
       valid,
+      score: best.score,
       ...(this.prevalidateOn ? { prevalidated: best.passes } : {}),
     };
   }
+}
+
+/** The tile a block row is drawn with. */
+const BRICK_TILE: TileName = "block";
+/** Columns of level past the start platform after which the drawing counts as full evidence of the person's style. */
+const EVIDENCE_COLS = 24;
+const START_PLATFORM_COLS = 12;
+
+export interface RequestReading {
+  /** Theme hits from the builder's stated goal. */
+  themes: ThemeHits;
+  /** Shapes mined from the window up to the frontier. */
+  motifs: Motif[];
+  /** How much the person has built, 0..1. */
+  evidence: number;
+  /** How far along the level the frontier is, 0..1. */
+  progress: number;
+}
+
+/** What the request says about the level being made, read with fixed rules (no model). */
+export function readRequest(req: Pick<FillRequest, "brief" | "origin" | "frontier">, g: WindowGrid): RequestReading {
+  const fx = Math.max(0, Math.min(g.w - 1, req.frontier.x));
+  const levelX = req.origin.x + fx;
+  return {
+    themes: themesFromText(intentFromBrief(req.brief)),
+    motifs: mineMotifs(g, { x0: 0, x1: fx }).motifs,
+    evidence: Math.max(0, Math.min(1, (levelX - START_PLATFORM_COLS) / EVIDENCE_COLS)),
+    progress: Math.max(0, Math.min(1, levelX / LEVEL_W)),
+  };
+}
+
+/**
+ * Does terrain already in the window stand where the section wants open
+ * space (a gap, the air over a step down, the room under a block row)?
+ * Then the section would not look like what its label says, so the
+ * candidate is dropped. Only rows down to the section's own floor count:
+ * old ground deeper down is not in the way.
+ */
+export function fillsOpenSpace(chunk: Pick<ComposedChunk, "w" | "h" | "grid" | "heights" | "ground" | "style">, g: WindowGrid, x0: number): boolean {
+  const depth = Math.max(1, Math.floor(chunk.style.fillDepth));
+  for (let cx = 0; cx < chunk.w; cx++) {
+    const x = x0 + cx;
+    if (x >= g.w) break;
+    const to = Math.min(chunk.h, (chunk.heights[cx] ?? chunk.ground) + (chunk.heights[cx] === null ? depth : 0));
+    for (let y = 0; y < to; y++) if (!chunk.grid[y * chunk.w + cx] && g.solid[y * g.w + x]) return true;
+  }
+  return false;
+}
+
+export interface AlgoDelay {
+  medianMs: number;
+  sigma: number;
+}
+
+/**
+ * The delay for one answer: log-normal around `medianMs`, drawn from the
+ * request hash (64 hex digits) so the same request always waits the same.
+ * Kept within a third and three times the median. 0 when the median is 0.
+ */
+export function algoDelayMs(hash: string, d: AlgoDelay): number {
+  if (!(d.medianMs > 0)) return 0;
+  const u = (i: number) => (parseInt(hash.slice(i, i + 8), 16) + 0.5) / 4294967296;
+  const u1 = Number.isFinite(u(0)) ? u(0) : 0.5;
+  const u2 = Number.isFinite(u(8)) ? u(8) : 0.5;
+  const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  const ms = d.medianMs * Math.exp(Math.max(0, d.sigma) * z);
+  return Math.round(Math.max(d.medianMs / 3, Math.min(d.medianMs * 3, ms)));
+}
+
+/** Columns of floor-level pieces at the start of a section that follows something high. */
+const CALM_LEAD = 10;
+
+/**
+ * Start the section calm (floor-level pieces only) when a floating
+ * structure stands three or more rows above the floor within ten columns
+ * behind the frontier, or when the last try was sent back for a jump gap:
+ * the validator measures jumps between every pair of neighbouring surfaces,
+ * so new raised ground there would make a gap no one has to jump but the
+ * check still counts.
+ */
+export function needsCalmLead(req: Pick<FillRequest, "previousFailure">, g: WindowGrid, fx: number, sy: number): boolean {
+  const pf = req.previousFailure;
+  if (pf && pf.stage === "measure" && /^gap at x=/.test(pf.reason)) return true;
+  const solid = (x: number, y: number) => x >= 0 && y >= 0 && x < g.w && y < g.h && g.solid[y * g.w + x] === 1;
+  for (let x = Math.max(0, fx - 10); x <= fx; x++)
+    for (let y = 0; y <= sy - 3; y++) if (solid(x, y) && !solid(x, y + 1)) return true;
+  return false;
+}
+
+/** Validator pattern tags (GhostHistoryItem.patterns) -> the piece kinds that make them. */
+const KINDS_BY_TAG: Record<string, ComposeKind[]> = {
+  staircase: ["stairs"],
+  "rising-steps": ["stairs", "step"],
+  "gap-run": ["gap_run"],
+  "pillar-hop": ["stones", "platform_over_pit"],
+  "coin-arc": ["coin_row", "coin_jump"],
+  "enemy-gate": ["enemy_run"],
+  wall: ["pillars"],
+  pit: ["pit"],
+};
+
+/** Piece kinds in the last two ghosts (by their pattern tags), to make less likely next. */
+export function kindsInHistory(history: readonly GhostHistoryItem[]): ComposeKind[] {
+  const out = new Set<ComposeKind>();
+  for (const g of history.slice(-2)) for (const t of g.patterns ?? []) for (const k of KINDS_BY_TAG[t] ?? []) out.add(k);
+  return [...out];
+}
+
+/** Weights of the candidate score. Higher total = offered first. */
+export const SCORE = {
+  /** Per unit of similarity to the recent ghosts (similarityToHistory). */
+  repeat: -1,
+  /** Per distinct non-flat piece kind, up to three. */
+  variety: 0.5,
+  /** The section replays one of the person's own shapes. */
+  echo: 0.4,
+  /** The section carries a coin or an enemy. */
+  entities: 0.3,
+  /** Per unit the hardest piece is away from the style's target intensity. */
+  pacing: -1.5,
+  /** Per tile over BULK tiles (large sections are harder to take in at a glance). */
+  bulk: -0.02,
+} as const;
+const BULK = 90;
+
+/**
+ * How good a candidate section is: unlike the recent ghosts, varied, echoing
+ * the person, with something to collect or dodge, near the target intensity
+ * and not too big. Fixed weights; nothing learned.
+ */
+export function candidateScore(
+  chunk: Pick<ComposedChunk, "pieces" | "peak">,
+  answer: Pick<ModelAnswer, "adds" | "entities" | "label">,
+  tags: readonly string[],
+  style: Pick<ComposeStyle, "intensity">,
+  history: readonly GhostHistoryItem[],
+): number {
+  const kinds = new Set(chunk.pieces.filter((p) => p.kind !== "flat").map((p) => p.kind));
+  return (
+    SCORE.repeat * similarityToHistory(tags, answer.label, history) +
+    SCORE.variety * Math.min(3, kinds.size) +
+    SCORE.echo * (chunk.pieces.some((p) => p.echo) ? 1 : 0) +
+    SCORE.entities * (answer.entities.length > 0 ? 1 : 0) +
+    SCORE.pacing * Math.abs(chunk.peak - style.intensity) +
+    SCORE.bulk * Math.max(0, answer.adds.length - BULK)
+  );
 }
 
 /** A slime needs >= 4 tiles of floor and must not stand at the very edge of it (a landing). */
@@ -434,11 +637,9 @@ function slimeFloorOk(solid: Uint8Array, w: number, h: number, x: number, y: num
   return b - a + 1 >= 4 && x - a >= 1 && b - x >= 1;
 }
 
-/** "extend: pit 3, step up 1, coin arc 4" (flat runs left out unless that is all there is). */
-export function extendLabel(chunk: Pick<GeneratedChunk, "desc">): string {
-  const parts = chunk.desc.filter((d) => !d.startsWith("flat"));
-  const shown = parts.slice(0, 3).join(", ") + (parts.length > 3 ? ", ..." : "");
-  return `extend: ${shown || "a flat run"}`.slice(0, 80);
+/** The caption for an Extend section (see algoCaption.ts): "3-wide gap, then stairs up". */
+export function extendLabel(chunk: Pick<ComposedChunk, "pieces">): string {
+  return extendCaption(chunk.pieces);
 }
 
 const words = (s: string) =>

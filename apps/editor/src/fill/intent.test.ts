@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BriefCache, buildBrief } from "./brief";
-import { cleanIntent, INTENT_MAX_CHARS, INTENT_PRESETS, intentLine } from "./intent";
+import { cleanIntent, INTENT_MAX_CHARS, INTENT_PRESETS, intentFromBrief, intentLine } from "./intent";
 
 describe("cleanIntent", () => {
   it("collapses whitespace and trims", () => {
@@ -22,6 +22,20 @@ describe("intentLine", () => {
   it("quotes the builder's words and cannot be broken out of the quotes", () => {
     const line = intentLine('a "maze"');
     expect(line).toContain(`"a 'maze'"`);
+  });
+});
+
+describe("intentFromBrief", () => {
+  it("reads the goal back out of a real brief, for every preset and for free text", () => {
+    for (const text of [...INTENT_PRESETS.map((p) => p.text), "a maze with dead ends", `say "hi" to the slimes`]) {
+      const brief = buildBrief({ intent: text }).text;
+      expect(intentFromBrief(brief)).toBe(cleanIntent(text).replace(/"/g, "'"));
+    }
+  });
+  it("is empty for a brief without a goal, and for nothing", () => {
+    expect(intentFromBrief(buildBrief({}).text)).toBe("");
+    expect(intentFromBrief("")).toBe("");
+    expect(intentFromBrief(undefined)).toBe("");
   });
 });
 

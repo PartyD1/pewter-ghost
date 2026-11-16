@@ -3,8 +3,9 @@
  * every answer.
  *
  *   1. request per case (rebuilt for another window size when needed)
- *   2. model calls, concurrency-limited and cached (live.ts), or the recorded
- *      answers when config.model === "recorded"
+ *   2. model calls, concurrency-limited and cached (live.ts), the recorded
+ *      answers when config.model === "recorded", or a filler that makes no
+ *      model call when config.model is "algo" or "markov" (fillers.ts)
  *   3. scoring, one case at a time (the in-process agent shares the event
  *      loop, so verification is sequential): schema, coordinates, validator,
  *      rules + agent first try, send-back, pattern tags, confidence
@@ -16,6 +17,7 @@ import { logprobConfidence, sampleAgreement } from "../../apps/editor/src/fill/L
 import { config as liveConfig, DEFAULT_CONFIG } from "../../apps/editor/src/suggest/config";
 import type { AgentLike } from "../../apps/editor/src/verify/playability";
 import { hashRequest, levelFor, requestFor } from "./cases";
+import { isLocalFiller, localAnswerer, localCall, type LocalAnswerer } from "./fillers";
 import { mapLimit, type ModelCaller } from "./live";
 import { summarize } from "./report";
 import { scoreCoords } from "./score/coords";
@@ -36,7 +38,7 @@ export const DEFAULT_RUN_CONFIG: RunConfig = {
 };
 
 export interface RunDeps {
-  /** Live (or fake) model; required unless config.model is "recorded". */
+  /** Live (or fake) model; required unless config.model is "recorded", "algo" or "markov". */
   caller?: ModelCaller;
   agent: AgentLike;
   concurrency?: number;
@@ -100,7 +102,9 @@ export async function scoreCase(
   call: CallResult,
   cfg: RunConfig,
   deps: RunDeps,
+  local?: LocalAnswerer,
 ): Promise<CaseResult> {
+  const fillerName = isLocalFiller(cfg.model) ? cfg.model : "llm";
   const base: CaseResult = {
     id: c.id,
     sessionId: c.sessionId,
@@ -148,7 +152,7 @@ export async function scoreCase(
   base.cells = answer.adds.length + answer.removes.length + answer.entities.length;
   const level = levelFor(c);
   base.coord = scoreCoords(answer, req, level);
-  const conv = convertModelAnswer(answer, req, { filler: "llm", requestHash: base.requestHash, latencyMs: call.latencyMs, id: `eval-${c.id}` });
+  const conv = convertModelAnswer(answer, req, { filler: fillerName, requestHash: base.requestHash, latencyMs: call.latencyMs, id: `eval-${c.id}` });
   base.dropped = conv.dropped.length;
   if (!conv.suggestion) {
     base.validatorStage = "shape";
@@ -162,6 +166,10 @@ export async function scoreCase(
   const gate = cfg.sendBack === "always" ? Number.POSITIVE_INFINITY : cfg.sendBack === "never" ? -1 : liveConfig.sendBackIfUnderMs;
   const sendBackFiller = {
     fill: async (retry: FillRequest): Promise<Suggestion | null> => {
+      if (local) {
+        const a = local(retry);
+        return convertModelAnswer(a.answer, retry, { filler: fillerName, requestHash: hashRequest(retry), latencyMs: a.ms, attempts: 2, id: `eval-${c.id}-2` }).suggestion;
+      }
       if (!deps.caller || cfg.model === "recorded") return null;
       const r = await deps.caller.call(renderFor(retry, cfg), { temperature: cfg.temperature, samples: 1 });
       if (r.error && !r.texts.length) throw new Error(r.error);
@@ -194,18 +202,21 @@ export async function runSuite(cases: readonly EvalCase[], cfg: RunConfig, deps:
   const log = deps.log ?? (() => undefined);
   const startedAt = now().toISOString();
   const recorded = cfg.model === "recorded";
-  if (!recorded && !deps.caller) throw new Error("runSuite: a model caller is needed unless model is 'recorded'");
+  const localName = isLocalFiller(cfg.model) ? cfg.model : null;
+  const local = localName ? localAnswerer(localName) : undefined;
+  if (!recorded && !local && !deps.caller) throw new Error("runSuite: a model caller is needed unless model is 'recorded', 'algo' or 'markov'");
 
   const prepared: Prepared[] = cases.map((c) => {
     const req = requestFor(c, cfg);
     if (!req) return { c, req: null, skipped: "cannot rebuild this request for the configured window (no full level)" };
     if (recorded && !c.recorded) return { c, req, skipped: "no recorded answer" };
-    return { c, req, prompt: recorded ? undefined : renderFor(req, cfg) };
+    return { c, req, prompt: recorded || local ? undefined : renderFor(req, cfg) };
   });
 
   let done = 0;
   const calls = await mapLimit(prepared, deps.concurrency ?? 4, async (p) => {
     if (p.skipped || !p.req) return null;
+    if (localName && local) return localCall(localName, local, p.req);
     const r = recorded ? recordedCall(p.c)! : await deps.caller!.call(p.prompt!, { temperature: cfg.temperature, samples: samplesFor(cfg) });
     done++;
     if (!recorded) log(`  [${done}/${prepared.length}] ${p.c.id}: ${r.error ? `error ${r.error.slice(0, 120)}` : `${r.latencyMs} ms${r.cached ? " (cached)" : ""}`}`);
@@ -232,9 +243,9 @@ export async function runSuite(cases: readonly EvalCase[], cfg: RunConfig, deps:
       });
       continue;
     }
-    results.push(await scoreCase(p.c, p.req, calls[i]!, cfg, deps));
+    results.push(await scoreCase(p.c, p.req, calls[i]!, cfg, deps, local));
   }
 
-  const promptVersion = cfg.systemOverride?.version ?? (recorded ? [...new Set(cases.map((c) => c.recorded?.promptVersion).filter(Boolean))].join(", ") || PROMPT_VERSION : PROMPT_VERSION);
+  const promptVersion = localName ?? cfg.systemOverride?.version ?? (recorded ? [...new Set(cases.map((c) => c.recorded?.promptVersion).filter(Boolean))].join(", ") || PROMPT_VERSION : PROMPT_VERSION);
   return { config: cfg, promptVersion, startedAt, finishedAt: now().toISOString(), cases: results, summary: summarize(results, cfg) };
 }

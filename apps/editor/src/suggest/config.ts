@@ -60,6 +60,15 @@ export interface GhostConfig {
   confidenceSource: "stated" | "logprob" | "twoSample";
   /** Proxy base URL. */
   proxyUrl: string;
+  /**
+   * The algorithm filler answers in a few ms; a model call takes seconds
+   * (gemini-3.7-flash: about 2.1 s median, 2.9 s p90 in eval/reports). So a
+   * person cannot tell the two apart by speed, the live algorithm filler holds
+   * each answer for a delay drawn from a log-normal with this median and
+   * sigma (fixed per request, so a replay is the same). 0 = answer at once.
+   */
+  algoDelayMedianMs: number;
+  algoDelaySigma: number;
 
   // --- Suggestion manager (G-17 / G-24 / per-person thresholds) -------------
   /** Tiles around a dismissed ghost's bounding box that still count as "the same structure". */
@@ -194,6 +203,8 @@ export const DEFAULT_CONFIG: GhostConfig = {
   kinds: { finish: true, extend: true, fix: true },
   confidenceSource: "stated",
   proxyUrl: "http://localhost:8787",
+  algoDelayMedianMs: 2100,
+  algoDelaySigma: 0.25,
   cooldownMarginTiles: 1,
   newStructureTiles: 6,
   ghostTimeoutMs: 30000,

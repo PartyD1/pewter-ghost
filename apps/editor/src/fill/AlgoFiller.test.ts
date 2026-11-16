@@ -1,13 +1,17 @@
+import { createHash } from "node:crypto";
 import { afterAll, describe, expect, it } from "vitest";
 import { AgentClient } from "@physsim";
 import { TILE, type FillRequest, type TileId } from "../contracts";
+import { starterSnapshot } from "../editor/newLevel";
 import { LevelModel } from "../level/LevelModel";
 import { verifyOnce, verifyWithSendBack } from "../verify";
 import { FIXTURES, midStaircase, patrolRightEdge, verticalTower } from "./__fixtures__/states";
 import {
   ALGO_TIMING,
+  algoDelayMs,
   AlgoFiller,
   extendConfidence,
+  extendLabel,
   finishConfidence,
   parseWindowGrid,
   similarityToHistory,
@@ -144,7 +148,9 @@ describe("AlgoFiller Extend", () => {
     const filler = new AlgoFiller({ config: EXTEND_ONLY });
     const s = (await filler.fill(req))!;
     expect(s.kind).toBe("extend");
-    expect(s.label).toMatch(/^extend: /);
+    expect(s.label).not.toMatch(/^extend/);
+    expect(s.label.split(" ").length).toBeLessThanOrEqual(8);
+    expect(s.label).toBe(extendLabel(filler.lastProposal!.chunk!));
     expect(s.confidence).toBe(0.5); // paused at the frontier
     const fx = req.origin.x + req.frontier.x;
     expect(s.adds.every((a) => a.x > fx)).toBe(true);
@@ -200,6 +206,35 @@ describe("AlgoFiller Extend", () => {
     expect(similarityToHistory([], next.answer.label, history)).toBeLessThan(similarityToHistory([], first.answer.label, history));
   });
 
+  it("starts where the person's floor ends, so its gaps are real gaps", () => {
+    const scene = floorScene({ x1: 20 });
+    const req = request(scene);
+    const end = req.origin.x + req.frontier.x;
+    for (let seed = 0; seed < 8; seed++) {
+      const s = new AlgoFiller({ seed, config: EXTEND_ONLY }).propose(req);
+      expect(s.source).toBe("extend");
+      expect(s.answer.adds.every((a) => req.origin.x + a.x > end)).toBe(true);
+    }
+  });
+
+  it("on the starter level's full-width floor it builds upward and never claims a gap", async () => {
+    const model = new LevelModel({ clock: () => 0 });
+    model.load(starterSnapshot({ w: model.w, h: model.h }));
+    const stream = new PlacementStream({ clock: () => 5000, recentCount: 12, pauseMs: 800, longPauseMs: 2500, newStructureTiles: 6 });
+    stream.attach(model);
+    const req = buildFillRequest(model, stream, { now: 5000, measure: measureRequestWindow, cols: 24, rows: 12, mode: "requested" });
+    let offered = 0;
+    for (let seed = 0; seed < 8; seed++) {
+      const s = await new AlgoFiller({ seed, config: EXTEND_ONLY }).fill(req);
+      if (!s) continue;
+      offered++;
+      expect(s.label).not.toMatch(/pit|gap|step down|stairs down|stones/);
+      const v = await verifyOnce(model, s, { agent });
+      expect(v.ok, `${seed}: ${s.label}: ${v.reason}`).toBe(true);
+    }
+    expect(offered).toBeGreaterThanOrEqual(6);
+  });
+
   it("declines when there is no room to the right of the frontier", () => {
     const scene = floorScene({ x1: 196 });
     const p = new AlgoFiller({ config: EXTEND_ONLY }).propose(request(scene));
@@ -231,6 +266,55 @@ describe("AlgoFiller Extend", () => {
     const out = await verifyWithSendBack(scene.model, req, first, filler, { agent, config: { agentCapMs: 300, sendBackIfUnderMs: 500 } });
     expect(out.verified).not.toBeNull();
     expect(out.verified!.filler).toBe("algo");
+  });
+});
+
+describe("AlgoFiller answer delay (looks like a model call)", () => {
+  const hex = (i: number) => createHash("sha256").update(String(i)).digest("hex");
+
+  it("is log-normal around the median, fixed per request, and bounded", () => {
+    const d = { medianMs: 2100, sigma: 0.25 };
+    const xs = Array.from({ length: 2000 }, (_, i) => algoDelayMs(hex(i), d)).sort((a, b) => a - b);
+    const q = (p: number) => xs[Math.floor(p * (xs.length - 1))];
+    expect(q(0.5)).toBeGreaterThan(1950);
+    expect(q(0.5)).toBeLessThan(2250);
+    expect(q(0.9)).toBeGreaterThan(2550);
+    expect(q(0.9)).toBeLessThan(3050);
+    expect(xs[0]).toBeGreaterThanOrEqual(700);
+    expect(xs[xs.length - 1]).toBeLessThanOrEqual(6300);
+    expect(algoDelayMs(hex(7), d)).toBe(algoDelayMs(hex(7), d));
+    expect(algoDelayMs(hex(7), { medianMs: 0, sigma: 0.25 })).toBe(0);
+  });
+
+  it("holds the answer for the delay (minus the work already done) and reports it as latency", async () => {
+    const waits: number[] = [];
+    const filler = new AlgoFiller({
+      config: EXTEND_ONLY,
+      delay: () => ({ medianMs: 2100, sigma: 0.25 }),
+      sleep: async (ms) => {
+        waits.push(ms);
+      },
+    });
+    const req = request(floorScene());
+    const s = (await filler.fill(req))!;
+    expect(waits).toHaveLength(1);
+    expect(waits[0]).toBeGreaterThan(600);
+    expect(waits[0]).toBeLessThanOrEqual(algoDelayMs(s.requestHash, { medianMs: 2100, sigma: 0.25 }));
+    expect(filler.lastProposal!.ms).toBeLessThan(500);
+  });
+
+  it("no delay unless asked (generation, the offline suite and tests answer at once)", async () => {
+    const waits: number[] = [];
+    await new AlgoFiller({ config: EXTEND_ONLY, sleep: async (ms) => void waits.push(ms) }).fill(request(floorScene()));
+    await new AlgoFiller({ config: EXTEND_ONLY, delay: () => null, sleep: async (ms) => void waits.push(ms) }).fill(request(floorScene()));
+    expect(waits).toEqual([]);
+  });
+
+  it("an abort during the delay rejects with AbortError", async () => {
+    const ac = new AbortController();
+    const p = new AlgoFiller({ config: EXTEND_ONLY, delay: { medianMs: 5000, sigma: 0 } }).fill(request(floorScene()), ac.signal);
+    setTimeout(() => ac.abort(), 20);
+    await expect(p).rejects.toMatchObject({ name: "AbortError" });
   });
 });
 
