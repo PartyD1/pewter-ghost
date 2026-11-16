@@ -70,6 +70,7 @@ import type { EditorApi } from "./editor/api";
 import { cleanIntent } from "./fill/intent";
 import { BRIEF_VERSION, BriefCache, measureRequestWindow, type Brief } from "./fill/brief";
 import { describeComputedContext } from "./fill/context";
+import { AlgoFiller } from "./fill/AlgoFiller";
 import { FillerRegistry, StubFiller, type ActiveFiller } from "./fill/Filler";
 import { MarkovFiller } from "./fill/MarkovFiller";
 import { requestHash } from "./fill/hash";
@@ -998,13 +999,14 @@ export interface RegistryOptions {
 
 /**
  * The fillers this session can use. LLM only with a token (the proxy refuses
- * calls without one); "markov" (fill/MarkovFiller.ts) always, it makes no
- * calls; "algo" is a later work item (G-34) and is not registered, so a token
- * assigned "algo" runs as "none" for now.
+ * calls without one); "algo" (fill/AlgoFiller.ts, the rule-based generator of
+ * the no-AI study condition) and "markov" (fill/MarkovFiller.ts) always: they
+ * make no calls.
  */
 export function buildRegistry(cfg: GhostConfig, o: RegistryOptions): FillerRegistry {
   const reg = new FillerRegistry();
   reg.register(new StubFiller());
+  reg.register(new AlgoFiller());
   reg.register(new MarkovFiller());
   if (o.token) reg.register(new LLMFiller({ sessionId: o.sessionId, token: o.token, fetch: o.fetch }));
   reg.useConfig(cfg);
