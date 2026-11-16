@@ -14,6 +14,7 @@
  */
 import Phaser from "phaser";
 import { COLLECTABLE_KINDS, ENEMY_KINDS, TILE, type Entity } from "../contracts";
+import { computePatrol } from "../level/entities";
 import type { LevelModel } from "../level/LevelModel";
 import { configurePlayerSprite, PlayerController, WORLD_GRAVITY_Y } from "../player/playerController";
 import { JUMP_VELOCITY_PX, MAX_RUN_SPEED_PX, TERMINAL_VELOCITY_PX } from "../player/playerPhysics";
@@ -27,7 +28,7 @@ import { CheckpointTracker } from "./checkpoints";
 import { ASSET, DEPTH, ENTITY_FRAME, FRAME, TILE_PX } from "./constants";
 import { MotionInterpolator } from "./motionSmoothing";
 import type { Renderer } from "./render";
-import { bumpTarget, RouletteBlocks, type BumpCounts, type RouletteFace } from "./rouletteBlock";
+import { bumpTarget, RouletteBlocks, slimeCell, type BumpCounts, type RouletteFace } from "./rouletteBlock";
 
 export const MAX_HEALTH = 5;
 /** Keys PlayerController registers (createCursorKeys + W,A,S,D). */
@@ -51,6 +52,8 @@ const STOMP_BOUNCE_PX = -324;
 const FALL_MARGIN_PX = 3 * TILE_PX;
 /** Alpha of a checkpoint the knight has not activated (the active one is opaque). */
 const CHECKPOINT_IDLE_ALPHA = 0.45;
+/** A slime leaves the top of a roulette block with this little hop. */
+const SLIME_HOP_PX = -140;
 
 type Knight = Phaser.Types.Physics.Arcade.SpriteWithDynamicBody & { isFalling?: boolean };
 
@@ -315,10 +318,7 @@ export class PlayController implements EnemyHost {
     this.roulette.refill();
     for (const e of this.entities) {
       if (ENEMY_KINDS.has(e.kind)) {
-        const enemy = e.kind === "slime" ? new Slime(scene, e, this) : new UltraSlime(scene, e, this);
-        this.enemyGroup!.add(enemy);
-        enemy.body.setAllowGravity(true);
-        this.enemies.push(enemy);
+        this.addEnemy(e);
       } else if (COLLECTABLE_KINDS.has(e.kind) || e.kind === "flag" || e.kind === "checkpoint") {
         const img = this.pickups!.create(e.x * TILE_PX + TILE_PX / 2, e.y * TILE_PX + TILE_PX / 2, ASSET.tiles, ENTITY_FRAME[e.kind]) as Phaser.Physics.Arcade.Image;
         img.setDepth(DEPTH.entities);
@@ -336,6 +336,15 @@ export class PlayController implements EnemyHost {
         this.signs.push(img);
       }
     }
+  }
+
+  private addEnemy(e: Entity): EnemySprite {
+    const { scene } = this.deps;
+    const enemy = e.kind === "slime" ? new Slime(scene, e, this) : new UltraSlime(scene, e, this);
+    this.enemyGroup!.add(enemy);
+    enemy.body.setAllowGravity(true);
+    this.enemies.push(enemy);
+    return enemy;
   }
 
   private clearWorld(): void {
@@ -401,9 +410,30 @@ export class PlayController implements EnemyHost {
     if (face) this.payOut(face, hit.x, hit.y);
   }
 
-  private payOut(face: RouletteFace, _x: number, _y: number): void {
+  private payOut(face: RouletteFace, x: number, y: number): void {
     if (face === "coin") this.coins++;
     else if (face === "fruit") this.health = Math.min(MAX_HEALTH, this.health + 1);
+    else this.dropSlime(x, y);
+  }
+
+  /**
+   * A slime comes out of the block at (x, y): on top of it, or underneath (on
+   * the knight) when the top is covered. It is not part of the level, so it is
+   * gone at the next respawn. It walks the floor it lands on.
+   */
+  private dropSlime(x: number, y: number): void {
+    const { model } = this.deps;
+    const cell = slimeCell(x, y, (cx, cy) => model.isSolid(cx, cy));
+    let floorY = cell.y;
+    while (floorY + 1 < model.h && !model.isSolid(cell.x, floorY + 1)) floorY++;
+    const slime = this.addEnemy({
+      id: `roulette-${x}-${y}`,
+      kind: "slime",
+      x: cell.x,
+      y: cell.y,
+      patrol: computePatrol(model, cell.x, floorY),
+    });
+    if (cell.y < y) slime.body.setVelocityY(SLIME_HOP_PX);
   }
 
   private showActiveCheckpoint(): void {
