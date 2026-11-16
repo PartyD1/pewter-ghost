@@ -1006,7 +1006,8 @@ export interface RegistryOptions {
 export function buildRegistry(cfg: GhostConfig, o: RegistryOptions): FillerRegistry {
   const reg = new FillerRegistry();
   reg.register(new StubFiller());
-  reg.register(new AlgoFiller());
+  // Held as long as a model call would take, so speed does not give the condition away.
+  reg.register(new AlgoFiller({ delay: () => ({ medianMs: liveConfig.algoDelayMedianMs, sigma: liveConfig.algoDelaySigma }) }));
   reg.register(new MarkovFiller());
   if (o.token) reg.register(new LLMFiller({ sessionId: o.sessionId, token: o.token, fetch: o.fetch }));
   reg.useConfig(cfg);

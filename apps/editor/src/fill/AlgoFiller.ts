@@ -60,7 +60,7 @@ import {
 import { config as liveConfig, type GhostConfig } from "../suggest/config";
 import { validateSuggestion } from "../verify/validate";
 import { modelAnswerToSuggestion } from "./answer";
-import { throwIfAborted } from "./Filler";
+import { sleep, throwIfAborted } from "./Filler";
 import { intentFromBrief } from "./intent";
 import { requestHash, requestHashSync } from "./hash";
 import { parseWindowGrid, type WindowGrid } from "./windowGrid";
@@ -185,6 +185,15 @@ export interface AlgoFillerOptions {
    * judges the answer on the whole level; this only saves send-backs.
    */
   prevalidate?: boolean;
+  /**
+   * Hold each answer as long as a model call would take (see
+   * GhostConfig.algoDelayMedianMs), or a function read at every call (the
+   * live session passes the live config). Default none: generation, the
+   * offline suite and tests get answers at once.
+   */
+  delay?: AlgoDelay | (() => AlgoDelay | null);
+  /** Wait used for the delay (default Filler.sleep; tests pass a fake). */
+  sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
   clock?: () => number;
 }
 
@@ -243,6 +252,14 @@ export class AlgoFiller implements Filler {
     const p = this.propose(request);
     const hash = await requestHash(request);
     throwIfAborted(signal);
+    const d = typeof this.opts.delay === "function" ? this.opts.delay() : this.opts.delay;
+    if (d) {
+      const wait = algoDelayMs(hash, d) - (this.clock() - t0);
+      if (wait > 0) await (this.opts.sleep ?? sleep)(wait, signal);
+      throwIfAborted(signal);
+    }
+    // latencyMs includes the delay, as a model call's includes the network: the
+    // log looks the same for both. The work itself is lastProposal.ms.
     return modelAnswerToSuggestion(p.answer, request, { filler: this.name, requestHash: hash, latencyMs: this.clock() - t0 });
   }
 
@@ -504,6 +521,26 @@ export function fillsOpenSpace(chunk: Pick<ComposedChunk, "w" | "h" | "grid" | "
     for (let y = 0; y < to; y++) if (!chunk.grid[y * chunk.w + cx] && g.solid[y * g.w + x]) return true;
   }
   return false;
+}
+
+export interface AlgoDelay {
+  medianMs: number;
+  sigma: number;
+}
+
+/**
+ * The delay for one answer: log-normal around `medianMs`, drawn from the
+ * request hash (64 hex digits) so the same request always waits the same.
+ * Kept within a third and three times the median. 0 when the median is 0.
+ */
+export function algoDelayMs(hash: string, d: AlgoDelay): number {
+  if (!(d.medianMs > 0)) return 0;
+  const u = (i: number) => (parseInt(hash.slice(i, i + 8), 16) + 0.5) / 4294967296;
+  const u1 = Number.isFinite(u(0)) ? u(0) : 0.5;
+  const u2 = Number.isFinite(u(8)) ? u(8) : 0.5;
+  const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  const ms = d.medianMs * Math.exp(Math.max(0, d.sigma) * z);
+  return Math.round(Math.max(d.medianMs / 3, Math.min(d.medianMs * 3, ms)));
 }
 
 /** Columns of floor-level pieces at the start of a section that follows something high. */

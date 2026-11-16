@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { afterAll, describe, expect, it } from "vitest";
 import { AgentClient } from "@physsim";
 import { TILE, type FillRequest, type TileId } from "../contracts";
@@ -7,6 +8,7 @@ import { verifyOnce, verifyWithSendBack } from "../verify";
 import { FIXTURES, midStaircase, patrolRightEdge, verticalTower } from "./__fixtures__/states";
 import {
   ALGO_TIMING,
+  algoDelayMs,
   AlgoFiller,
   extendConfidence,
   finishConfidence,
@@ -261,6 +263,55 @@ describe("AlgoFiller Extend", () => {
     const out = await verifyWithSendBack(scene.model, req, first, filler, { agent, config: { agentCapMs: 300, sendBackIfUnderMs: 500 } });
     expect(out.verified).not.toBeNull();
     expect(out.verified!.filler).toBe("algo");
+  });
+});
+
+describe("AlgoFiller answer delay (looks like a model call)", () => {
+  const hex = (i: number) => createHash("sha256").update(String(i)).digest("hex");
+
+  it("is log-normal around the median, fixed per request, and bounded", () => {
+    const d = { medianMs: 2100, sigma: 0.25 };
+    const xs = Array.from({ length: 2000 }, (_, i) => algoDelayMs(hex(i), d)).sort((a, b) => a - b);
+    const q = (p: number) => xs[Math.floor(p * (xs.length - 1))];
+    expect(q(0.5)).toBeGreaterThan(1950);
+    expect(q(0.5)).toBeLessThan(2250);
+    expect(q(0.9)).toBeGreaterThan(2550);
+    expect(q(0.9)).toBeLessThan(3050);
+    expect(xs[0]).toBeGreaterThanOrEqual(700);
+    expect(xs[xs.length - 1]).toBeLessThanOrEqual(6300);
+    expect(algoDelayMs(hex(7), d)).toBe(algoDelayMs(hex(7), d));
+    expect(algoDelayMs(hex(7), { medianMs: 0, sigma: 0.25 })).toBe(0);
+  });
+
+  it("holds the answer for the delay (minus the work already done) and reports it as latency", async () => {
+    const waits: number[] = [];
+    const filler = new AlgoFiller({
+      config: EXTEND_ONLY,
+      delay: () => ({ medianMs: 2100, sigma: 0.25 }),
+      sleep: async (ms) => {
+        waits.push(ms);
+      },
+    });
+    const req = request(floorScene());
+    const s = (await filler.fill(req))!;
+    expect(waits).toHaveLength(1);
+    expect(waits[0]).toBeGreaterThan(600);
+    expect(waits[0]).toBeLessThanOrEqual(algoDelayMs(s.requestHash, { medianMs: 2100, sigma: 0.25 }));
+    expect(filler.lastProposal!.ms).toBeLessThan(500);
+  });
+
+  it("no delay unless asked (generation, the offline suite and tests answer at once)", async () => {
+    const waits: number[] = [];
+    await new AlgoFiller({ config: EXTEND_ONLY, sleep: async (ms) => void waits.push(ms) }).fill(request(floorScene()));
+    await new AlgoFiller({ config: EXTEND_ONLY, delay: () => null, sleep: async (ms) => void waits.push(ms) }).fill(request(floorScene()));
+    expect(waits).toEqual([]);
+  });
+
+  it("an abort during the delay rejects with AbortError", async () => {
+    const ac = new AbortController();
+    const p = new AlgoFiller({ config: EXTEND_ONLY, delay: { medianMs: 5000, sigma: 0 } }).fill(request(floorScene()), ac.signal);
+    setTimeout(() => ac.abort(), 20);
+    await expect(p).rejects.toMatchObject({ name: "AbortError" });
   });
 });
 
