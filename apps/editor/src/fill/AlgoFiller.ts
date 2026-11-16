@@ -163,7 +163,7 @@ export interface AlgoFillerOptions {
   seed?: number;
   /** Extend candidates generated per call (default 8). */
   candidates?: number;
-  /** Extend width bounds in columns (default 6..14). */
+  /** Extend width bounds in columns (default 6..16). */
   minWidth?: number;
   maxWidth?: number;
   /**
@@ -328,7 +328,7 @@ export class AlgoFiller implements Filler {
 
   private extend(req: FillRequest, g: WindowGrid, attempt: number): Omit<AlgoProposal, "attempt" | "ms"> | null {
     const { w, h } = g;
-    const fx = req.frontier.x;
+    let fx = req.frontier.x;
     const fy = req.frontier.y;
     if (!Number.isInteger(fx) || !Number.isInteger(fy) || fx < 0 || fx >= w || fy < 0 || fy >= h) return null;
     const solid = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h && g.solid[y * w + x] === 1;
@@ -338,10 +338,19 @@ export class AlgoFiller implements Filler {
     for (let y = fy; y < h && sy < 0; y++) if (solid(fx, y) && !solid(fx, y - 1)) sy = y;
     for (let y = fy - 1; y >= 0 && sy < 0; y--) if (solid(fx, y) && !solid(fx, y - 1)) sy = y;
     if (sy < 1) return null;
+    // Start where the floor the frontier stands on ends, so the section adds to
+    // the level instead of being laid over ground that is already there. When
+    // that floor runs on past the room a section needs (the starter level's
+    // floor spans the whole level), build on top of it from the frontier.
+    let end = fx;
+    while (solid(end + 1, sy) && !solid(end + 1, sy - 1)) end++;
+    const minWidth = this.opts.minWidth ?? 6;
+    const solidFloor = w - (end + 1) < minWidth;
+    if (!solidFloor) fx = end;
 
     const x0 = fx + 1;
-    const width = Math.min(this.opts.maxWidth ?? 14, w - x0);
-    if (width < (this.opts.minWidth ?? 6)) return null;
+    const width = Math.min(this.opts.maxWidth ?? 16, w - x0);
+    if (width < minWidth) return null;
     let depth = 0;
     while (depth < 3 && solid(fx, sy + depth)) depth++;
     const tileName = (x: number, y: number): TileName | undefined => NAME_BY_TILE[g.tiles[y * w + x]];
@@ -362,6 +371,7 @@ export class AlgoFiller implements Filler {
       caps,
     });
     const avoid = kindsInHistory(req.lastGhosts);
+    const calmLead = needsCalmLead(req, g, fx, sy) ? CALM_LEAD : 0;
     const guess = levelGuessFor({ measured: req.measured, themes: read.themes, evidence: read.evidence }) ?? undefined;
     const n = Math.max(1, this.opts.candidates ?? 24);
     const seedBase =
@@ -384,7 +394,10 @@ export class AlgoFiller implements Filler {
         startRun: this.opts.startRun ?? 1,
         endRun: this.opts.endRun ?? 2,
         avoid,
+        calmLead,
+        solidFloor,
       });
+      if (fillsOpenSpace(chunk, g, x0)) continue;
       const adds: ModelAnswer["adds"] = [];
       const merged = Uint8Array.from(g.solid);
       let clash = false;
@@ -473,6 +486,44 @@ export function readRequest(req: Pick<FillRequest, "brief" | "origin" | "frontie
     evidence: Math.max(0, Math.min(1, (levelX - START_PLATFORM_COLS) / EVIDENCE_COLS)),
     progress: Math.max(0, Math.min(1, levelX / LEVEL_W)),
   };
+}
+
+/**
+ * Does terrain already in the window stand where the section wants open
+ * space (a gap, the air over a step down, the room under a block row)?
+ * Then the section would not look like what its label says, so the
+ * candidate is dropped. Only rows down to the section's own floor count:
+ * old ground deeper down is not in the way.
+ */
+export function fillsOpenSpace(chunk: Pick<ComposedChunk, "w" | "h" | "grid" | "heights" | "ground" | "style">, g: WindowGrid, x0: number): boolean {
+  const depth = Math.max(1, Math.floor(chunk.style.fillDepth));
+  for (let cx = 0; cx < chunk.w; cx++) {
+    const x = x0 + cx;
+    if (x >= g.w) break;
+    const to = Math.min(chunk.h, (chunk.heights[cx] ?? chunk.ground) + (chunk.heights[cx] === null ? depth : 0));
+    for (let y = 0; y < to; y++) if (!chunk.grid[y * chunk.w + cx] && g.solid[y * g.w + x]) return true;
+  }
+  return false;
+}
+
+/** Columns of floor-level pieces at the start of a section that follows something high. */
+const CALM_LEAD = 10;
+
+/**
+ * Start the section calm (floor-level pieces only) when a floating
+ * structure stands three or more rows above the floor within ten columns
+ * behind the frontier, or when the last try was sent back for a jump gap:
+ * the validator measures jumps between every pair of neighbouring surfaces,
+ * so new raised ground there would make a gap no one has to jump but the
+ * check still counts.
+ */
+export function needsCalmLead(req: Pick<FillRequest, "previousFailure">, g: WindowGrid, fx: number, sy: number): boolean {
+  const pf = req.previousFailure;
+  if (pf && pf.stage === "measure" && /^gap at x=/.test(pf.reason)) return true;
+  const solid = (x: number, y: number) => x >= 0 && y >= 0 && x < g.w && y < g.h && g.solid[y * g.w + x] === 1;
+  for (let x = Math.max(0, fx - 10); x <= fx; x++)
+    for (let y = 0; y <= sy - 3; y++) if (solid(x, y) && !solid(x, y + 1)) return true;
+  return false;
 }
 
 /** Validator pattern tags (GhostHistoryItem.patterns) -> the piece kinds that make them. */

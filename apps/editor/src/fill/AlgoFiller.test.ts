@@ -1,6 +1,7 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { AgentClient } from "@physsim";
 import { TILE, type FillRequest, type TileId } from "../contracts";
+import { starterSnapshot } from "../editor/newLevel";
 import { LevelModel } from "../level/LevelModel";
 import { verifyOnce, verifyWithSendBack } from "../verify";
 import { FIXTURES, midStaircase, patrolRightEdge, verticalTower } from "./__fixtures__/states";
@@ -198,6 +199,35 @@ describe("AlgoFiller Extend", () => {
     const next = new AlgoFiller({ config: EXTEND_ONLY }).propose({ ...req, lastGhosts: history });
     expect(next.answer.label).not.toBe(first.answer.label);
     expect(similarityToHistory([], next.answer.label, history)).toBeLessThan(similarityToHistory([], first.answer.label, history));
+  });
+
+  it("starts where the person's floor ends, so its gaps are real gaps", () => {
+    const scene = floorScene({ x1: 20 });
+    const req = request(scene);
+    const end = req.origin.x + req.frontier.x;
+    for (let seed = 0; seed < 8; seed++) {
+      const s = new AlgoFiller({ seed, config: EXTEND_ONLY }).propose(req);
+      expect(s.source).toBe("extend");
+      expect(s.answer.adds.every((a) => req.origin.x + a.x > end)).toBe(true);
+    }
+  });
+
+  it("on the starter level's full-width floor it builds upward and never claims a gap", async () => {
+    const model = new LevelModel({ clock: () => 0 });
+    model.load(starterSnapshot({ w: model.w, h: model.h }));
+    const stream = new PlacementStream({ clock: () => 5000, recentCount: 12, pauseMs: 800, longPauseMs: 2500, newStructureTiles: 6 });
+    stream.attach(model);
+    const req = buildFillRequest(model, stream, { now: 5000, measure: measureRequestWindow, cols: 24, rows: 12, mode: "requested" });
+    let offered = 0;
+    for (let seed = 0; seed < 8; seed++) {
+      const s = await new AlgoFiller({ seed, config: EXTEND_ONLY }).fill(req);
+      if (!s) continue;
+      offered++;
+      expect(s.label).not.toMatch(/pit|gap|step down|stairs down|stones/);
+      const v = await verifyOnce(model, s, { agent });
+      expect(v.ok, `${seed}: ${s.label}: ${v.reason}`).toBe(true);
+    }
+    expect(offered).toBeGreaterThanOrEqual(6);
   });
 
   it("declines when there is no room to the right of the frontier", () => {

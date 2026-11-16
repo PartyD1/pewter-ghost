@@ -54,6 +54,8 @@ export {
 } from "./detect";
 export { detectAnomalies, type AnomalyProposal, type AnomalyOptions } from "./anomaly";
 export {
+  BUILD_UP_KINDS,
+  CALM_KINDS,
   CELL,
   COMPOSE_KINDS,
   HARD,

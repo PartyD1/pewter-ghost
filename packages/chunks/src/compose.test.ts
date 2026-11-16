@@ -1,6 +1,8 @@
 import { checkRules } from "@physsim";
 import { describe, expect, it } from "vitest";
 import {
+  BUILD_UP_KINDS,
+  CALM_KINDS,
   CELL,
   COMPOSE_KINDS,
   HARD,
@@ -159,6 +161,39 @@ describe("composeChunk", () => {
     expect(composedTags(stairs)).toContain("staircase");
     const run = Array.from({ length: 40 }, (_, s) => compose(s, only("gap_run"))).find((c) => c.pieces.some((p) => p.kind === "gap_run"))!;
     expect(composedTags(run)).toEqual(expect.arrayContaining(["pit", "gap-run"]));
+  });
+
+  it("calm: a calm lead-in and the columns after a block row hold only floor-level pieces", () => {
+    const calm = new Set<string>(CALM_KINDS);
+    for (let seed = 0; seed < 200; seed++) {
+      const lead = composeChunk({ w: 32, h: H, ground: GROUND, seed, calmLead: 12 });
+      for (const p of lead.pieces) if (p.x0 < 12) expect(calm.has(p.kind), `${seed}: ${p.desc}`).toBe(true);
+      const c = composeChunk({ w: 40, h: H, ground: GROUND, seed, style: only("brick_row") });
+      c.pieces.forEach((p, i) => {
+        if (p.kind !== "brick_row") return;
+        for (const q of c.pieces.slice(i + 1)) if (q.x0 <= p.x1 + 9) expect(calm.has(q.kind), `${seed}: ${q.desc} after ${p.desc}`).toBe(true);
+      });
+    }
+  });
+
+  it("solid floor: only builds upward, never digs below the starting floor", () => {
+    const up = new Set<string>(BUILD_UP_KINDS);
+    let kinds = 0;
+    const seen = new Set<string>();
+    for (let seed = 0; seed < 200; seed++) {
+      const c = composeChunk({ w: 24, h: H, ground: GROUND, seed, solidFloor: true });
+      for (const p of c.pieces) {
+        expect(up.has(p.kind), `${seed}: ${p.desc}`).toBe(true);
+        seen.add(p.kind);
+      }
+      for (let x = 0; x < c.w; x++) {
+        expect(c.heights[x], `${seed} col ${x}`).not.toBeNull();
+        expect(c.heights[x]!).toBeLessThanOrEqual(GROUND);
+      }
+      kinds += composedKinds(c).length;
+    }
+    expect(seen.size).toBeGreaterThanOrEqual(6);
+    expect(kinds).toBeGreaterThan(200);
   });
 
   it("rejects impossible sizes", () => {

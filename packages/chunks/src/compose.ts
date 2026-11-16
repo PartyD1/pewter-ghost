@@ -70,6 +70,12 @@ const DROP = 3;
 /** At or above this a piece is "hard": the next one is a breather. */
 export const HARD = 0.6;
 const BREATHERS: readonly ComposeKind[] = ["flat", "coin_row", "brick_row"];
+/** Pieces that keep to the floor's height (no raised ground, no floating tiles). */
+export const CALM_KINDS: readonly ComposeKind[] = ["flat", "pit", "coin_jump", "gap_run", "coin_row", "enemy_run"];
+/** Pieces that only add on top of the floor (no gaps). */
+export const BUILD_UP_KINDS: readonly ComposeKind[] = ["flat", "coin_row", "brick_row", "mesa", "pillars", "stairs", "step", "enemy_run"];
+/** Columns after a block row that stay calm. */
+const CALM_AFTER_BLOCKS = 9;
 /** Columns a piece needs before it is worth trying. */
 const MIN_ROOM: Record<ComposeKind, number> = {
   flat: 1,
@@ -149,6 +155,18 @@ export interface ComposeOptions {
   endRun?: number;
   /** Piece kinds seen in recent sections: made less likely, for variety. */
   avoid?: readonly ComposeKind[];
+  /**
+   * Columns at the start that get only floor-level pieces (no raised ground
+   * or floating tiles): set when something high stands just behind the
+   * section, so no new surface lands out of jumping range of it.
+   */
+  calmLead?: number;
+  /**
+   * The ground under the whole section is already solid (the starter level's
+   * floor): only pieces that build upward, and the floor never drops below
+   * where it starts, since a section can add tiles but not dig.
+   */
+  solidFloor?: boolean;
 }
 
 export interface ComposedPiece {
@@ -256,8 +274,10 @@ export function composeChunk(opts: ComposeOptions = {}): ComposedChunk {
   const hopCap = Math.max(2, Math.min(3, standGap - 2));
   /** The floor stays within a few rows of where it started, so a section never drifts off the screen. */
   const yMin = Math.max(3, ground - CLIMB);
-  const yMax = Math.min(H - 2, ground + DROP);
+  const yMax = opts.solidFloor ? ground : Math.min(H - 2, ground + DROP);
   const avoid = new Set(opts.avoid ?? []);
+  /** Until this column only CALM_KINDS are laid (see ComposeOptions.calmLead). */
+  let calmUntil = Math.max(0, opts.calmLead ?? 0);
   const [gapLo, gapHi] = style.gap;
 
   const rnd = new PyRandom(seed);
@@ -508,6 +528,9 @@ export function composeChunk(opts: ComposeOptions = {}): ComposedChunk {
         putCol(x++, y);
       }
       flatCols(2);
+      // The block tops are a surface four rows up: raised ground right after
+      // it would sit too far below and away for the validator's jump check.
+      calmUntil = Math.max(calmUntil, x + CALM_AFTER_BLOCKS);
       return done("brick_row", x0, n, `block row ${n}`, withCoins ? "a block row with coins under it" : "a row of blocks overhead");
     },
 
@@ -580,6 +603,8 @@ export function composeChunk(opts: ComposeOptions = {}): ComposedChunk {
     }
     // Two rests never sit side by side: after a flat run only a single filler column may follow.
     if (last && last.kind === "flat") pool = pool.filter((k) => k !== "flat");
+    if (x < calmUntil) pool = pool.filter((k) => CALM_KINDS.includes(k));
+    if (opts.solidFloor) pool = pool.filter((k) => BUILD_UP_KINDS.includes(k));
     let laid = false;
     if (pool.length) {
       const total = pool.reduce((a, k) => a + weightOf(k), 0);
