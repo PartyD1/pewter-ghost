@@ -70,3 +70,16 @@ export {
   type ComposedPiece,
   type Motif,
 } from "./compose";
+export { mineMotifs, type MinedMotifs, type MotifGrid, type MotifOptions } from "./motifs";
+export {
+  levelGuessFor,
+  mainTheme,
+  styleFor,
+  THEME_NAMES,
+  LEVEL_THEMES,
+  themesFromText,
+  type StyleInputs,
+  type LevelTheme,
+  type ThemeHits,
+  type ThemeName,
+} from "./theme";
