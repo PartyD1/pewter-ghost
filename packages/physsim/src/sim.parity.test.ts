@@ -10,6 +10,12 @@
  * collision left/right only) — driving a stand-in Body that keeps
  * Body.update's cached deltas. Every frame must match the agent's `frame()`
  * exactly.
+ *
+ * One-way platforms: on grids with them the harness does what Play does
+ * (render.ts, play.ts): faces from player/oneWay.ts tileFaces, one-way tiles
+ * colliding upward only, and the collider's processCallback (oneWayCatches)
+ * between TileIntersectsBody and SeparateTile, as in
+ * World.collideSpriteVsTilesHandler.
  */
 import { describe, expect, it } from "vitest";
 import ArcadeBody from "phaser/src/physics/arcade/Body.js";
@@ -25,6 +31,19 @@ import {
   stepMovement,
   TERMINAL_VELOCITY_PX,
 } from "@app/player/playerPhysics";
+import {
+  CELL_EMPTY,
+  CELL_ONE_WAY,
+  CELL_SOLID,
+  FACE_BOTTOM,
+  FACE_LEFT,
+  FACE_RIGHT,
+  FACE_TOP,
+  isDropping,
+  oneWayCatches,
+  tileFaces,
+  type CellKind,
+} from "@app/player/oneWay";
 import { FIXTURES, gapLevel, tunnelLevel } from "./fixtures";
 import { gridFromRows, type SolidGrid } from "./grid";
 import { BH, BW, DT, replay, search, T, TILE_BIAS, type Input } from "./sim";
@@ -118,25 +137,37 @@ interface EngineTile {
   resetFaces(): void;
 }
 
-function engineLayer(grid: SolidGrid) {
+const kindOf = (grid: SolidGrid) => (x: number, y: number): CellKind => {
+  if (x < 0 || y < 0 || x >= grid.w || y >= grid.h) return CELL_EMPTY;
+  const v = grid.solid[y * grid.w + x];
+  return v === 2 ? CELL_ONE_WAY : v ? CELL_SOLID : CELL_EMPTY;
+};
+
+const hasOneWay = (grid: SolidGrid) => Array.from(grid.solid).some((v) => v === 2);
+
+/** Phaser tile data for a grid; `faces` "phaser" = CalculateFacesWithin, "play" = render.ts's tileFaces. */
+function engineLayer(grid: SolidGrid, faces: "phaser" | "play" = hasOneWay(grid) ? "play" : "phaser") {
+  const kind = kindOf(grid);
   const data: EngineTile[][] = [];
   for (let y = 0; y < grid.h; y++) {
     const row: EngineTile[] = [];
     for (let x = 0; x < grid.w; x++) {
-      const solid = !!grid.solid[y * grid.w + x];
+      const k = kind(x, y);
+      const solid = k !== CELL_EMPTY;
+      const full = k === CELL_SOLID;
       row.push({
         x,
         y,
-        index: solid ? 5 : -1,
+        index: k === CELL_ONE_WAY ? 4 : solid ? 5 : -1,
         collides: solid,
         faceTop: false,
         faceBottom: false,
         faceLeft: false,
         faceRight: false,
         collideUp: solid,
-        collideDown: solid,
-        collideLeft: solid,
-        collideRight: solid,
+        collideDown: full,
+        collideLeft: full,
+        collideRight: full,
         get hasInterestingFace() {
           return this.faceTop || this.faceBottom || this.faceLeft || this.faceRight;
         },
@@ -148,7 +179,16 @@ function engineLayer(grid: SolidGrid) {
     data.push(row);
   }
   const layer = { width: grid.w, height: grid.h, data };
-  CalculateFacesWithin(0, 0, grid.w, grid.h, layer);
+  if (faces === "phaser") CalculateFacesWithin(0, 0, grid.w, grid.h, layer);
+  else
+    for (const row of data)
+      for (const t of row) {
+        const f = tileFaces(kind, t.x, t.y);
+        t.faceTop = (f & FACE_TOP) !== 0;
+        t.faceBottom = (f & FACE_BOTTOM) !== 0;
+        t.faceLeft = (f & FACE_LEFT) !== 0;
+        t.faceRight = (f & FACE_RIGHT) !== 0;
+      }
   return layer;
 }
 
@@ -162,6 +202,7 @@ function engineReplay(grid: SolidGrid, start: { x: number; y: number }, inputs: 
   body.customBoundsRectangle = { x: 0, y: 0, right: grid.w * T, bottom: grid.h * T };
   body.position = { x: start.x * T + (T - BW) / 2, y: (start.y + 1) * T - BH };
   let down = !!grid.solid[(start.y + 1) * grid.w + start.x];
+  const kind = kindOf(grid);
   const ms = createMovementState();
   let prevJump = false;
   const out: number[][] = [];
@@ -169,6 +210,7 @@ function engineReplay(grid: SolidGrid, start: { x: number; y: number }, inputs: 
     // PlayerController.update
     const jjp = inp.jump && !prevJump;
     prevJump = inp.jump;
+    const dropping = isDropping(!!inp.down, down);
     const r = stepMovement(ms, { moveInput: inp.move, jumpHeld: inp.jump, jumpJustPressed: jjp }, body.velocity.x, body.velocity.y, down, DT);
     body.velocity.x = r.velocityX;
     body.velocity.y = r.velocityY;
@@ -193,7 +235,9 @@ function engineReplay(grid: SolidGrid, start: { x: number; y: number }, inputs: 
     for (let i = 0; i < tiles.length; i++) {
       const t = tiles[i];
       const rect = { left: t.x * T, top: t.y * T, right: t.x * T + T, bottom: t.y * T + T };
-      if (TileIntersectsBody(rect, body)) SeparateTile(i, body, t, rect, null, TILE_BIAS, true);
+      // play.ts's processCallback, between the intersect test and SeparateTile.
+      const process = kind(t.x, t.y) !== CELL_ONE_WAY || oneWayCatches(body.prev.y + body.height, body.deltaY(), rect.top, dropping);
+      if (TileIntersectsBody(rect, body) && process) SeparateTile(i, body, t, rect, null, TILE_BIAS, true);
     }
     down = body.blocked.down;
     out.push([body.position.x, body.position.y, body.velocity.x, body.velocity.y, down ? 1 : 0]);
@@ -218,7 +262,7 @@ function maxDiff(a: number[][], b: number[][]): { d: number; frame: number } {
 }
 
 /** Deterministic pseudo-random inputs that bang into walls and ceilings. */
-function randomInputs(seed: number, n: number): Input[] {
+function randomInputs(seed: number, n: number, withDown = false): Input[] {
   let s = seed >>> 0 || 1;
   const rnd = () => {
     s ^= s << 13;
@@ -231,13 +275,35 @@ function randomInputs(seed: number, n: number): Input[] {
   const out: Input[] = [];
   let move: -1 | 0 | 1 = 1;
   let jump = false;
+  let down = false;
   for (let i = 0; i < n; i++) {
     if (rnd() < 0.08) move = rnd() < 0.6 ? 1 : rnd() < 0.5 ? 0 : -1;
     if (rnd() < 0.1) jump = !jump;
-    out.push({ move, jump });
+    if (withDown && rnd() < 0.06) down = !down;
+    out.push(withDown ? { move, jump, down } : { move, jump });
   }
   return out;
 }
+
+/**
+ * One-way platforms (`-`) in every arrangement render.ts's faces care about:
+ * floating, stacked, beside a block in the same row, under and over blocks,
+ * against a wall, and a bridge over a pit at ground level.
+ */
+const ONE_WAY_PLAYGROUND = gridFromRows([
+  "..............................",
+  "........#.....................",
+  "........-.----........#.......",
+  "...........---........#.......",
+  "...--.................#...---.",
+  "..........##---.......#-......",
+  "#.....................#-......",
+  "#..............--.............",
+  "#####---####...##...#####--###",
+  "#####...####...##...#####..###",
+  "#####...####...##...#####..###",
+  "#####...####...##...#####..###",
+]);
 
 const PLAYGROUND = gridFromRows([
   "..............................",
@@ -317,6 +383,57 @@ describe("agent physics == Phaser 3.90 Arcade", () => {
           expect(row[0] + BW).toBeLessThanOrEqual(grid.w * T);
         }
       }
+    }
+  });
+
+  it("tileFaces equals Phaser's CalculateFacesWithin when there are no one-way tiles", () => {
+    for (const grid of [PLAYGROUND, tunnelLevel(3, 2), ...FIXTURES.map((f) => f.grid)]) {
+      const a = engineLayer(grid, "phaser");
+      const b = engineLayer(grid, "play");
+      for (let y = 0; y < grid.h; y++)
+        for (let x = 0; x < grid.w; x++) {
+          const p = a.data[y][x];
+          const q = b.data[y][x];
+          expect([q.faceTop, q.faceBottom, q.faceLeft, q.faceRight], `${x},${y}`).toEqual([p.faceTop, p.faceBottom, p.faceLeft, p.faceRight]);
+        }
+    }
+  });
+
+  it("matches on random input streams (down included) around one-way platforms", () => {
+    for (let seed = 300; seed < 340; seed++) {
+      const inputs = randomInputs(seed, 600, true);
+      for (const start of [{ x: 1, y: 7 }, { x: 13, y: 7 }, { x: 4, y: 3 }]) {
+        const sim = replay(ONE_WAY_PLAYGROUND, start, inputs);
+        const eng = engineReplay(ONE_WAY_PLAYGROUND, start, inputs);
+        const { d, frame } = maxDiff(sim, eng);
+        expect(d, `seed ${seed} start ${start.x},${start.y}: divergence at frame ${frame}`).toBeLessThan(1e-9);
+      }
+    }
+  });
+
+  it("routes through one-way platforms (up through one, down through another) replay in the engine", () => {
+    const box = gridFromRows([
+      "#........#",
+      "#........#",
+      "#........#",
+      "#--------#",
+      "#........#",
+      "#........#",
+      "#........#",
+      "##########",
+    ]);
+    for (const [from, to] of [
+      [{ x: 4, y: 6 }, { x: 6, y: 2 }],
+      [{ x: 4, y: 2 }, { x: 2, y: 6 }],
+    ]) {
+      const res = search(box, from, to, { capMs: 5000 });
+      expect(res.found).toBe(true);
+      const eng = engineReplay(box, from, res.inputs!);
+      const { d } = maxDiff(replay(box, from, res.inputs!), eng);
+      expect(d).toBeLessThan(1e-9);
+      const last = eng[eng.length - 1];
+      expect(last[4]).toBe(1);
+      expect(Math.floor((last[1] + BH / 2) / T)).toBe(to.y);
     }
   });
 

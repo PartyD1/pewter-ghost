@@ -15,6 +15,7 @@ import {
   TERMINAL_VELOCITY_PX,
   type PlayerMovementState,
 } from "./playerPhysics";
+import { isDropping } from "./oneWay";
 
 /**
  * The player art (tileset frame 14, the knight) faces RIGHT by default —
@@ -73,6 +74,7 @@ export class PlayerController {
   >;
   private readonly state: PlayerMovementState = createMovementState();
   private prevJumpHeld = false;
+  private droppingNow = false;
 
   constructor(
     scene: Phaser.Scene,
@@ -84,6 +86,15 @@ export class PlayerController {
     const keyboard = scene.input.keyboard!;
     this.cursors = keyboard.createCursorKeys();
     this.wasd = keyboard.addKeys("W,A,S,D") as PlayerController["wasd"];
+  }
+
+  /**
+   * True for the physics step after a frame where down (S / arrow) was held
+   * on the ground: one-way platforms let the knight through (play.ts's
+   * collider, player/oneWay.ts).
+   */
+  get dropping(): boolean {
+    return this.droppingNow;
   }
 
   /** Call once per frame with Phaser's real `delta` (milliseconds). */
@@ -99,6 +110,8 @@ export class PlayerController {
     const jumpHeld = this.cursors.up.isDown || this.wasd.W.isDown;
     const jumpJustPressed = jumpHeld && !this.prevJumpHeld;
     this.prevJumpHeld = jumpHeld;
+    const downHeld = this.cursors.down.isDown || this.wasd.S.isDown;
+    this.droppingNow = isDropping(downHeld, onGround);
 
     const result = stepMovement(
       this.state,
@@ -138,5 +151,6 @@ export class PlayerController {
     this.state.jumpBufferTimer = 0;
     this.state.canCutJump = false;
     this.prevJumpHeld = false;
+    this.droppingNow = false;
   }
 }

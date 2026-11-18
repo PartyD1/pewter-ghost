@@ -29,7 +29,7 @@ export interface AgentRuleOptions {
 export interface AgentRequest {
   id: number | string;
   type: AgentRequestType;
-  /** Row-major solid map, length w*h (truthy = solid). */
+  /** Row-major solid map, length w*h (truthy = solid, 2 = one-way platform). */
   grid: Uint8Array | ArrayLike<number | boolean>;
   w: number;
   h: number;

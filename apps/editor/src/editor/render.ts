@@ -13,11 +13,23 @@
  * LevelModel, saves or collisions.
  * Per decisions.md, entitiesRemoved is processed before entitiesAdded, and
  * LevelChangeEx.entitiesUpdated carries enemies whose patrol span changed.
+ *
+ * Collision faces come from player/oneWay.ts `tileFaces` (as in the playtest
+ * agent), not Phaser's own face pass: one-way platforms collide on top only.
  */
 import Phaser from "phaser";
-import type { Entity } from "../contracts";
+import { ONE_WAY_TILES, type Entity } from "../contracts";
 import type { LevelChangeEx, LevelModel } from "../level/LevelModel";
+import { CELL_EMPTY, CELL_ONE_WAY, CELL_SOLID, FACE_BOTTOM, FACE_LEFT, FACE_RIGHT, FACE_TOP, tileFaces, type CellKind } from "../player/oneWay";
 import { ASSET, DEPTH, ENTITY_FRAME, FRAME, TERRAIN_IDS, TILE_PX, tileFrame } from "./constants";
+
+const NEIGHBOURHOOD: readonly (readonly [number, number])[] = [
+  [0, 0],
+  [-1, 0],
+  [1, 0],
+  [0, -1],
+  [0, 1],
+];
 
 export interface RendererStats {
   fullRedraws: number;
@@ -141,6 +153,7 @@ export class Renderer {
     const m = this.model;
     for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) this.writeTile(x, y, m.tileAt(x, y), false);
     this.layer.calculateFacesWithin(0, 0, m.w, m.h);
+    for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) this.setCollisionAt(x, y);
     for (const s of this.entitySprites.values()) s.destroy();
     this.entitySprites.clear();
     this.entityData.clear();
@@ -155,6 +168,9 @@ export class Renderer {
     }
     this.stats.diffs++;
     for (const cell of c.cells) this.writeTile(cell.x, cell.y, cell.tile, true);
+    // A tile's faces depend on its four neighbours.
+    for (const cell of c.cells)
+      for (const [dx, dy] of NEIGHBOURHOOD) this.setCollisionAt(cell.x + dx, cell.y + dy);
     for (const id of c.entitiesRemoved) this.removeEntity(id);
     for (const e of c.entitiesAdded) this.addEntity(e);
     for (const e of c.entitiesUpdated ?? []) {
@@ -173,6 +189,31 @@ export class Renderer {
       this.layer.putTileAt(frame, x, y, faces);
     }
     this.stats.tileWrites++;
+  }
+
+  private cellKind(x: number, y: number): CellKind {
+    const t = this.layer.getTileAt(x, y);
+    if (!t || t.index < 0) return CELL_EMPTY;
+    return ONE_WAY_TILES.has(t.index) ? CELL_ONE_WAY : CELL_SOLID;
+  }
+
+  /**
+   * Collision flags and faces of one tile, the same as the playtest agent's
+   * (physsim sim.ts Level): one-way tiles collide upward only, and faces come
+   * from `tileFaces`. Runs after Phaser's own face pass, which it overrides.
+   */
+  private setCollisionAt(x: number, y: number): void {
+    const t = this.layer.getTileAt(x, y);
+    if (!t || t.index < 0) return;
+    const kind = this.cellKind(x, y);
+    const oneWay = kind === CELL_ONE_WAY;
+    t.collideUp = true;
+    t.collideDown = t.collideLeft = t.collideRight = !oneWay;
+    const f = tileFaces((cx, cy) => this.cellKind(cx, cy), x, y);
+    t.faceTop = (f & FACE_TOP) !== 0;
+    t.faceBottom = (f & FACE_BOTTOM) !== 0;
+    t.faceLeft = (f & FACE_LEFT) !== 0;
+    t.faceRight = (f & FACE_RIGHT) !== 0;
   }
 
   private addEntity(e: Entity): void {

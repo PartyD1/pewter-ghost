@@ -46,7 +46,7 @@ describe("grid helpers", () => {
     ]);
     expect([...m.solid]).toEqual([0, 1, 1, 0]);
     const c = gridFromCells([TILE.EMPTY, TILE.GRASS, TILE.QUESTION, 2, TILE.DIRT, TILE.GRASS_HALF], 3, 2);
-    expect([...c.solid]).toEqual([0, 1, 1, 0, 1, 1]);
+    expect([...c.solid]).toEqual([0, 1, 1, 0, 1, 2]); // grass_half is one-way
     expect([...toUint8Grid({ w: 2, h: 1, solid: [true, false] }).solid]).toEqual([1, 0]);
   });
 

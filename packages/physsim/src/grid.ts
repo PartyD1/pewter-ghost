@@ -6,9 +6,15 @@
  * A "standing cell" is an empty cell with a solid cell directly below it:
  * the cell the knight's body occupies while it stands on that tile.
  */
-import { SOLID_TILES, type Point } from "../../../apps/editor/src/contracts";
+import { ONE_WAY_TILES, SOLID_TILES, type Point } from "../../../apps/editor/src/contracts";
 
-/** Row-major solid map. `solid[y * w + x]` truthy = solid tile. */
+/**
+ * Row-major solid map. `solid[y * w + x]` truthy = a tile the knight can
+ * stand on; the value 2 marks a one-way platform (player/oneWay.ts), which
+ * only the playtest agent's physics (sim.ts) tells apart from solid. The rule
+ * check and the other heuristics treat it as solid, which is conservative:
+ * they never count on jumping up through one.
+ */
 export interface SolidGrid {
   w: number;
   h: number;
@@ -86,24 +92,34 @@ export function isStandable(grid: SolidGrid, x: number, y: number): boolean {
   return x >= 0 && x < grid.w && y >= 0 && y + 1 < grid.h && !s(x, y) && s(x, y + 1);
 }
 
-/** Copy any SolidGrid into a compact Uint8Array grid (0/1). */
+/** Copy any SolidGrid into a compact Uint8Array grid (0/1, 2 kept for one-way). */
 export function toUint8Grid(grid: SolidGrid): SolidGrid & { solid: Uint8Array } {
   const out = new Uint8Array(grid.w * grid.h);
-  for (let i = 0; i < out.length; i++) out[i] = grid.solid[i] ? 1 : 0;
+  for (let i = 0; i < out.length; i++) out[i] = cellValue(grid.solid[i]);
   return { w: grid.w, h: grid.h, solid: out };
+}
+
+/** A SolidGrid cell as 0 empty, 1 solid or 2 one-way. */
+export function cellValue(v: number | boolean | undefined): 0 | 1 | 2 {
+  return v === 2 ? 2 : v ? 1 : 0;
 }
 
 /**
  * Parse rows of ASCII art. Any character in `solidChars` (default `#`, `X`,
- * `B`, `=`, `G`, `D`, `?`) is solid; everything else is empty. Rows are padded
- * to the longest row with empty cells.
+ * `B`, `=`, `G`, `D`, `?`) is solid, any in `oneWayChars` (default `-`) a
+ * one-way platform; everything else is empty.
+ * Rows are padded to the longest row with empty cells.
  */
-export function gridFromRows(rows: string[], solidChars = "#XB=GD?"): SolidGrid & { solid: Uint8Array } {
+export function gridFromRows(rows: string[], solidChars = "#XB=GD?", oneWayChars = "-"): SolidGrid & { solid: Uint8Array } {
   const h = rows.length;
   const w = rows.reduce((m, r) => Math.max(m, r.length), 0);
   const solid = new Uint8Array(w * h);
   for (let y = 0; y < h; y++)
-    for (let x = 0; x < rows[y].length; x++) if (solidChars.includes(rows[y][x])) solid[y * w + x] = 1;
+    for (let x = 0; x < rows[y].length; x++) {
+      const ch = rows[y][x];
+      if (solidChars.includes(ch)) solid[y * w + x] = 1;
+      else if (oneWayChars.includes(ch)) solid[y * w + x] = 2;
+    }
   return { w, h, solid };
 }
 
@@ -118,11 +134,16 @@ export function gridFromMatrix(matrix: ArrayLike<ArrayLike<number | boolean>>): 
 
 /**
  * From level tile ids (LevelSnapshot.cells, row-major TileIds). Tiles in
- * `SOLID_TILES` (contracts.ts) are solid.
+ * `ONE_WAY_TILES` (contracts.ts) are one-way (2), the rest of `SOLID_TILES`
+ * solid (1).
  */
 export function gridFromCells(cells: ArrayLike<number>, w: number, h: number): SolidGrid & { solid: Uint8Array } {
   const solid = new Uint8Array(w * h);
-  for (let i = 0; i < w * h; i++) if (SOLID_TILES.has(cells[i])) solid[i] = 1;
+  for (let i = 0; i < w * h; i++) {
+    const c = cells[i];
+    if (ONE_WAY_TILES.has(c)) solid[i] = 2;
+    else if (SOLID_TILES.has(c)) solid[i] = 1;
+  }
   return { w, h, solid };
 }
 

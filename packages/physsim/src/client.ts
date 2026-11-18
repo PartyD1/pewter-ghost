@@ -18,7 +18,7 @@
  */
 import { config } from "../../../apps/editor/src/suggest/config";
 import type { Point } from "../../../apps/editor/src/contracts";
-import type { SolidGrid, TileRect, XRange } from "./grid";
+import { cellValue, type SolidGrid, type TileRect, type XRange } from "./grid";
 import {
   AgentRunner,
   type AgentMessage,
@@ -142,7 +142,7 @@ export class AgentClient {
     if (o.signal?.aborted) return Promise.reject(abortError());
     const id = this.nextId++;
     const solid = new Uint8Array(q.grid.w * q.grid.h);
-    for (let i = 0; i < solid.length; i++) solid[i] = q.grid.solid[i] ? 1 : 0;
+    for (let i = 0; i < solid.length; i++) solid[i] = cellValue(q.grid.solid[i]);
     const capMs = q.capMs ?? config.agentCapMs;
     const msg: AgentRequest = {
       id,

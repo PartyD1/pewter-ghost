@@ -170,6 +170,27 @@ describe("PlayerController.update", () => {
     );
   });
 
+  it("drops through one-way platforms while down or S is held on the ground", () => {
+    const { keys, player, ctrl } = makeRig();
+    ctrl.update(1000 / 60);
+    expect(ctrl.dropping).toBe(false);
+    keys.S.isDown = true;
+    ctrl.update(1000 / 60);
+    expect(ctrl.dropping).toBe(true);
+    keys.S.isDown = false;
+    keys.down.isDown = true;
+    ctrl.update(1000 / 60);
+    expect(ctrl.dropping).toBe(true);
+    // Not in the air.
+    player.body.blocked.down = false;
+    ctrl.update(1000 / 60);
+    expect(ctrl.dropping).toBe(false);
+    player.body.blocked.down = true;
+    ctrl.update(1000 / 60);
+    ctrl.reset();
+    expect(ctrl.dropping).toBe(false);
+  });
+
   it("reset zeroes velocity and clears timers and latches", () => {
     const { keys, player, ctrl, hooks } = makeRig();
     keys.W.isDown = true;

@@ -7,7 +7,10 @@
  *   Phaser 3.90 Arcade (Body.update / World.computeVelocity /
  *   collideSpriteVsTilemapLayer / SeparateTile / TileCheckX|Y, and
  *   checkWorldBounds for the level's side walls), fixed 1/60
- *   step, TILE_BIAS 16, tile faces computed like CalculateFacesWithin. The
+ *   step, TILE_BIAS 16, tile faces from player/oneWay.ts tileFaces (which
+ *   render.ts also gives Play's tile layer). One-way platforms (grid value 2)
+ *   collide on top only, under oneWayCatches, the rule play.ts's collider
+ *   applies; holding down on one drops through it. The
  *   audit matched trajectories in the real game to 6e-14 px; sim.test.ts
  *   re-checks the separation against Phaser's own SeparateTile.
  * - Search: weighted A* over macro-actions (move -1/0/1 x jump held or not)
@@ -31,6 +34,19 @@ import {
   TERMINAL_VELOCITY_PX,
   type PlayerMovementState,
 } from "@app/player/playerPhysics";
+import {
+  CELL_EMPTY,
+  CELL_ONE_WAY,
+  CELL_SOLID,
+  FACE_TOP,
+  FACE_BOTTOM,
+  FACE_LEFT,
+  FACE_RIGHT,
+  isDropping,
+  oneWayCatches,
+  tileFaces,
+  type CellKind,
+} from "@app/player/oneWay";
 import type { Point } from "../../../apps/editor/src/contracts";
 import {
   goalColumns,
@@ -52,20 +68,19 @@ export const BH = PLAYER_BODY_PX.height; // 14
 /** Body offset inside its cell when spawned (sprite origin 0.5, offset 3,1). */
 export const SPAWN_OFFSET_X = (T - BW) / 2; // 3
 
-/** Face bits per solid tile: 1 top, 2 bottom, 4 left, 8 right. */
-export const FACE_TOP = 1;
-export const FACE_BOTTOM = 2;
-export const FACE_LEFT = 4;
-export const FACE_RIGHT = 8;
+/** Face bits per tile: 1 top, 2 bottom, 4 left, 8 right (player/oneWay.ts). */
+export { FACE_TOP, FACE_BOTTOM, FACE_LEFT, FACE_RIGHT };
 
 /** Solid cells and their exposed collision faces, precomputed once per grid. */
 export class Level {
   readonly W: number;
   readonly H: number;
-  /** 1 = solid, row-major. */
+  /** 0 empty, 1 solid, 2 one-way platform (CELL_*), row-major. */
   readonly s: Uint8Array;
-  /** Exposed faces of each solid tile (FACE_* bits), row-major. */
+  /** Exposed faces of each tile (FACE_* bits), row-major. */
   readonly face: Uint8Array;
+  /** Any one-way tile at all (lets the search skip drop actions on levels without them). */
+  readonly hasOneWay: boolean;
 
   constructor(grid: SolidGrid) {
     this.W = grid.w;
@@ -73,27 +88,51 @@ export class Level {
     const n = this.W * this.H;
     this.s = new Uint8Array(n);
     this.face = new Uint8Array(n);
-    for (let i = 0; i < n; i++) this.s[i] = grid.solid[i] ? 1 : 0;
-    for (let y = 0; y < this.H; y++)
-      for (let x = 0; x < this.W; x++) {
-        if (!this.solid(x, y)) continue;
-        // CalculateFacesWithin: a face is "interesting" where the neighbour
-        // is not colliding (cells outside the layer count as empty).
-        let f = 0;
-        if (!this.solid(x, y - 1)) f |= FACE_TOP;
-        if (!this.solid(x, y + 1)) f |= FACE_BOTTOM;
-        if (!this.solid(x - 1, y)) f |= FACE_LEFT;
-        if (!this.solid(x + 1, y)) f |= FACE_RIGHT;
-        this.face[y * this.W + x] = f;
-      }
+    let oneWay = false;
+    for (let i = 0; i < n; i++) {
+      const v = grid.solid[i];
+      this.s[i] = v === CELL_ONE_WAY ? CELL_ONE_WAY : v ? CELL_SOLID : CELL_EMPTY;
+      if (this.s[i] === CELL_ONE_WAY) oneWay = true;
+    }
+    this.hasOneWay = oneWay;
+    const kind = (x: number, y: number) => this.kind(x, y);
+    for (let y = 0; y < this.H; y++) for (let x = 0; x < this.W; x++) this.face[y * this.W + x] = tileFaces(kind, x, y);
   }
 
+  /** Cell kind; outside the level is empty (as outside Phaser's layer). */
+  kind(x: number, y: number): CellKind {
+    return x >= 0 && y >= 0 && x < this.W && y < this.H ? (this.s[y * this.W + x] as CellKind) : CELL_EMPTY;
+  }
+
+  /** A full solid tile. */
   solid(x: number, y: number): boolean {
-    return x >= 0 && y >= 0 && x < this.W && y < this.H && this.s[y * this.W + x] === 1;
+    return this.kind(x, y) === CELL_SOLID;
+  }
+
+  /** Something the knight can stand on: solid or a one-way platform. */
+  floor(x: number, y: number): boolean {
+    return this.kind(x, y) !== CELL_EMPTY;
   }
 
   standable(x: number, y: number): boolean {
-    return x >= 0 && x < this.W && y >= 0 && y + 1 < this.H && !this.solid(x, y) && this.solid(x, y + 1);
+    return x >= 0 && x < this.W && y >= 0 && y + 1 < this.H && this.kind(x, y) === CELL_EMPTY && this.floor(x, y + 1);
+  }
+
+  /**
+   * True when a body standing with its feet at `bottom` rests on at least one
+   * one-way tile and no solid one, so holding down would drop it.
+   */
+  dropsThrough(x: number, bottom: number): boolean {
+    const row = Math.floor((bottom + 0.5) / T);
+    const c0 = Math.floor(x / T);
+    const c1 = Math.floor((x + BW - 1e-6) / T);
+    let oneWay = false;
+    for (let c = c0; c <= c1; c++) {
+      const k = this.kind(c, row);
+      if (k === CELL_SOLID) return false;
+      if (k === CELL_ONE_WAY) oneWay = true;
+    }
+    return oneWay;
   }
 }
 
@@ -124,6 +163,8 @@ export interface Body {
 export interface Input {
   move: -1 | 0 | 1;
   jump: boolean;
+  /** Down held: drops through a one-way platform the knight stands on. */
+  down?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -220,7 +261,7 @@ function separateTile(b: Body, f: number, l: number, t: number, r: number, bot: 
  * left (GetTilesWithinWorldXY, row-major), filtered to colliding tiles with
  * an interesting face, each separated in turn.
  */
-function collide(L: Level, b: Body): void {
+function collide(L: Level, b: Body, prevBottom: number, dropping: boolean): void {
   let xs = Math.floor((b.x - T) / T);
   let ys = Math.floor((b.y - T) / T);
   const xe = Math.ceil((b.x + BW) / T);
@@ -246,6 +287,8 @@ function collide(L: Level, b: Body): void {
       const l = tx * T;
       const t = ty * T;
       if (!intersects(b, l, t, l + T, t + T)) continue;
+      // play.ts's collider processCallback for one-way tiles.
+      if (L.s[i] === CELL_ONE_WAY && !oneWayCatches(prevBottom, b.dy, t, dropping)) continue;
       separateTile(b, f, l, t, l + T, t + T);
     }
 }
@@ -253,9 +296,11 @@ function collide(L: Level, b: Body): void {
 /**
  * One rendered frame at 60 fps: the controller (stepMovement) then one
  * Arcade step (reset flags, integrate with gravity and maxVelocity clamp,
- * collide with the tile layer).
+ * collide with the tile layer). Holding down while standing on a one-way
+ * platform drops through it (PlayerController.dropping).
  */
-export function frame(L: Level, b: Body, move: -1 | 0 | 1, jumpHeld: boolean): void {
+export function frame(L: Level, b: Body, move: -1 | 0 | 1, jumpHeld: boolean, downHeld = false): void {
+  const dropping = isDropping(downHeld, b.down);
   const jumpJustPressed = jumpHeld && !b.prevJump;
   b.prevJump = jumpHeld;
   const r = stepMovement(b.ms, { moveInput: move, jumpHeld, jumpJustPressed }, b.vx, b.vy, b.down, DT);
@@ -275,7 +320,7 @@ export function frame(L: Level, b: Body, move: -1 | 0 | 1, jumpHeld: boolean): v
   b.dx = b.x - px;
   b.dy = b.y - py;
   worldBounds(L, b);
-  collide(L, b);
+  collide(L, b, py + BH, dropping);
 }
 
 /**
@@ -298,7 +343,7 @@ function worldBounds(L: Level, b: Body): void {
 
 /**
  * A body standing in cell (cellX, cellY): centred horizontally, feet on the
- * top of the row below. `down` is true only when that row is solid.
+ * top of the row below. `down` is true only when that row can be stood on.
  */
 export function spawnBody(cellX: number, cellY: number, L?: Level): Body {
   return {
@@ -306,7 +351,7 @@ export function spawnBody(cellX: number, cellY: number, L?: Level): Body {
     y: (cellY + 1) * T - BH,
     vx: 0,
     vy: 0,
-    down: L ? L.solid(cellX, cellY + 1) : true,
+    down: L ? L.floor(cellX, cellY + 1) : true,
     up: false,
     left: false,
     right: false,
@@ -332,7 +377,7 @@ export function replay(level: Level | SolidGrid, start: Point, inputs: readonly 
   const b = spawnBody(start.x, start.y, L);
   const traj: number[][] = [];
   for (const i of inputs) {
-    frame(L, b, i.move, i.jump);
+    frame(L, b, i.move, i.jump, i.down);
     traj.push([b.x, b.y, b.vx, b.vy, b.down ? 1 : 0]);
   }
   return traj;
@@ -344,7 +389,7 @@ export function replayPath(level: Level | SolidGrid, start: Point, inputs: reado
   const b = spawnBody(start.x, start.y, L);
   const path: Point[] = [bodyCell(b)];
   for (const i of inputs) {
-    frame(L, b, i.move, i.jump);
+    frame(L, b, i.move, i.jump, i.down);
     const c = bodyCell(b);
     const last = path[path.length - 1];
     if (c.x !== last.x || c.y !== last.y) path.push(c);
@@ -437,7 +482,13 @@ const ACTIONS: readonly Input[] = [
   { move: 0, jump: true },
   { move: -1, jump: false },
   { move: -1, jump: true },
+  // Drops (down held), tried only from a stand on a one-way platform.
+  { move: 1, jump: false, down: true },
+  { move: 0, jump: false, down: true },
+  { move: -1, jump: false, down: true },
 ];
+/** ACTIONS from this index on hold down. */
+const FIRST_DROP_ACTION = 6;
 
 const defaultNow: () => number =
   typeof performance !== "undefined" && typeof performance.now === "function"
@@ -780,7 +831,7 @@ export class AgentSearch {
       const b = this.startBodyFresh();
       const path: Point[] = [bodyCell(b)];
       for (const inp of inputs) {
-        frame(this.L, b, inp.move, inp.jump);
+        frame(this.L, b, inp.move, inp.jump, inp.down);
         const c = bodyCell(b);
         const last = path[path.length - 1];
         if (c.x !== last.x || c.y !== last.y) path.push(c);
@@ -832,12 +883,13 @@ export class AgentSearch {
       if (++this.expandedTotal > this.maxNodes) return this.finish(false, true, false);
       const K = this.pass.K;
       const g = this.nodes.g[ni] + K;
-      for (let a = 0; a < ACTIONS.length; a++) {
+      const nActions = L.hasOneWay && b.down && L.dropsThrough(b.x, b.y + BH) ? ACTIONS.length : FIRST_DROP_ACTION;
+      for (let a = 0; a < nActions; a++) {
         this.nodes.load(ni, b);
         const act = ACTIONS[a];
         let dead = false;
         for (let i = 0; i < K; i++) {
-          frame(L, b, act.move, act.jump);
+          frame(L, b, act.move, act.jump, act.down);
           if (b.y > this.deathY || b.x < this.minX || b.x + BW > this.maxX) {
             dead = true;
             break;

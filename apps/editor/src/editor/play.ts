@@ -11,9 +11,10 @@
  * renderer's layer for collisions and creates its own live objects.
  */
 import Phaser from "phaser";
-import { COLLECTABLE_KINDS, ENEMY_KINDS, type Entity } from "../contracts";
+import { COLLECTABLE_KINDS, ENEMY_KINDS, ONE_WAY_TILES, type Entity } from "../contracts";
 import type { LevelModel } from "../level/LevelModel";
 import { configurePlayerSprite, PlayerController, WORLD_GRAVITY_Y } from "../player/playerController";
+import { oneWayCatches } from "../player/oneWay";
 import { JUMP_VELOCITY_PX, MAX_RUN_SPEED_PX, TERMINAL_VELOCITY_PX } from "../player/playerPhysics";
 import { isStomp } from "../entities/brains";
 import type { EnemyHost, EnemySprite, PelletSpec } from "../entities/EnemySprite";
@@ -40,6 +41,20 @@ const PLAYER_KEY_CODES = [
   Phaser.Input.Keyboard.KeyCodes.S,
   Phaser.Input.Keyboard.KeyCodes.D,
 ];
+/**
+ * Tile collider processCallback: one-way platforms (player/oneWay.ts) stop a
+ * body only while it lands on them from above, and not while the knight
+ * drops through. physsim's sim.ts collide() applies the same rule.
+ */
+function oneWayProcess(dropping: () => boolean): Phaser.Types.Physics.Arcade.ArcadePhysicsCallback {
+  return (obj, tileObj) => {
+    const tile = tileObj as Phaser.Tilemaps.Tile;
+    if (!ONE_WAY_TILES.has(tile.index)) return true;
+    const body = (obj as Phaser.Types.Physics.Arcade.GameObjectWithBody).body as Phaser.Physics.Arcade.Body;
+    return oneWayCatches(body.prev.y + body.height, body.deltaY(), tile.pixelY, dropping());
+  };
+}
+
 const INVULNERABLE_MS = 1000;
 const RESPAWN_DELAY_MS = 700;
 // Was -360 when the Jump power slider (then defaulting to 1) scaled it; the
@@ -187,10 +202,12 @@ export class PlayController implements EnemyHost {
     this.enemyGroup = scene.physics.add.group();
     this.pickups = scene.physics.add.staticGroup();
     const layer = renderer.collisionLayer;
+    const knightOneWay = oneWayProcess(() => this.controller?.dropping ?? false);
+    const othersOneWay = oneWayProcess(() => false);
     this.colliders.push(
-      scene.physics.add.collider(knight, layer),
-      scene.physics.add.collider(this.enemyGroup, layer),
-      scene.physics.add.collider(this.pellets, layer, (p) => (p as Phaser.GameObjects.GameObject).destroy()),
+      scene.physics.add.collider(knight, layer, undefined, knightOneWay),
+      scene.physics.add.collider(this.enemyGroup, layer, undefined, othersOneWay),
+      scene.physics.add.collider(this.pellets, layer, (p) => (p as Phaser.GameObjects.GameObject).destroy(), othersOneWay),
       scene.physics.add.overlap(knight, this.pellets, (_k, p) => this.onPellet(p as Phaser.Physics.Arcade.Sprite)),
       scene.physics.add.overlap(knight, this.enemyGroup, (_k, e) => this.onEnemy(e as EnemySprite)),
       scene.physics.add.overlap(knight, this.pickups, (_k, o) => this.onPickup(o as Phaser.Physics.Arcade.Image)),

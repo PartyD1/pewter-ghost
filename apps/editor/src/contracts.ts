@@ -27,7 +27,7 @@ export const TILE_PX = 16;
 export const TILE = {
   EMPTY: 0,
   BLOCK: 1, // "Block 1"
-  GRASS_HALF: 4, // "Grass-Half Block" (one-way / half height in old Pewter; solid here)
+  GRASS_HALF: 4, // "Grass-Half Block": a one-way platform (ONE_WAY_TILES)
   DIRT: 5,
   GRASS: 6,
   QUESTION: 7,
@@ -41,6 +41,14 @@ export const SOLID_TILES: ReadonlySet<number> = new Set([
   TILE.GRASS,
   TILE.QUESTION,
 ]);
+
+/**
+ * Terrain tiles that are one-way platforms in Play: the knight jumps up and
+ * walks sideways through them, stands on their top, and drops through by
+ * holding down (player/oneWay.ts). They are still in SOLID_TILES: terrain
+ * that can be stood on.
+ */
+export const ONE_WAY_TILES: ReadonlySet<number> = new Set([TILE.GRASS_HALF]);
 
 /** Names used in model I/O and the ASCII window legend. */
 export type TileName = "block" | "grass_half" | "dirt" | "grass" | "question";
