@@ -74,7 +74,7 @@ export class Palette {
       } else if (old) {
         b.innerHTML = `<span class="pt-block-icon ${old.icon}" aria-hidden="true"></span>`;
         b.setAttribute("aria-label", old.name);
-        b.title = old.name;
+        b.title = item.hint ? `${old.name}: ${item.hint}` : old.name;
       } else {
         b.innerHTML = `<span class="pt-block-icon pg-block-icon-tiles" aria-hidden="true" style="--frame: ${item.frame}"></span>`;
         b.setAttribute("aria-label", item.label);

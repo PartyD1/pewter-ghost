@@ -19,12 +19,13 @@ export interface PaletteItem {
   hint?: string;
 }
 
-const tile = (id: string, label: string, t: TileId): PaletteItem => ({
+const tile = (id: string, label: string, t: TileId, hint?: string): PaletteItem => ({
   id,
   label,
   group: "terrain",
   frame: t,
   action: { kind: "tile", tile: t },
+  hint,
 });
 
 const entity = (kind: EntityKind, label: string, group: PaletteGroup, hint?: string): PaletteItem => ({
@@ -41,7 +42,7 @@ export const PALETTE_ITEMS: readonly PaletteItem[] = [
   tile("grass_half", "Grass half", TILE.GRASS_HALF),
   tile("dirt", "Dirt", TILE.DIRT),
   tile("grass", "Grass", TILE.GRASS),
-  tile("question", "Question", TILE.QUESTION),
+  tile("question", "Question", TILE.QUESTION, "Hit it from below in Play: you get the coin, heart or slime it is showing"),
   entity("coin", "Coin", "collectables"),
   entity("fruit", "Fruit", "collectables", "Restores a heart"),
   entity("slime", "Slime", "enemies", "Walks its floor, shoots ahead"),
