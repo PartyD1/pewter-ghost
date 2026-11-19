@@ -87,7 +87,7 @@ export function scriptedSession(sessionId = "p01"): LogEvent[] {
     { type: "ghost.show", t: 9500, suggestionId: "g3", kind: "fix", confidence: 0.3, shownBecause: "patrol", cells: 1, label: "bridge the gap" },
     { type: "ghost.end", t: 12000, suggestionId: "g3", outcome: "esc", dwellMs: 2500 },
     { type: "play.start", t: 13000 },
-    { type: "play.end", t: 20000, reachedGoal: true, deaths: 2 },
+    { type: "play.end", t: 20000, reachedGoal: true, deaths: 2, bumps: { coin: 2, fruit: 1, slime: 1 } },
     { type: "save", t: 21000, snapshotId: "snap-1" },
   ];
 }

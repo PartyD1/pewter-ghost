@@ -350,7 +350,14 @@ export type LogEvent =
     }
   | { type: "patrol"; t: number; beatable: boolean; blockedAt?: Point; ms: number }
   | { type: "play.start"; t: number }
-  | { type: "play.end"; t: number; reachedGoal: boolean; deaths: number }
+  | {
+      type: "play.end";
+      t: number;
+      reachedGoal: boolean;
+      deaths: number;
+      /** What question blocks paid out in this Play (absent in logs from before roulette blocks, 2026-11-19). */
+      bumps?: { coin: number; fruit: number; slime: number };
+    }
   | { type: "undo" | "redo"; t: number; what: "own" | "ghost" | "mixed" }
   | { type: "save"; t: number; snapshotId: string }
   | VariantEvent

@@ -97,7 +97,7 @@ export class ConsoleTrace {
       case "play.start":
         return "play started";
       case "play.end":
-        return `play ended (${e.reachedGoal ? "reached the goal" : "did not finish"}, ${e.deaths} deaths)`;
+        return `play ended (${e.reachedGoal ? "reached the goal" : "did not finish"}, ${e.deaths} deaths${e.bumps ? `, question blocks: ${e.bumps.coin} coin / ${e.bumps.fruit} heart / ${e.bumps.slime} slime` : ""})`;
       default:
         return null; // pointer.path (see hover), camera, snapshot, fill.call, timing: not echoed
     }

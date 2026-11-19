@@ -270,8 +270,9 @@ export class PlayController implements EnemyHost {
     if (kb) for (const code of PLAYER_KEY_CODES) kb.removeKey(code, true, true);
     camera.stopFollow();
     renderer.setEditView(true);
-    const result: PlayResult = { reachedGoal, deaths: this.deaths, coins: this.coins, timeMs: Math.round(this.elapsedMs) };
-    this.deps.log({ type: "play.end", t: this.clock(), reachedGoal, deaths: this.deaths });
+    const bumps = this.roulette.counts;
+    const result: PlayResult = { reachedGoal, deaths: this.deaths, coins: this.coins, timeMs: Math.round(this.elapsedMs), bumps };
+    this.deps.log({ type: "play.end", t: this.clock(), reachedGoal, deaths: this.deaths, bumps });
     this.deps.onEnd?.(result);
     return result;
   }

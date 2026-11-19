@@ -112,6 +112,7 @@ function build(mode: Mode) {
     t: nonNeg(),
     reachedGoal: z.boolean(),
     deaths: int().min(0),
+    bumps: obj({ coin: int().min(0), fruit: int().min(0), slime: int().min(0) }).optional(),
   });
 
   const what = z.enum(["own", "ghost", "mixed"]);

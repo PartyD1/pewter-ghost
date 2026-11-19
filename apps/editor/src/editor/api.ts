@@ -25,6 +25,8 @@ export interface PlayResult {
   deaths: number;
   coins: number;
   timeMs: number;
+  /** What question blocks paid out, by face. */
+  bumps: { coin: number; fruit: number; slime: number };
 }
 
 export interface EditorEvents {
