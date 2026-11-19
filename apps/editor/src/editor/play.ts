@@ -28,7 +28,7 @@ import { CheckpointTracker } from "./checkpoints";
 import { ASSET, DEPTH, ENTITY_FRAME, FRAME, TILE_PX } from "./constants";
 import { MotionInterpolator } from "./motionSmoothing";
 import type { Renderer } from "./render";
-import { bumpTarget, RouletteBlocks, slimeCell, type BumpCounts, type RouletteFace } from "./rouletteBlock";
+import { bumpTarget, faceAt, RouletteBlocks, slimeCell, type BumpCounts, type RouletteFace } from "./rouletteBlock";
 
 export const MAX_HEALTH = 5;
 /** Keys PlayerController registers (createCursorKeys + W,A,S,D). */
@@ -54,6 +54,25 @@ const FALL_MARGIN_PX = 3 * TILE_PX;
 const CHECKPOINT_IDLE_ALPHA = 0.45;
 /** A slime leaves the top of a roulette block with this little hop. */
 const SLIME_HOP_PX = -140;
+/** The window in a roulette block that shows its face: a dark square over the "?". */
+const FACE_PLATE = { sizePx: 12, color: 0x2a1a12 } as const;
+const FACE_FRAME: Record<RouletteFace, number> = { coin: FRAME.COIN, fruit: FRAME.FRUIT, slime: FRAME.SLIME };
+/** The slime art sits in the lower part of its frame: lift it to the middle of the plate. */
+const FACE_LIFT_PX: Record<RouletteFace, number> = { coin: 0, fruit: 0, slime: 3 };
+/** A block that has paid out is dimmed by this much black. */
+const SPENT_ALPHA = 0.5;
+/** A coin or fruit that came out of a block rises this far while it fades. */
+const POP = { risePx: 20, ms: 450 } as const;
+
+/** The live face of one question block: a plate with the current icon on it. */
+interface BlockFace {
+  x: number;
+  y: number;
+  plate: Phaser.GameObjects.Rectangle;
+  icon: Phaser.GameObjects.Image;
+  /** What the icon shows now; undefined once the block is spent. */
+  showing: RouletteFace | undefined;
+}
 
 type Knight = Phaser.Types.Physics.Arcade.SpriteWithDynamicBody & { isFalling?: boolean };
 
@@ -103,6 +122,9 @@ export class PlayController implements EnemyHost {
   private goalReached = false;
   private checkpoints = new CheckpointTracker({ x: 0, y: 0 }, []);
   private roulette = new RouletteBlocks();
+  private blockFaces: BlockFace[] = [];
+  /** Short-lived pictures (a coin leaving a block), moved by the Play clock; removed with the world. */
+  private pops: { img: Phaser.GameObjects.Image; fromY: number; ageMs: number }[] = [];
   private startedAt = 0;
   private readonly clock: () => number;
   private readonly motion = new MotionInterpolator<Phaser.GameObjects.GameObject & { x: number; y: number }>();
@@ -274,6 +296,8 @@ export class PlayController implements EnemyHost {
 
     this.controller.update(deltaMs);
     this.checkHeadBump();
+    this.drawBlockFaces();
+    this.stepPops(deltaMs);
 
     const target = { x: knight.x, y: knight.y };
     for (const e of this.enemies) e.step(deltaMs, target);
@@ -336,6 +360,62 @@ export class PlayController implements EnemyHost {
         this.signs.push(img);
       }
     }
+    this.spawnBlockFaces();
+  }
+
+  /** One face per question block in the level. */
+  private spawnBlockFaces(): void {
+    const { scene, model } = this.deps;
+    for (let y = 0; y < model.h; y++) {
+      for (let x = 0; x < model.w; x++) {
+        if (model.tileAt(x, y) !== TILE.QUESTION) continue;
+        const cx = x * TILE_PX + TILE_PX / 2;
+        const cy = y * TILE_PX + TILE_PX / 2;
+        const plate = scene.add.rectangle(cx, cy, FACE_PLATE.sizePx, FACE_PLATE.sizePx, FACE_PLATE.color).setDepth(DEPTH.tiles + 1);
+        const face = faceAt(this.elapsedMs, x, y);
+        const icon = scene.add.image(cx, cy - FACE_LIFT_PX[face], ASSET.tiles, FACE_FRAME[face]).setDepth(DEPTH.tiles + 2);
+        this.blockFaces.push({ x, y, plate, icon, showing: face });
+      }
+    }
+  }
+
+  /** Turn each live block's icon to the face the clock says it shows. */
+  private drawBlockFaces(): void {
+    for (const b of this.blockFaces) {
+      if (b.showing === undefined) continue;
+      const face = faceAt(this.elapsedMs, b.x, b.y);
+      if (face === b.showing) continue;
+      b.showing = face;
+      b.icon.setFrame(FACE_FRAME[face]).setY(b.y * TILE_PX + TILE_PX / 2 - FACE_LIFT_PX[face]);
+    }
+  }
+
+  /** The block at (x, y) has paid out: no icon, and the whole block goes dark. */
+  private showSpent(x: number, y: number): void {
+    const b = this.blockFaces.find((f) => f.x === x && f.y === y);
+    if (!b) return;
+    b.showing = undefined;
+    b.icon.setVisible(false);
+    b.plate.setSize(TILE_PX, TILE_PX).setOrigin(0.5).setFillStyle(0x000000, SPENT_ALPHA);
+  }
+
+  /** A picture of what came out, rising from the block and fading. */
+  private pop(face: RouletteFace, x: number, y: number): void {
+    const fromY = y * TILE_PX - TILE_PX / 2;
+    const img = this.deps.scene.add.image(x * TILE_PX + TILE_PX / 2, fromY, ASSET.tiles, FACE_FRAME[face]);
+    img.setDepth(DEPTH.player + 1);
+    this.pops.push({ img, fromY, ageMs: 0 });
+  }
+
+  private stepPops(deltaMs: number): void {
+    for (const p of this.pops) {
+      p.ageMs += deltaMs;
+      const k = Math.min(1, p.ageMs / POP.ms);
+      // Fast at first, slowing to a stop (ease-out), fading as it goes.
+      p.img.setY(p.fromY - POP.risePx * (1 - (1 - k) * (1 - k))).setAlpha(1 - k);
+      if (k >= 1) p.img.destroy();
+    }
+    this.pops = this.pops.filter((p) => p.ageMs < POP.ms);
   }
 
   private addEnemy(e: Entity): EnemySprite {
@@ -354,6 +434,13 @@ export class PlayController implements EnemyHost {
     this.pellets?.clear(true, true);
     for (const s of this.signs) s.destroy();
     this.signs = [];
+    for (const b of this.blockFaces) {
+      b.plate.destroy();
+      b.icon.destroy();
+    }
+    this.blockFaces = [];
+    for (const p of this.pops) p.img.destroy();
+    this.pops = [];
   }
 
   private onPellet(p: Phaser.Physics.Arcade.Sprite): void {
@@ -411,19 +498,25 @@ export class PlayController implements EnemyHost {
   }
 
   private payOut(face: RouletteFace, x: number, y: number): void {
+    this.showSpent(x, y);
     if (face === "coin") this.coins++;
     else if (face === "fruit") this.health = Math.min(MAX_HEALTH, this.health + 1);
     else this.dropSlime(x, y);
+    if (face !== "slime") this.pop(face, x, y);
   }
 
   /**
-   * A slime comes out of the block at (x, y): on top of it, or underneath (on
-   * the knight) when the top is covered. It is not part of the level, so it is
-   * gone at the next respawn. It walks the floor it lands on.
+   * A slime comes out of the top of the block at (x, y) and walks the floor it
+   * lands on. It is not part of the level, so it is gone at the next respawn.
+   * When the top is covered it has nowhere to go and bites the knight instead.
    */
   private dropSlime(x: number, y: number): void {
     const { model } = this.deps;
     const cell = slimeCell(x, y, (cx, cy) => model.isSolid(cx, cy));
+    if (!cell) {
+      this.damage(1);
+      return;
+    }
     let floorY = cell.y;
     while (floorY + 1 < model.h && !model.isSolid(cell.x, floorY + 1)) floorY++;
     const slime = this.addEnemy({
@@ -433,7 +526,7 @@ export class PlayController implements EnemyHost {
       y: cell.y,
       patrol: computePatrol(model, cell.x, floorY),
     });
-    if (cell.y < y) slime.body.setVelocityY(SLIME_HOP_PX);
+    slime.body.setVelocityY(SLIME_HOP_PX);
   }
 
   private showActiveCheckpoint(): void {

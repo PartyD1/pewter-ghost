@@ -77,9 +77,9 @@ describe("slimeCell", () => {
     expect(slimeCell(4, 6, () => false)).toEqual({ x: 4, y: 5 });
   });
 
-  it("is the cell underneath when the top is covered or off the level", () => {
-    expect(slimeCell(4, 6, (x, y) => x === 4 && y === 5)).toEqual({ x: 4, y: 7 });
-    expect(slimeCell(4, 0, () => false)).toEqual({ x: 4, y: 1 });
+  it("is undefined when the top is covered or off the level", () => {
+    expect(slimeCell(4, 6, (x, y) => x === 4 && y === 5)).toBeUndefined();
+    expect(slimeCell(4, 0, () => false)).toBeUndefined();
   });
 });
 

@@ -78,11 +78,13 @@ export function bumpTarget(
 }
 
 /**
- * Where a slime that drops out of the block at (x, y) appears: on top of the
- * block, or underneath it (on the knight) when the top is covered.
+ * Where a slime that comes out of the block at (x, y) appears: on top of the
+ * block. Undefined when the top is covered (or off the level): then there is
+ * nowhere for it to go and it bites the knight instead. Dropping it underneath
+ * would put it right under a falling knight, a free stomp.
  */
-export function slimeCell(x: number, y: number, isSolid: (x: number, y: number) => boolean): { x: number; y: number } {
-  return y - 1 >= 0 && !isSolid(x, y - 1) ? { x, y: y - 1 } : { x, y: y + 1 };
+export function slimeCell(x: number, y: number, isSolid: (x: number, y: number) => boolean): { x: number; y: number } | undefined {
+  return y - 1 >= 0 && !isSolid(x, y - 1) ? { x, y: y - 1 } : undefined;
 }
 
 export type BumpCounts = Record<RouletteFace, number>;
